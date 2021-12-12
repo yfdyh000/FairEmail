@@ -19,6 +19,7 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import android.app.Activity;
 import android.app.Application;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -27,19 +28,26 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.StrictMode;
+import android.os.SystemClock;
 import android.os.strictmode.Violation;
 import android.util.Printer;
 import android.webkit.CookieManager;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.emoji2.text.DefaultEmojiCompatConfig;
+import androidx.emoji2.text.EmojiCompat;
+import androidx.emoji2.text.FontRequestEmojiCompatConfig;
 import androidx.preference.PreferenceManager;
 import androidx.work.WorkManager;
 
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -64,13 +72,24 @@ public class ApplicationEx extends Application
                         .commit(); // apply won't work here
         }
 
-        String language = prefs.getString("language", null);
-        if (language != null) {
-            Locale locale = Locale.forLanguageTag(language);
-            Locale.setDefault(locale);
-            Configuration config = new Configuration();
-            config.setLocale(locale);
-            return context.createConfigurationContext(config);
+        try {
+            String language = prefs.getString("language", null);
+            if (language != null) {
+                if ("de-AT".equals(language) || "de-LI".equals(language))
+                    language = "de-DE";
+                Locale locale = Locale.forLanguageTag(language);
+                Log.i("Set language=" + language + " locale=" + locale);
+                Locale.setDefault(locale);
+                Configuration config;
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
+                    config = new Configuration(context.getResources().getConfiguration());
+                else
+                    config = new Configuration();
+                config.setLocale(locale);
+                return context.createConfigurationContext(config);
+            }
+        } catch (Throwable ex) {
+            Log.e(ex);
         }
 
         return context;
@@ -82,9 +101,11 @@ public class ApplicationEx extends Application
 
         long start = new Date().getTime();
         Log.i("App create" +
-                " version=" + BuildConfig.VERSION_NAME +
+                " version=" + BuildConfig.VERSION_NAME + BuildConfig.REVISION +
                 " process=" + android.os.Process.myPid());
         Log.logMemory(this, "App");
+
+        registerActivityLifecycleCallbacks(lifecycleCallbacks);
 
         getMainLooper().setMessageLogging(new Printer() {
             @Override
@@ -111,6 +132,8 @@ public class ApplicationEx extends Application
                             StackTraceElement[] stack = v.getStackTrace();
                             for (StackTraceElement ste : stack) {
                                 String clazz = ste.getClassName();
+                                if ("com.sun.mail.util.WriteTimeoutSocket".equals(clazz))
+                                    return;
                                 if (clazz != null &&
                                         (clazz.startsWith("org.chromium") ||
                                                 clazz.startsWith("com.android.webview.chromium") ||
@@ -127,6 +150,7 @@ public class ApplicationEx extends Application
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         final boolean crash_reports = prefs.getBoolean("crash_reports", false);
+        final boolean load_emoji = prefs.getBoolean("load_emoji", BuildConfig.PLAY_STORE_RELEASE);
 
         prev = Thread.getDefaultUncaughtExceptionHandler();
 
@@ -170,14 +194,29 @@ public class ApplicationEx extends Application
         if (Helper.hasWebView(this))
             CookieManager.getInstance().setAcceptCookie(false);
 
+        Log.i("Load emoji=" + load_emoji);
+        if (!load_emoji)
+            try {
+                FontRequestEmojiCompatConfig crying = DefaultEmojiCompatConfig.create(this);
+                if (crying != null) {
+                    crying.setMetadataLoadStrategy(EmojiCompat.LOAD_STRATEGY_MANUAL);
+                    EmojiCompat.init(crying);
+                }
+            } catch (Throwable ex) {
+                Log.e(ex);
+            }
+
+        EncryptionHelper.init(this);
         MessageHelper.setSystemProperties(this);
 
         ContactInfo.init(this);
 
         DisconnectBlacklist.init(this);
 
-        ServiceSynchronize.watchdog(this);
-        ServiceSend.watchdog(this);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            ServiceSynchronize.watchdog(this);
+            ServiceSend.watchdog(this);
+        }
 
         ServiceSynchronize.scheduleWatchdog(this);
         WorkManager.getInstance(this).cancelUniqueWork("WorkerWatchdog");
@@ -221,12 +260,12 @@ public class ApplicationEx extends Application
                 ServiceSynchronize.scheduleWatchdog(this);
                 break;
             case "secure": // privacy
+            case "load_emoji": // privacy
             case "shortcuts": // misc
             case "language": // misc
-            case "query_threads": // misc
             case "wal": // misc
                 // Should be excluded for import
-                restart();
+                restart(this);
                 break;
             case "debug":
             case "log_level":
@@ -235,10 +274,10 @@ public class ApplicationEx extends Application
         }
     }
 
-    void restart() {
-        Intent intent = new Intent(this, ActivityMain.class);
+    static void restart(Context context) {
+        Intent intent = new Intent(context, ActivityMain.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
+        context.startActivity(intent);
         Runtime.getRuntime().exit(0);
     }
 
@@ -488,6 +527,31 @@ public class ApplicationEx extends Application
             boolean experiments = prefs.getBoolean("experiments", false);
             if (experiments)
                 editor.putBoolean("deepl_enabled", true);
+        } else if (version < 1678) {
+            Configuration config = context.getResources().getConfiguration();
+            boolean normal = config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_NORMAL);
+            if (!normal) {
+                if (!prefs.contains("landscape"))
+                    editor.putBoolean("landscape", false);
+                if (!prefs.contains("landscape3"))
+                    editor.putBoolean("landscape3", false);
+            }
+        } else if (version < 1721) {
+            if (!prefs.contains("discard_delete"))
+                editor.putBoolean("discard_delete", false);
+        } else if (version < 1753)
+            repairFolders(context);
+        else if (version < 1772)
+            editor.remove("conversation_actions");
+        else if (version < 1781) {
+            if (prefs.contains("sort")) {
+                String sort = prefs.getString("sort", "time");
+                editor.putString("sort_unified", sort);
+            }
+            if (prefs.contains("ascending_list")) {
+                boolean ascending = prefs.getBoolean("ascending_list", false);
+                editor.putBoolean("ascending_unified", ascending);
+            }
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !BuildConfig.DEBUG)
@@ -500,12 +564,175 @@ public class ApplicationEx extends Application
         editor.apply();
     }
 
+    static void repairFolders(Context context) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Log.i("Repair folders");
+                    DB db = DB.getInstance(context);
+
+                    List<EntityAccount> accounts = db.account().getAccounts();
+                    if (accounts == null)
+                        return;
+
+                    for (EntityAccount account : accounts) {
+                        if (account.protocol != EntityAccount.TYPE_IMAP)
+                            continue;
+
+                        EntityFolder inbox = db.folder().getFolderByType(account.id, EntityFolder.INBOX);
+                        if (inbox == null || !inbox.synchronize) {
+                            List<EntityFolder> folders = db.folder().getFolders(account.id, false, false);
+                            if (folders == null)
+                                continue;
+
+                            for (EntityFolder folder : folders) {
+                                if (inbox == null && "inbox".equalsIgnoreCase(folder.name))
+                                    folder.type = EntityFolder.INBOX;
+
+                                if (!folder.local &&
+                                        !EntityFolder.USER.equals(folder.type) &&
+                                        !EntityFolder.SYSTEM.equals(folder.type)) {
+                                    EntityLog.log(context, "Repairing " + account.name + ":" + folder.type);
+                                    folder.setProperties();
+                                    folder.setSpecials(account);
+                                    db.folder().updateFolder(folder);
+                                }
+                            }
+                        }
+                    }
+                } catch (Throwable ex) {
+                    Log.e(ex);
+                }
+            }
+        }).start();
+    }
+
+    private final ActivityLifecycleCallbacks lifecycleCallbacks = new ActivityLifecycleCallbacks() {
+        private long last = 0;
+
+        @Override
+        public void onActivityPreCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
+            log(activity, "onActivityPreCreated");
+        }
+
+        @Override
+        public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
+            log(activity, "onActivityCreated");
+        }
+
+        @Override
+        public void onActivityPostCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
+            log(activity, "onActivityPostCreated");
+        }
+
+        @Override
+        public void onActivityPreStarted(@NonNull Activity activity) {
+            log(activity, "onActivityPreStarted");
+        }
+
+        @Override
+        public void onActivityStarted(@NonNull Activity activity) {
+            log(activity, "onActivityStarted");
+        }
+
+        @Override
+        public void onActivityPostStarted(@NonNull Activity activity) {
+            log(activity, "onActivityPostStarted");
+        }
+
+        @Override
+        public void onActivityPreResumed(@NonNull Activity activity) {
+            log(activity, "onActivityPreResumed");
+        }
+
+        @Override
+        public void onActivityResumed(@NonNull Activity activity) {
+            log(activity, "onActivityResumed");
+        }
+
+        @Override
+        public void onActivityPostResumed(@NonNull Activity activity) {
+            log(activity, "onActivityPostResumed");
+        }
+
+        @Override
+        public void onActivityPrePaused(@NonNull Activity activity) {
+            log(activity, "onActivityPrePaused");
+        }
+
+        @Override
+        public void onActivityPaused(@NonNull Activity activity) {
+            log(activity, "onActivityPaused");
+        }
+
+        @Override
+        public void onActivityPostPaused(@NonNull Activity activity) {
+            log(activity, "onActivityPostPaused");
+        }
+
+        @Override
+        public void onActivityPreStopped(@NonNull Activity activity) {
+            log(activity, "onActivityPreStopped");
+        }
+
+        @Override
+        public void onActivityStopped(@NonNull Activity activity) {
+            log(activity, "onActivityStopped");
+        }
+
+        @Override
+        public void onActivityPostStopped(@NonNull Activity activity) {
+            log(activity, "onActivityPostStopped");
+        }
+
+        @Override
+        public void onActivityPreSaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState) {
+            log(activity, "onActivityPreSaveInstanceState");
+        }
+
+        @Override
+        public void onActivitySaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState) {
+            log(activity, "onActivitySaveInstanceState");
+        }
+
+        @Override
+        public void onActivityPostSaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState) {
+            log(activity, "onActivityPostSaveInstanceState");
+        }
+
+        @Override
+        public void onActivityPreDestroyed(@NonNull Activity activity) {
+            log(activity, "onActivityPreDestroyed");
+        }
+
+        @Override
+        public void onActivityDestroyed(@NonNull Activity activity) {
+            log(activity, "onActivityDestroyed");
+        }
+
+        @Override
+        public void onActivityPostDestroyed(@NonNull Activity activity) {
+            log(activity, "onActivityPostDestroyed");
+        }
+
+        private void log(@NonNull Activity activity, @NonNull String what) {
+            long start = last;
+            last = SystemClock.elapsedRealtime();
+            long elapsed = (start == 0 ? 0 : last - start);
+            Log.i(activity.getClass().getSimpleName() + " " + what + " " + elapsed + " ms");
+        }
+    };
+
     private final BroadcastReceiver onScreenOff = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             Log.i("Received " + intent);
             Log.logExtras(intent);
-            Helper.clearAuthentication(ApplicationEx.this);
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+            boolean autolock = prefs.getBoolean("autolock", true);
+            if (autolock)
+                Helper.clearAuthentication(ApplicationEx.this);
         }
     };
 

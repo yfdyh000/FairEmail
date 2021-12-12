@@ -19,10 +19,15 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static android.os.Process.THREAD_PRIORITY_BACKGROUND;
+import static androidx.browser.customtabs.CustomTabsService.ACTION_CUSTOM_TABS_CONNECTION;
+
 import android.Manifest;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.KeyguardManager;
+import android.app.UiModeManager;
+import android.app.usage.UsageStatsManager;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.ContentResolver;
@@ -30,12 +35,14 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.BatteryManager;
 import android.os.Build;
@@ -49,6 +56,7 @@ import android.provider.Settings;
 import android.security.KeyChain;
 import android.security.KeyChainAliasCallback;
 import android.security.KeyChainException;
+import android.text.Html;
 import android.text.Layout;
 import android.text.Spannable;
 import android.text.TextUtils;
@@ -61,7 +69,10 @@ import android.view.Menu;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
+import android.view.ViewTreeObserver;
 import android.view.WindowManager;
+import android.view.accessibility.AccessibilityManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.MimeTypeMap;
@@ -97,6 +108,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
+import org.jsoup.helper.HttpConnection;
 import org.openintents.openpgp.util.OpenPgpApi;
 
 import java.io.ByteArrayOutputStream;
@@ -107,6 +119,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -116,7 +131,6 @@ import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
@@ -137,34 +151,39 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 
-import static android.os.Process.THREAD_PRIORITY_BACKGROUND;
-import static androidx.browser.customtabs.CustomTabsService.ACTION_CUSTOM_TABS_CONNECTION;
-
 public class Helper {
     private static Boolean hasPlayStore = null;
     private static Boolean hasValidFingerprint = null;
-
-    static final int NOTIFICATION_SYNCHRONIZE = 1;
-    static final int NOTIFICATION_SEND = 2;
-    static final int NOTIFICATION_EXTERNAL = 3;
-    static final int NOTIFICATION_UPDATE = 4;
 
     static final float LOW_LIGHT = 0.6f;
 
     static final int BUFFER_SIZE = 8192; // Same as in Files class
     static final long MIN_REQUIRED_SPACE = 250 * 1024L * 1024L;
+    static final int MAX_REDIRECTS = 5; // https://www.freesoft.org/CIE/RFC/1945/46.htm
+    static final int AUTOLOCK_GRACE = 7; // seconds
 
     static final String PGP_BEGIN_MESSAGE = "-----BEGIN PGP MESSAGE-----";
     static final String PGP_END_MESSAGE = "-----END PGP MESSAGE-----";
 
     static final String PRIVACY_URI = "https://email.faircode.eu/privacy/";
     static final String XDA_URI = "https://forum.xda-developers.com/showthread.php?t=3824168";
-    static final String SUPPORT_URI = "https://contact.faircode.eu/?product=fairemailsupport&version=" + BuildConfig.VERSION_NAME;
+    static final String SUPPORT_URI = "https://contact.faircode.eu/";
     static final String TEST_URI = "https://play.google.com/apps/testing/" + BuildConfig.APPLICATION_ID;
+    static final String BIMI_PRIVACY_URI = "https://datatracker.ietf.org/doc/html/draft-brotman-ietf-bimi-guidance-03#section-7.4";
     static final String FAVICON_PRIVACY_URI = "https://en.wikipedia.org/wiki/Favicon";
     static final String GRAVATAR_PRIVACY_URI = "https://en.wikipedia.org/wiki/Gravatar";
     static final String LICENSE_URI = "https://www.gnu.org/licenses/gpl-3.0.html";
     static final String DONTKILL_URI = "https://dontkillmyapp.com/";
+    static final String URI_SUPPORT_RESET_OPEN = "https://support.google.com/pixelphone/answer/6271667";
+    static final String URI_SUPPORT_CONTACT_GROUP = "https://support.google.com/contacts/answer/30970";
+
+    // https://developer.android.com/distribute/marketing-tools/linking-to-google-play#PerformingSearch
+    private static final String PLAY_STORE_SEARCH = "https://play.google.com/store/search";
+
+    private static final String[] ROMAN_1000 = {"", "M", "MM", "MMM"};
+    private static final String[] ROMAN_100 = {"", "C", "CC", "CCC", "CD", "D", "DC", "DCC", "DCCC", "CM"};
+    private static final String[] ROMAN_10 = {"", "X", "XX", "XXX", "XL", "L", "LX", "LXX", "LXXX", "XC"};
+    private static final String[] ROMAN_1 = {"", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"};
 
     static final Pattern EMAIL_ADDRESS
             = Pattern.compile(
@@ -176,21 +195,6 @@ public class Helper {
                     "[a-zA-Z0-9][a-zA-Z0-9\\-]{0,25}" +
                     ")+"
     );
-
-    // https://developer.android.com/guide/topics/media/media-formats#image-formats
-    static final List<String> IMAGE_TYPES = Collections.unmodifiableList(Arrays.asList(
-            "image/bmp",
-            "image/gif",
-            "image/jpeg",
-            "image/jpg",
-            "image/png",
-            "image/webp"
-    ));
-
-    static final List<String> IMAGE_TYPES8 = Collections.unmodifiableList(Arrays.asList(
-            "image/heic",
-            "image/heif"
-    ));
 
     private static final ExecutorService executor = getBackgroundExecutor(1, "helper");
 
@@ -441,6 +445,14 @@ public class Helper {
         return pm.isIgnoringBatteryOptimizations(BuildConfig.APPLICATION_ID);
     }
 
+    static boolean isOptimizing12(Context context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || true)
+            return false;
+
+        Boolean ignoring = Helper.isIgnoringOptimizations(context);
+        return (ignoring != null && !ignoring);
+    }
+
     static Integer getBatteryLevel(Context context) {
         try {
             BatteryManager bm = (BatteryManager) context.getSystemService(Context.BATTERY_SERVICE);
@@ -507,9 +519,13 @@ public class Helper {
         }
     }
 
-    static boolean isOpenKeychainInstalled(Context context) {
+    static String getOpenKeychainPackage(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        String provider = prefs.getString("openpgp_provider", "org.sufficientlysecure.keychain");
+        return prefs.getString("openpgp_provider", "org.sufficientlysecure.keychain");
+    }
+
+    static boolean isOpenKeychainInstalled(Context context) {
+        String provider = getOpenKeychainPackage(context);
 
         PackageManager pm = context.getPackageManager();
         Intent intent = new Intent(OpenPgpApi.SERVICE_INTENT_2);
@@ -517,6 +533,16 @@ public class Helper {
         List<ResolveInfo> ris = pm.queryIntentServices(intent, 0);
 
         return (ris != null && ris.size() > 0);
+    }
+
+    static boolean isInstalled(Context context, String pkg) {
+        try {
+            PackageManager pm = context.getPackageManager();
+            pm.getPackageInfo(pkg, 0);
+            return true;
+        } catch (Throwable ex) {
+            return false;
+        }
     }
 
     static boolean isComponentEnabled(Context context, Class<?> clazz) {
@@ -553,6 +579,34 @@ public class Helper {
             }
     }
 
+    static boolean isAccessibilityEnabled(Context context) {
+        try {
+            AccessibilityManager am =
+                    (AccessibilityManager) context.getSystemService(Context.ACCESSIBILITY_SERVICE);
+            return (am != null && am.isEnabled());
+        } catch (Throwable ex) {
+            Log.e(ex);
+            return false;
+        }
+    }
+
+    static String getStandbyBucketName(int bucket) {
+        switch (bucket) {
+            case UsageStatsManager.STANDBY_BUCKET_ACTIVE:
+                return "active";
+            case UsageStatsManager.STANDBY_BUCKET_WORKING_SET:
+                return "workingset";
+            case UsageStatsManager.STANDBY_BUCKET_FREQUENT:
+                return "frequent";
+            case UsageStatsManager.STANDBY_BUCKET_RARE:
+                return "rare";
+            case UsageStatsManager.STANDBY_BUCKET_RESTRICTED:
+                return "restricted";
+            default:
+                return Integer.toString(bucket);
+        }
+    }
+
     // View
 
     static Intent getChooser(Context context, Intent intent) {
@@ -576,7 +630,7 @@ public class Helper {
     }
 
     static void _share(Context context, File file, String type, String name) {
-        // https://developer.android.com/reference/android/support/v4/content/FileProvider
+        // https://developer.android.com/reference/androidx/core/content/FileProvider
         Uri uri = FileProvider.getUriForFile(context, BuildConfig.APPLICATION_ID, file);
         Log.i("uri=" + uri + " type=" + type);
 
@@ -634,7 +688,7 @@ public class Helper {
             return true;
 
         if ("application/octet-stream".equals(type) &&
-                "winmail.dat".equals(name))
+                "winmail.dat".equalsIgnoreCase(name))
             return true;
 
         return false;
@@ -654,10 +708,14 @@ public class Helper {
     }
 
     static void view(Context context, Uri uri, boolean browse) {
-        view(context, uri, browse, false);
+        view(context, uri, null, browse, false);
     }
 
     static void view(Context context, Uri uri, boolean browse, boolean task) {
+        view(context, uri, null, browse, task);
+    }
+
+    static void view(Context context, Uri uri, String mimeType, boolean browse, boolean task) {
         if (context == null) {
             Log.e(new Throwable("view"));
             return;
@@ -668,7 +726,11 @@ public class Helper {
 
         if (browse || !has) {
             try {
-                Intent view = new Intent(Intent.ACTION_VIEW, uri);
+                Intent view = new Intent(Intent.ACTION_VIEW);
+                if (mimeType == null)
+                    view.setData(uri);
+                else
+                    view.setDataAndType(uri, mimeType);
                 if (task)
                     view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 context.startActivity(view);
@@ -754,7 +816,7 @@ public class Helper {
     }
 
     static void viewFAQ(Context context, int question) {
-        viewFAQ(context, question, false);
+        viewFAQ(context, question, true /* Google translate */);
     }
 
     static void viewFAQ(Context context, int question, boolean english) {
@@ -772,26 +834,38 @@ public class Helper {
             base = "https://email.faircode.eu/docs/FAQ-" + locale + ".md";
 
         if (question == 0)
-            view(context, Uri.parse(base + "#top"), false);
+            view(context, Uri.parse(base + "#top"), "text/html", false, false);
         else
-            view(context, Uri.parse(base + "#user-content-faq" + question), false);
+            view(context, Uri.parse(base + "#user-content-faq" + question), "text/html", false, false);
     }
 
-    static String getOpenKeychainPackage(Context context) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        return prefs.getString("openpgp_provider", "org.sufficientlysecure.keychain");
+    static Uri getPrivacyUri(Context context) {
+        // https://translate.google.com/translate?sl=auto&tl=<language>&u=<url>
+        return Uri.parse(PRIVACY_URI)
+                .buildUpon()
+                .appendQueryParameter("language", Locale.getDefault().getLanguage())
+                .appendQueryParameter("tag", Locale.getDefault().toLanguageTag())
+                .build();
     }
 
     static Uri getSupportUri(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        String language = prefs.getString("language", null);
+        Locale slocale = Resources.getSystem().getConfiguration().locale;
+
         return Uri.parse(SUPPORT_URI)
                 .buildUpon()
+                .appendQueryParameter("product", "fairemailsupport")
+                .appendQueryParameter("version", BuildConfig.VERSION_NAME + BuildConfig.REVISION)
+                .appendQueryParameter("locale", slocale.toString())
+                .appendQueryParameter("language", language == null ? "" : language)
                 .appendQueryParameter("installed", Helper.hasValidFingerprint(context) ? "" : "Other")
                 .build();
     }
 
     static Intent getIntentIssue(Context context) {
         if (ActivityBilling.isPro(context)) {
-            String version = BuildConfig.VERSION_NAME + "/" +
+            String version = BuildConfig.VERSION_NAME + BuildConfig.REVISION + "/" +
                     (Helper.hasValidFingerprint(context) ? "1" : "3") +
                     (BuildConfig.PLAY_STORE_RELEASE ? "p" : "") +
                     (BuildConfig.DEBUG ? "d" : "") +
@@ -799,12 +873,36 @@ public class Helper {
             Intent intent = new Intent(Intent.ACTION_SEND);
             //intent.setPackage(BuildConfig.APPLICATION_ID);
             intent.setType("text/plain");
+
             try {
                 intent.putExtra(Intent.EXTRA_EMAIL, new String[]{Log.myAddress().getAddress()});
             } catch (UnsupportedEncodingException ex) {
                 Log.w(ex);
             }
+
             intent.putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.title_issue_subject, version));
+
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+            String language = prefs.getString("language", null);
+            boolean reporting = prefs.getBoolean("crash_reports", false);
+            String uuid = prefs.getString("uuid", null);
+            Locale slocale = Resources.getSystem().getConfiguration().locale;
+
+            String html = "<br><br>";
+
+            html += "<p style=\"font-size:small;\">";
+            html += "Android: " + Build.VERSION.RELEASE + " (SDK " + Build.VERSION.SDK_INT + ")<br>";
+            html += "Device: " + Build.MANUFACTURER + " " + Build.DEVICE + "<br>";
+            html += "Locale: " + Html.escapeHtml(slocale.toString()) + "<br>";
+            if (language != null)
+                html += "Language: " + Html.escapeHtml(language) + "<br>";
+            if (reporting && uuid != null)
+                html += "UUID: " + Html.escapeHtml(uuid) + "<br>";
+            html += "</p>";
+
+            intent.putExtra(Intent.EXTRA_TEXT, HtmlHelper.getText(context, html));
+            intent.putExtra(Intent.EXTRA_HTML_TEXT, html);
+
             return intent;
         } else {
             if (Helper.hasValidFingerprint(context))
@@ -876,6 +974,10 @@ public class Helper {
         return true;
     }
 
+    static boolean isGoogle() {
+        return "Google".equalsIgnoreCase(Build.MANUFACTURER);
+    }
+
     static boolean isSamsung() {
         return "Samsung".equalsIgnoreCase(Build.MANUFACTURER);
     }
@@ -920,6 +1022,27 @@ public class Helper {
         return "Blackview".equalsIgnoreCase(Build.MANUFACTURER);
     }
 
+    static boolean isSony() {
+        return "sony".equalsIgnoreCase(Build.MANUFACTURER);
+    }
+
+    static boolean isStaminaEnabled(Context context) {
+        // https://dontkillmyapp.com/sony
+        if (BuildConfig.DEBUG)
+            return true;
+
+        if (!isSony())
+            return false;
+
+        try {
+            ContentResolver resolver = context.getContentResolver();
+            return (Settings.Secure.getInt(resolver, "somc.stamina_mode", 0) > 0);
+        } catch (Throwable ex) {
+            Log.e(ex);
+            return false;
+        }
+    }
+
     static boolean isSurfaceDuo() {
         return ("Microsoft".equalsIgnoreCase(Build.MANUFACTURER) && "Surface Duo".equals(Build.MODEL));
     }
@@ -938,11 +1061,43 @@ public class Helper {
                 // Vivo
                 isRealme() ||
                 isBlackview() ||
+                isSony() ||
                 BuildConfig.DEBUG);
     }
 
     static boolean isDozeRequired() {
-        return (Build.VERSION.SDK_INT > Build.VERSION_CODES.R);
+        return (Build.VERSION.SDK_INT > Build.VERSION_CODES.R && false);
+    }
+
+    static String getUiModeType(Context context) {
+        try {
+            UiModeManager uimm =
+                    (UiModeManager) context.getSystemService(Context.UI_MODE_SERVICE);
+            int uiModeType = uimm.getCurrentModeType();
+            switch (uiModeType) {
+                case Configuration.UI_MODE_TYPE_UNDEFINED:
+                    return "undefined";
+                case Configuration.UI_MODE_TYPE_NORMAL:
+                    return "normal";
+                case Configuration.UI_MODE_TYPE_DESK:
+                    return "desk";
+                case Configuration.UI_MODE_TYPE_CAR:
+                    return "car";
+                case Configuration.UI_MODE_TYPE_TELEVISION:
+                    return "television";
+                case Configuration.UI_MODE_TYPE_APPLIANCE:
+                    return "applicance";
+                case Configuration.UI_MODE_TYPE_WATCH:
+                    return "watch";
+                case Configuration.UI_MODE_TYPE_VR_HEADSET:
+                    return "vr headset";
+                default:
+                    return Integer.toString(uiModeType);
+            }
+        } catch (Throwable ex) {
+            Log.w(ex);
+            return null;
+        }
     }
 
     static void reportNoViewer(Context context, Uri uri) {
@@ -950,24 +1105,47 @@ public class Helper {
     }
 
     static void reportNoViewer(Context context, Intent intent) {
-        StringBuilder sb = new StringBuilder();
+        View dview = LayoutInflater.from(context).inflate(R.layout.dialog_no_viewer, null);
+        TextView tvName = dview.findViewById(R.id.tvName);
+        TextView tvFullName = dview.findViewById(R.id.tvFullName);
+        TextView tvType = dview.findViewById(R.id.tvType);
 
         String title = intent.getStringExtra(Intent.EXTRA_TITLE);
-        if (TextUtils.isEmpty(title)) {
-            Uri data = intent.getData();
-            if (data == null)
-                sb.append(intent.toString());
-            else
-                sb.append(data.toString());
-        } else
-            sb.append(title);
-
+        Uri data = intent.getData();
         String type = intent.getType();
-        if (!TextUtils.isEmpty(type))
-            sb.append(' ').append(type);
+        String fullName = (data == null ? intent.toString() : data.toString());
+        String extension = (data == null ? null : getExtension(data.getLastPathSegment()));
 
-        String message = context.getString(R.string.title_no_viewer, sb.toString());
-        ToastEx.makeText(context, message, Toast.LENGTH_LONG).show();
+        tvName.setText(title == null ? fullName : title);
+        tvFullName.setText(fullName);
+        tvFullName.setVisibility(title == null ? View.GONE : View.VISIBLE);
+
+        tvType.setText(type);
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(context)
+                .setView(dview)
+                .setNegativeButton(android.R.string.cancel, null);
+
+        if (hasPlayStore(context) && !TextUtils.isEmpty(extension)) {
+            builder.setNeutralButton(R.string.title_no_viewer_search, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    try {
+                        Uri search = Uri.parse(PLAY_STORE_SEARCH)
+                                .buildUpon()
+                                .appendQueryParameter("q", extension)
+                                .build();
+                        Intent intent = new Intent(Intent.ACTION_VIEW, search);
+                        context.startActivity(intent);
+                    } catch (Throwable ex) {
+                        Log.e(ex);
+                        ToastEx.makeText(context, ex.toString(), Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
+        }
+
+        builder.show();
     }
 
     static void excludeFromRecents(Context context) {
@@ -1090,13 +1268,74 @@ public class Helper {
         return (tv.string != null && !"light".contentEquals(tv.string));
     }
 
-    static void hideKeyboard(final View view) {
+    static void showKeyboard(final View view) {
+        final Context context = view.getContext();
         InputMethodManager imm =
-                (InputMethodManager) view.getContext().getSystemService(Activity.INPUT_METHOD_SERVICE);
+                (InputMethodManager) context.getSystemService(Activity.INPUT_METHOD_SERVICE);
         if (imm == null)
             return;
 
+        view.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Log.i("showKeyboard view=" + view);
+                imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
+            }
+        }, 250);
+    }
+
+    static void hideKeyboard(final View view) {
+        final Context context = view.getContext();
+        InputMethodManager imm =
+                (InputMethodManager) context.getSystemService(Activity.INPUT_METHOD_SERVICE);
+        if (imm == null)
+            return;
+
+        Log.i("hideKeyboard view=" + view);
         imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+    }
+
+    static String getViewName(View view) {
+        StringBuilder sb = new StringBuilder(_getViewName(view));
+        ViewParent parent = view.getParent();
+        while (parent != null) {
+            if (parent instanceof View)
+                sb.insert(0, '/').insert(0, _getViewName((View) parent));
+            parent = parent.getParent();
+        }
+        return sb.toString();
+    }
+
+    private static String _getViewName(View view) {
+        if (view == null)
+            return "<null>";
+        int id = view.getId();
+        if (id == View.NO_ID)
+            return "";
+        try {
+            return view.getContext().getResources().getResourceEntryName(id);
+        } catch (Throwable ex) {
+            return ex.toString();
+        }
+    }
+
+    static int getBytesPerPixel(Bitmap.Config config) {
+        switch (config) {
+            case ALPHA_8:
+                return 1;
+            case RGB_565:
+                return 2;
+            case ARGB_4444:
+                return 4;
+            case ARGB_8888:
+                return 8;
+            case RGBA_F16:
+                return 8;
+            case HARDWARE:
+                return 0;
+            default:
+                return 8;
+        }
     }
 
     // Formatting
@@ -1107,12 +1346,17 @@ public class Helper {
         return humanReadableByteCount(bytes, true);
     }
 
-    private static String humanReadableByteCount(long bytes, boolean si) {
-        int unit = si ? 1000 : 1024;
-        if (bytes < unit) return bytes + " B";
+    static String humanReadableByteCount(long bytes, boolean si) {
+        int sign = (int) Math.signum(bytes);
+        bytes = Math.abs(bytes);
+
+        int unit = (si ? 1000 : 1024);
+        if (bytes < unit)
+            return sign * bytes + " B";
+
         int exp = (int) (Math.log(bytes) / Math.log(unit));
         String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp - 1) + (si ? "" : "i");
-        return df.format(bytes / Math.pow(unit, exp)) + " " + pre + "B";
+        return df.format(sign * bytes / Math.pow(unit, exp)) + " " + pre + "B";
     }
 
     static boolean isPrintableChar(char c) {
@@ -1219,16 +1463,14 @@ public class Helper {
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             Locale l = Locale.getDefault();
-            if (!l.getLanguage().equals(language))
-                locales.add(l);
+            locales.add(l);
             if (!"en".equals(language) && !"en".equals(l.getLanguage()))
                 locales.add(new Locale("en"));
         } else {
             LocaleList ll = context.getResources().getConfiguration().getLocales();
             for (int i = 0; i < ll.size(); i++) {
                 Locale l = ll.get(i);
-                if (!l.getLanguage().equals(language))
-                    locales.add(l);
+                locales.add(l);
             }
         }
 
@@ -1238,7 +1480,8 @@ public class Helper {
             configuration.setLocale(locale);
             Resources res = context.createConfigurationContext(configuration).getResources();
             String text = res.getString(resid, formatArgs);
-            result.add(text);
+            if (!result.contains(text))
+                result.add(text);
         }
 
         return result.toArray(new String[0]);
@@ -1354,6 +1597,15 @@ public class Helper {
         }
     }
 
+    public static String toRoman(int value) {
+        if (value < 0 || value >= 4000)
+            return Integer.toString(value);
+        return ROMAN_1000[value / 1000] +
+                ROMAN_100[(value % 1000) / 100] +
+                ROMAN_10[(value % 100) / 10] +
+                ROMAN_1[value % 10];
+    }
+
     // Files
 
     static String sanitizeFilename(String name) {
@@ -1459,42 +1711,37 @@ public class Helper {
         }
     }
 
+    static byte[] readBytes(InputStream is) throws IOException {
+        ByteArrayOutputStream os = new ByteArrayOutputStream(Math.max(BUFFER_SIZE, is.available()));
+        byte[] buffer = new byte[BUFFER_SIZE];
+        for (int len = is.read(buffer); len != -1; len = is.read(buffer))
+            os.write(buffer, 0, len);
+        return os.toByteArray();
+    }
+
     static void copy(File src, File dst) throws IOException {
-        try (InputStream in = new FileInputStream(src)) {
-            try (FileOutputStream out = new FileOutputStream(dst)) {
-                copy(in, out);
+        try (InputStream is = new FileInputStream(src)) {
+            try (OutputStream os = new FileOutputStream(dst)) {
+                copy(is, os);
             }
         }
     }
 
-    static void copy(InputStream in, OutputStream out) throws IOException {
-        byte[] buf = new byte[BUFFER_SIZE];
-        int len;
-        while ((len = in.read(buf)) > 0)
-            out.write(buf, 0, len);
+    static long copy(Context context, Uri uri, File file) throws IOException {
+        try (InputStream is = context.getContentResolver().openInputStream(uri)) {
+            try (OutputStream os = new FileOutputStream(file)) {
+                return copy(is, os);
+            }
+        }
     }
 
-    static long copy(Context context, Uri uri, File file) throws IOException {
+    static long copy(InputStream is, OutputStream os) throws IOException {
         long size = 0;
-        InputStream is = null;
-        OutputStream os = null;
-        try {
-            is = context.getContentResolver().openInputStream(uri);
-            os = new FileOutputStream(file);
-
-            byte[] buffer = new byte[Helper.BUFFER_SIZE];
-            for (int len = is.read(buffer); len != -1; len = is.read(buffer)) {
-                size += len;
-                os.write(buffer, 0, len);
-            }
-        } finally {
-            try {
-                if (is != null)
-                    is.close();
-            } finally {
-                if (os != null)
-                    os.close();
-            }
+        byte[] buf = new byte[BUFFER_SIZE];
+        int len;
+        while ((len = is.read(buf)) > 0) {
+            size += len;
+            os.write(buf, 0, len);
         }
         return size;
     }
@@ -1531,12 +1778,51 @@ public class Helper {
         //intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, Uri.fromFile(initial));
     }
 
-    static boolean isImage(String mimeType) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            if (IMAGE_TYPES8.contains(mimeType))
-                return true;
+    static HttpURLConnection openUrlRedirect(Context context, String source, int timeout) throws IOException {
+        int redirects = 0;
+        URL url = new URL(source);
+        while (true) {
+            HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+            urlConnection.setRequestMethod("GET");
+            urlConnection.setDoOutput(false);
+            urlConnection.setReadTimeout(timeout);
+            urlConnection.setConnectTimeout(timeout);
+            urlConnection.setInstanceFollowRedirects(true);
+            urlConnection.setRequestProperty("User-Agent", WebViewEx.getUserAgent(context));
+            urlConnection.connect();
 
-        return IMAGE_TYPES.contains(mimeType);
+            try {
+                int status = urlConnection.getResponseCode();
+
+                if (status == HttpURLConnection.HTTP_MOVED_PERM ||
+                        status == HttpURLConnection.HTTP_MOVED_TEMP ||
+                        status == HttpURLConnection.HTTP_SEE_OTHER ||
+                        status == 307 /* Temporary redirect */ ||
+                        status == 308 /* Permanent redirect */) {
+                    if (++redirects > MAX_REDIRECTS)
+                        throw new IOException("Too many redirects");
+
+                    String header = urlConnection.getHeaderField("Location");
+                    if (header == null)
+                        throw new IOException("Location header missing");
+
+                    String location = URLDecoder.decode(header, StandardCharsets.UTF_8.name());
+                    url = new URL(url, location);
+                    Log.i("Redirect #" + redirects + " to " + url);
+
+                    urlConnection.disconnect();
+                    continue;
+                }
+
+                if (status != HttpURLConnection.HTTP_OK)
+                    throw new IOException("Error " + status + ": " + urlConnection.getResponseMessage());
+
+                return urlConnection;
+            } catch (IOException ex) {
+                urlConnection.disconnect();
+                throw ex;
+            }
+        }
     }
 
     // Cryptography
@@ -1583,7 +1869,7 @@ public class Helper {
             byte[] bytes = digest.digest(cert);
             StringBuilder sb = new StringBuilder();
             for (byte b : bytes)
-                sb.append(Integer.toString(b & 0xff, 16).toUpperCase(Locale.ROOT));
+                sb.append(String.format("%02X", b));
             return sb.toString();
         } catch (Throwable ex) {
             Log.e(ex);
@@ -1616,11 +1902,29 @@ public class Helper {
         if (!TextUtils.isEmpty(pin))
             return true;
 
-        BiometricManager bm = BiometricManager.from(context);
-        return (bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS);
+        try {
+            BiometricManager bm = BiometricManager.from(context);
+            return (bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS);
+        } catch (Throwable ex) {
+            /*
+                java.lang.SecurityException: eu.faircode.email from uid 10377 not allowed to perform USE_FINGERPRINT
+                  at android.os.Parcel.createException(Parcel.java:1953)
+                  at android.os.Parcel.readException(Parcel.java:1921)
+                  at android.os.Parcel.readException(Parcel.java:1871)
+                  at android.hardware.fingerprint.IFingerprintService$Stub$Proxy.isHardwareDetected(IFingerprintService.java:460)
+                  at android.hardware.fingerprint.FingerprintManager.isHardwareDetected(FingerprintManager.java:792)
+                  at androidx.core.hardware.fingerprint.FingerprintManagerCompat.isHardwareDetected(SourceFile:3)
+                  at androidx.biometric.BiometricManager.canAuthenticateWithFingerprint(SourceFile:3)
+                  at androidx.biometric.BiometricManager.canAuthenticateWithFingerprintOrUnknownBiometric(SourceFile:2)
+                  at androidx.biometric.BiometricManager.canAuthenticateCompat(SourceFile:10)
+                  at androidx.biometric.BiometricManager.canAuthenticate(SourceFile:5)
+             */
+            Log.e(ex);
+            return false;
+        }
     }
 
-    static boolean shouldAuthenticate(Context context) {
+    static boolean shouldAuthenticate(Context context, boolean pausing) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean biometrics = prefs.getBoolean("biometrics", false);
         String pin = prefs.getString("pin", null);
@@ -1629,12 +1933,17 @@ public class Helper {
             long now = new Date().getTime();
             long last_authentication = prefs.getLong("last_authentication", 0);
             long biometrics_timeout = prefs.getInt("biometrics_timeout", 2) * 60 * 1000L;
+            boolean autolock_nav = prefs.getBoolean("autolock_nav", false);
             Log.i("Authentication valid until=" + new Date(last_authentication + biometrics_timeout));
 
             if (last_authentication + biometrics_timeout < now)
                 return true;
 
-            prefs.edit().putLong("last_authentication", now).apply();
+            if (autolock_nav && pausing)
+                last_authentication = now - biometrics_timeout + AUTOLOCK_GRACE * 1000L;
+            else
+                last_authentication = now;
+            prefs.edit().putLong("last_authentication", last_authentication).apply();
         }
 
         return false;
@@ -1643,10 +1952,13 @@ public class Helper {
     static void authenticate(final FragmentActivity activity, final LifecycleOwner owner,
                              Boolean enabled, final
                              Runnable authenticated, final Runnable cancelled) {
+        Log.i("Authenticate " + activity);
+
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
         String pin = prefs.getString("pin", null);
 
         if (enabled != null || TextUtils.isEmpty(pin)) {
+            Log.i("Authenticate biometric enabled=" + enabled);
             BiometricPrompt.PromptInfo.Builder info = new BiometricPrompt.PromptInfo.Builder()
                     .setTitle(activity.getString(enabled == null ? R.string.app_name : R.string.title_setup_biometrics));
 
@@ -1667,7 +1979,7 @@ public class Helper {
                     new BiometricPrompt.AuthenticationCallback() {
                         @Override
                         public void onAuthenticationError(final int errorCode, @NonNull final CharSequence errString) {
-                            Log.w("Biometric error " + errorCode + ": " + errString);
+                            Log.w("Authenticate biometric error " + errorCode + ": " + errString);
 
                             if (errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON &&
                                     errorCode != BiometricPrompt.ERROR_CANCELED &&
@@ -1686,14 +1998,14 @@ public class Helper {
 
                         @Override
                         public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
-                            Log.i("Biometric succeeded");
+                            Log.i("Authenticate biometric succeeded");
                             setAuthenticated(activity);
                             ApplicationEx.getMainHandler().post(authenticated);
                         }
 
                         @Override
                         public void onAuthenticationFailed() {
-                            Log.w("Biometric failed");
+                            Log.w("Authenticate biometric failed");
                             ApplicationEx.getMainHandler().post(cancelled);
                         }
                     });
@@ -1716,11 +2028,14 @@ public class Helper {
             owner.getLifecycle().addObserver(new LifecycleObserver() {
                 @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
                 public void onDestroy() {
+                    Log.i("Authenticate destroyed");
                     ApplicationEx.getMainHandler().post(cancelPrompt);
+                    owner.getLifecycle().removeObserver(this);
                 }
             });
 
         } else {
+            Log.i("Authenticate PIN");
             final View dview = LayoutInflater.from(activity).inflate(R.layout.dialog_pin_ask, null);
             final EditText etPin = dview.findViewById(R.id.etPin);
 
@@ -1733,23 +2048,28 @@ public class Helper {
                             String pin = prefs.getString("pin", "");
                             String entered = etPin.getText().toString();
 
+                            Log.i("Authenticate PIN ok=" + pin.equals(entered));
                             if (pin.equals(entered)) {
                                 setAuthenticated(activity);
                                 ApplicationEx.getMainHandler().post(authenticated);
-                            } else
+                            } else {
                                 ApplicationEx.getMainHandler().post(cancelled);
+                            }
                         }
                     })
                     .setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
+                            Log.i("Authenticate PIN cancelled");
                             ApplicationEx.getMainHandler().post(cancelled);
                         }
                     })
                     .setOnDismissListener(new DialogInterface.OnDismissListener() {
                         @Override
                         public void onDismiss(DialogInterface dialog) {
-                            ApplicationEx.getMainHandler().post(cancelled);
+                            Log.i("Authenticate PIN dismissed");
+                            if (shouldAuthenticate(activity, false)) // Some Android versions call dismiss on OK
+                                ApplicationEx.getMainHandler().post(cancelled);
                         }
                     })
                     .create();
@@ -1815,11 +2135,14 @@ public class Helper {
     }
 
     static void setAuthenticated(Context context) {
+        Date now = new Date();
+        Log.i("Authenticated now=" + now);
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        prefs.edit().putLong("last_authentication", new Date().getTime()).apply();
+        prefs.edit().putLong("last_authentication", now.getTime()).apply();
     }
 
     static void clearAuthentication(Context context) {
+        Log.i("Authenticate clear");
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         prefs.edit().remove("last_authentication").apply();
     }
@@ -1875,6 +2198,11 @@ public class Helper {
                                         intf.onNothingSelected();
                                     else
                                         intf.onSelected(selected);
+                                }
+
+                                @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+                                public void onDestroy() {
+                                    owner.getLifecycle().removeObserver(this);
                                 }
                             });
                         }

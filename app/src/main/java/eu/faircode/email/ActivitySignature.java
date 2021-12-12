@@ -59,6 +59,7 @@ import java.util.Objects;
 
 public class ActivitySignature extends ActivityBase {
     private ViewGroup view;
+    private TextView tvHtmlRemark;
     private EditTextCompose etText;
     private BottomNavigationView style_bar;
     private BottomNavigationView bottom_navigation;
@@ -81,6 +82,7 @@ public class ActivitySignature extends ActivityBase {
         view = (ViewGroup) inflater.inflate(R.layout.activity_signature, null, false);
         setContentView(view);
 
+        tvHtmlRemark = findViewById(R.id.tvHtmlRemark);
         etText = findViewById(R.id.etText);
         style_bar = findViewById(R.id.style_bar);
         bottom_navigation = findViewById(R.id.bottom_navigation);
@@ -152,6 +154,7 @@ public class ActivitySignature extends ActivityBase {
 
                 if (dirty)
                     new AlertDialog.Builder(ActivitySignature.this)
+                            .setIcon(R.drawable.twotone_save_alt_24)
                             .setTitle(R.string.title_ask_save)
                             .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                                 @Override
@@ -174,6 +177,9 @@ public class ActivitySignature extends ActivityBase {
             }
         }, this);
 
+        // Initialize
+        FragmentDialogTheme.setBackground(this, view, true);
+        tvHtmlRemark.setVisibility(View.GONE);
         style_bar.setVisibility(View.GONE);
 
         setResult(RESULT_CANCELED, new Intent());
@@ -277,6 +283,7 @@ public class ActivitySignature extends ActivityBase {
         String html = (dirty
                 ? getHtml()
                 : getIntent().getStringExtra("html"));
+        tvHtmlRemark.setVisibility(raw ? View.VISIBLE : View.GONE);
         etText.setRaw(raw);
         etText.setTypeface(raw ? Typeface.MONOSPACE : Typeface.DEFAULT);
         load(html);
@@ -356,7 +363,7 @@ public class ActivitySignature extends ActivityBase {
             if (etText.isRaw())
                 etText.getText().insert(start, "<img src=\"" + Html.escapeHtml(uri.toString()) + "\" />");
             else {
-                SpannableStringBuilder ssb = new SpannableStringBuilder(etText.getText());
+                SpannableStringBuilder ssb = new SpannableStringBuilderEx(etText.getText());
                 ssb.insert(start, " \uFFFC"); // Object replacement character
                 String source = uri.toString();
                 Drawable d = ImageHelper.decodeImage(this, -1, source, true, 0, 1.0f, etText);

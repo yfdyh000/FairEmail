@@ -19,24 +19,30 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
+
 import android.annotation.TargetApi;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.SpannableString;
+import android.text.TextUtils;
 import android.text.style.RelativeSizeSpan;
 import android.text.style.StyleSpan;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.TouchDelegate;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -46,9 +52,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.constraintlayout.widget.Group;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
@@ -64,8 +73,6 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 
-import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
-
 public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHolder> {
     private Fragment parentFragment;
     private boolean settings;
@@ -74,6 +81,7 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
     private LifecycleOwner owner;
     private LayoutInflater inflater;
 
+    private int colorStripeWidth;
     private int colorWarning;
     private int colorUnread;
     private int textColorSecondary;
@@ -102,6 +110,8 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
         private TextView tvBackoff;
         private TextView tvQuota;
         private TextView tvMaxSize;
+        private TextView tvId;
+        private TextView tvCapabilities;
         private TextView tvIdentity;
         private TextView tvDrafts;
         private TextView tvSent;
@@ -132,6 +142,8 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
             tvBackoff = itemView.findViewById(R.id.tvBackoff);
             tvQuota = itemView.findViewById(R.id.tvQuota);
             tvMaxSize = itemView.findViewById(R.id.tvMaxSize);
+            tvId = itemView.findViewById(R.id.tvId);
+            tvCapabilities = itemView.findViewById(R.id.tvCapabilities);
             tvIdentity = itemView.findViewById(R.id.tvIdentity);
             tvDrafts = itemView.findViewById(R.id.tvDrafts);
             tvSent = itemView.findViewById(R.id.tvSent);
@@ -139,9 +151,29 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
             tvError = itemView.findViewById(R.id.tvError);
             btnHelp = itemView.findViewById(R.id.btnHelp);
             grpSettings = itemView.findViewById(R.id.grpSettings);
+
+            if (vwColor != null)
+                vwColor.getLayoutParams().width = colorStripeWidth;
         }
 
         private void wire() {
+            view.post(new Runnable() {
+                @Override
+                public void run() {
+                    int left = ibInbox.getLeft();
+                    int right = ibInbox.getRight();
+                    if (view.getLayoutDirection() == View.LAYOUT_DIRECTION_LTR)
+                        left = Math.min(left, right - view.getHeight());
+                    else
+                        right = Math.max(right, left + view.getHeight());
+                    Rect rect = new Rect(
+                            left,
+                            view.getTop(),
+                            right,
+                            view.getBottom());
+                    view.setTouchDelegate(new TouchDelegate(rect, ibInbox));
+                }
+            });
             view.setOnClickListener(this);
             view.setOnLongClickListener(this);
             ibInbox.setOnClickListener(this);
@@ -233,6 +265,14 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
             if (tvMaxSize.getVisibility() == View.VISIBLE)
                 tvQuota.setVisibility(View.VISIBLE);
 
+            tvId.setText(account.id + "/" + account.uuid);
+            tvId.setVisibility(settings && BuildConfig.DEBUG ? View.VISIBLE : View.GONE);
+
+            tvCapabilities.setText(account.capabilities);
+
+            tvCapabilities.setVisibility(settings && (debug || BuildConfig.DEBUG) &&
+                    !TextUtils.isEmpty(account.capabilities) ? View.VISIBLE : View.GONE);
+
             tvIdentity.setVisibility(account.identities > 0 || !settings ? View.GONE : View.VISIBLE);
             tvDrafts.setVisibility(account.drafts != null || !settings ? View.GONE : View.VISIBLE);
             tvSent.setVisibility(account.protocol != EntityAccount.TYPE_IMAP ||
@@ -316,14 +356,15 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
 
             PopupMenuLifecycle popupMenu = new PopupMenuLifecycle(context, powner, view);
 
+            int order = 0;
             SpannableString ss = new SpannableString(account.name);
             ss.setSpan(new StyleSpan(Typeface.ITALIC), 0, ss.length(), 0);
             ss.setSpan(new RelativeSizeSpan(0.9f), 0, ss.length(), 0);
-            popupMenu.getMenu().add(Menu.NONE, 0, 0, ss).setEnabled(false);
+            popupMenu.getMenu().add(Menu.NONE, 0, order++, ss).setEnabled(false);
 
-            popupMenu.getMenu().add(Menu.NONE, R.string.title_enabled, 1, R.string.title_enabled)
+            popupMenu.getMenu().add(Menu.NONE, R.string.title_enabled, order++, R.string.title_enabled)
                     .setCheckable(true).setChecked(account.synchronize);
-            popupMenu.getMenu().add(Menu.NONE, R.string.title_primary, 2, R.string.title_primary)
+            popupMenu.getMenu().add(Menu.NONE, R.string.title_primary, order++, R.string.title_primary)
                     .setCheckable(true).setChecked(account.primary);
 
             if (account.notify &&
@@ -332,14 +373,20 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
                 NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
                 NotificationChannel channel = nm.getNotificationChannel(channelId);
                 if (channel != null)
-                    popupMenu.getMenu().add(Menu.NONE, R.string.title_edit_channel, 3, R.string.title_edit_channel);
+                    popupMenu.getMenu().add(Menu.NONE, R.string.title_edit_channel, order++, R.string.title_edit_channel);
             }
 
             if (account.protocol == EntityAccount.TYPE_IMAP && settings)
-                popupMenu.getMenu().add(Menu.NONE, R.string.title_copy, 4, R.string.title_copy);
+                popupMenu.getMenu().add(Menu.NONE, R.string.title_copy, order++, R.string.title_copy);
+
+            if (settings)
+                popupMenu.getMenu().add(Menu.NONE, R.string.title_delete, order++, R.string.title_delete);
+
+            if (settings)
+                popupMenu.getMenu().add(Menu.NONE, R.string.title_log, order++, R.string.title_log);
 
             if (debug)
-                popupMenu.getMenu().add(Menu.NONE, R.string.title_reset, 5, R.string.title_reset);
+                popupMenu.getMenu().add(Menu.NONE, R.string.title_reset, order++, R.string.title_reset);
 
             popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
                 @Override
@@ -356,6 +403,12 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
                         return true;
                     } else if (itemId == R.string.title_copy) {
                         onActionCopy();
+                        return true;
+                    } else if (itemId == R.string.title_delete) {
+                        onActionDelete();
+                        return true;
+                    } else if (itemId == R.string.title_log) {
+                        onActionLog();
                         return true;
                     } else if (itemId == R.string.title_reset) {
                         onActionReset();
@@ -460,6 +513,41 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
                                     .putExtra("copy", true));
                 }
 
+                private void onActionDelete() {
+                    new AlertDialog.Builder(view.getContext())
+                            .setIcon(R.drawable.twotone_warning_24)
+                            .setTitle(account.name)
+                            .setMessage(R.string.title_account_delete)
+                            .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    onDelete();
+                                }
+                            })
+                            .setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    // Do nothing
+                                }
+                            })
+                            .show();
+                }
+
+                private void onActionLog() {
+                    if (owner.getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                        parentFragment.getParentFragmentManager().popBackStack("logs", FragmentManager.POP_BACK_STACK_INCLUSIVE);
+
+                    Bundle args = new Bundle();
+                    args.putLong("account", account.id);
+
+                    Fragment fragment = new FragmentLogs();
+                    fragment.setArguments(args);
+
+                    FragmentTransaction fragmentTransaction = parentFragment.getParentFragmentManager().beginTransaction();
+                    fragmentTransaction.replace(R.id.content_frame, fragment).addToBackStack("logs");
+                    fragmentTransaction.commit();
+                }
+
                 private void onActionReset() {
                     Bundle args = new Bundle();
                     args.putLong("id", account.id);
@@ -486,6 +574,30 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
                         }
                     }.execute(context, owner, args, "account:reset");
                 }
+
+                private void onDelete() {
+                    Bundle args = new Bundle();
+                    args.putLong("id", account.id);
+
+                    new SimpleTask<Void>() {
+                        @Override
+                        protected Void onExecute(Context context, Bundle args) {
+                            long id = args.getLong("id");
+
+                            DB db = DB.getInstance(context);
+                            db.account().setAccountTbd(id);
+
+                            ServiceSynchronize.eval(context, "delete account");
+
+                            return null;
+                        }
+
+                        @Override
+                        protected void onException(Bundle args, Throwable ex) {
+                            Log.unexpectedError(parentFragment.getParentFragmentManager(), ex);
+                        }
+                    }.execute(context, owner, args, "account:delete");
+                }
             });
 
             popupMenu.show();
@@ -503,6 +615,8 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
         this.inflater = LayoutInflater.from(context);
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean color_stripe_wide = prefs.getBoolean("color_stripe_wide", false);
+        this.colorStripeWidth = Helper.dp2pixels(context, color_stripe_wide ? 12 : 6);
         boolean highlight_unread = prefs.getBoolean("highlight_unread", true);
         this.colorWarning = Helper.resolveColor(context, R.attr.colorWarning);
         int colorHighlight = prefs.getInt("highlight_color", Helper.resolveColor(context, R.attr.colorUnreadHighlight));
@@ -519,6 +633,7 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
             public void onDestroyed() {
                 Log.d(AdapterAccount.this + " parent destroyed");
                 AdapterAccount.this.parentFragment = null;
+                owner.getLifecycle().removeObserver(this);
             }
         });
     }
@@ -591,6 +706,13 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
     @Override
     public long getItemId(int position) {
         return items.get(position).id;
+    }
+
+    public TupleAccountEx getItemAtPosition(int pos) {
+        if (pos >= 0 && pos < items.size())
+            return items.get(pos);
+        else
+            return null;
     }
 
     @Override

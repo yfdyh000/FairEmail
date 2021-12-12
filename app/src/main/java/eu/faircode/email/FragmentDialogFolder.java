@@ -19,6 +19,8 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static android.app.Activity.RESULT_OK;
+
 import android.app.Dialog;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -50,8 +52,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static android.app.Activity.RESULT_OK;
-
 public class FragmentDialogFolder extends FragmentDialogBase {
     private int result = 0;
 
@@ -63,9 +63,11 @@ public class FragmentDialogFolder extends FragmentDialogBase {
     @NonNull
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-        final String title = getArguments().getString("title");
-        final long account = getArguments().getLong("account");
-        final long[] disabled = getArguments().getLongArray("disabled");
+        Bundle aargs = getArguments();
+        final String title = aargs.getString("title");
+        final long account = aargs.getLong("account");
+        final long[] disabled = aargs.getLongArray("disabled");
+        final boolean cancopy = aargs.getBoolean("cancopy");
 
         final Context context = getContext();
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
@@ -130,7 +132,7 @@ public class FragmentDialogFolder extends FragmentDialogBase {
         rvFolder.setLayoutManager(llm);
 
         final AdapterFolder adapter = new AdapterFolder(context, getViewLifecycleOwner(),
-                account, false, false, false, false, new AdapterFolder.IFolderSelectedListener() {
+                account, false, false, false, false, false, new AdapterFolder.IFolderSelectedListener() {
             @Override
             public void onFolderSelected(@NonNull TupleFolderEx folder) {
                 String name = folder.getDisplayName(context, folder.parent_ref);
@@ -148,6 +150,16 @@ public class FragmentDialogFolder extends FragmentDialogBase {
 
                 sendResult(RESULT_OK);
                 dismiss();
+            }
+
+            @Override
+            public boolean onFolderLongPress(@NonNull TupleFolderEx folder) {
+                if (cancopy) {
+                    getArguments().putBoolean("copy", true);
+                    onFolderSelected(folder);
+                    return true;
+                } else
+                    return false;
             }
         });
 
@@ -320,6 +332,7 @@ public class FragmentDialogFolder extends FragmentDialogBase {
         }.execute(this, args, "folder:select");
 
         return new AlertDialog.Builder(context)
+                .setIcon(R.drawable.twotone_folder_24)
                 .setTitle(title)
                 .setView(dview)
                 .setNegativeButton(android.R.string.cancel, null)

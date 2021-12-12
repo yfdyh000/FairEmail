@@ -86,6 +86,8 @@
     <string name="title_password">Fjalëkalimi</string>
     <string name="title_no_password">Fjalëkalimi mungon</string>
     <string name="title_folder_all">Arkiva</string>
+    <string name="title_raw_send_message">Mesazh</string>
+    <string name="title_raw_send_thread">Biseda</string>
     <string name="title_move">Zhvendos</string>
     <string name="title_archive">Arkiva</string>
     <string name="title_reply">Përgjigju</string>
@@ -112,4 +114,7 @@
     <!-- https://en.wikipedia.org/wiki/Display_resolution -->
     <!-- https://en.wikipedia.org/wiki/Comparison_of_high-definition_smartphone_displays -->
     <!-- https://www.w3.org/TR/css-fonts-4/#generic-font-families -->
+    <!-- https://www.bouncycastle.org/specifications.html -->
+    <!-- https://datatracker.ietf.org/doc/html/rfc5751#page-29 -->
+    <!-- https://datatracker.ietf.org/doc/html/rfc5751#section-2.7 -->
 </resources>

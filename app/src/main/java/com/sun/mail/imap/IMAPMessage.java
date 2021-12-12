@@ -100,8 +100,7 @@ public class IMAPMessage extends MimeMessage implements ReadableMime {
      *
      * Could this somehow be included in the InternetHeaders object ??
      */
-    private Hashtable<String, String> loadedHeaders
-	    = new Hashtable<>(1);
+    private Hashtable<String, String> loadedHeaders;
 
     // This is our Envelope
     static final String EnvelopeCmd = "ENVELOPE INTERNALDATE RFC822.SIZE";
@@ -591,7 +590,7 @@ public class IMAPMessage extends MimeMessage implements ReadableMime {
 							"plain".equalsIgnoreCase(bs.subtype)) ||
 							!(bs.type.equalsIgnoreCase(ct.getPrimaryType()) &&
 									bs.subtype.equalsIgnoreCase(ct.getSubType()))) {
-						eu.faircode.email.Log.e("Inconsistent" +
+						eu.faircode.email.Log.i("Inconsistent" +
 								" bs=" + bs.type + "/" + bs.subtype + "/" + bs.cParams + " header=" + ct);
 						type = ct.toString();
 						return type;
@@ -1112,6 +1111,18 @@ public class IMAPMessage extends MimeMessage implements ReadableMime {
 	    try {
 		IMAPProtocol p = getProtocol();
 		checkExpunged(); // Insure that this message is not expunged
+			if (flag.contains(javax.mail.Flags.Flag.DELETED) &&
+					"imap.mail.yahoo.co.jp".equals(p.getInetAddress().getHostName())) {
+				// NO [CANNOT] STORE It's not possible to perform specified operation
+				long uid = ((IMAPFolder) getFolder()).getUID(this);
+				Response[] r = p.command("UID STORE " + uid +
+						" " + (set ? '+' : '-') + "FLAGS (\\Deleted)", null);
+				p.notifyResponseHandlers(r);
+				p.handleResult(r[r.length - 1]);
+				flag.remove(javax.mail.Flags.Flag.DELETED);
+				if (flag.getSystemFlags().length == 0)
+					return;
+			}
 		p.storeFlags(getSequenceNumber(), flag, set);
 	    } catch (ConnectionException cex) {
 		throw new FolderClosedException(folder, cex.getMessage());
@@ -1156,7 +1167,7 @@ public class IMAPMessage extends MimeMessage implements ReadableMime {
      */
     public synchronized void invalidateHeaders() {
 	headersLoaded = false;
-	loadedHeaders.clear();
+	loadedHeaders = null;
 	headers = null;
 	envelope = null;
 	bs = null;
@@ -1664,6 +1675,8 @@ public class IMAPMessage extends MimeMessage implements ReadableMime {
     private boolean isHeaderLoaded(String name) {
 	if (headersLoaded) // All headers for this message have been loaded
 	    return true;
+	if (loadedHeaders == null)
+	    return false;
 	
 	return loadedHeaders.containsKey(name.toUpperCase(Locale.ENGLISH));
     }
@@ -1672,6 +1685,8 @@ public class IMAPMessage extends MimeMessage implements ReadableMime {
      * Mark that the given headers have been loaded from the server.
      */
     private void setHeaderLoaded(String name) {
+	if (loadedHeaders == null)
+	    loadedHeaders = new Hashtable<>(1);
 	loadedHeaders.put(name.toUpperCase(Locale.ENGLISH), name);
     }
 
@@ -1744,7 +1759,7 @@ public class IMAPMessage extends MimeMessage implements ReadableMime {
                 envelope.cc == null &&
                 envelope.inReplyTo == null &&
                 envelope.messageId == null &&
-                headersLoaded && loadedHeaders.size() == 0) {
+                headersLoaded && (loadedHeaders == null || loadedHeaders.size() == 0)) {
 			eu.faircode.email.Log.w("Expunged workaround host=" + ((IMAPStore) folder.getStore()).host);
 			return true;
 		}

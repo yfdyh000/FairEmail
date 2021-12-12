@@ -19,6 +19,11 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static android.app.Activity.RESULT_OK;
+import static com.google.android.material.textfield.TextInputLayout.END_ICON_NONE;
+import static com.google.android.material.textfield.TextInputLayout.END_ICON_PASSWORD_TOGGLE;
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
+
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
@@ -61,11 +66,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
-import static android.app.Activity.RESULT_OK;
-import static com.google.android.material.textfield.TextInputLayout.END_ICON_NONE;
-import static com.google.android.material.textfield.TextInputLayout.END_ICON_PASSWORD_TOGGLE;
-import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
-
 public class FragmentPop extends FragmentBase {
     private ViewGroup view;
     private ScrollView scroll;
@@ -77,10 +77,10 @@ public class FragmentPop extends FragmentBase {
     private EditText etPort;
     private EditText etUser;
     private TextInputLayout tilPassword;
-    private TextView tvCharacters;
     private TextView tvPasswordStorage;
 
     private EditText etName;
+    private EditText etCategory;
     private ViewButtonColor btnColor;
     private TextView tvColorPro;
 
@@ -141,10 +141,10 @@ public class FragmentPop extends FragmentBase {
         tvInsecureRemark = view.findViewById(R.id.tvInsecureRemark);
         etUser = view.findViewById(R.id.etUser);
         tilPassword = view.findViewById(R.id.tilPassword);
-        tvCharacters = view.findViewById(R.id.tvCharacters);
         tvPasswordStorage = view.findViewById(R.id.tvPasswordStorage);
 
         etName = view.findViewById(R.id.etName);
+        etCategory = view.findViewById(R.id.etCategory);
         btnColor = view.findViewById(R.id.btnColor);
         tvColorPro = view.findViewById(R.id.tvColorPro);
 
@@ -194,8 +194,9 @@ public class FragmentPop extends FragmentBase {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (TextUtils.isEmpty(s))
-                    tilPassword.setEndIconMode(END_ICON_PASSWORD_TOGGLE);
+                // https://github.com/material-components/material-components-android/issues/503
+                //if (TextUtils.isEmpty(s))
+                //    tilPassword.setEndIconMode(END_ICON_PASSWORD_TOGGLE);
             }
 
             @Override
@@ -203,9 +204,9 @@ public class FragmentPop extends FragmentBase {
                 String password = s.toString();
                 boolean warning = (Helper.containsWhiteSpace(password) ||
                         Helper.containsControlChars(password));
-                tvCharacters.setVisibility(warning &&
-                        tilPassword.getVisibility() == View.VISIBLE
-                        ? View.VISIBLE : View.GONE);
+                tilPassword.setHelperText(
+                        warning ? getString(R.string.title_setup_password_chars) : null);
+                tilPassword.setHelperTextEnabled(warning);
             }
         });
 
@@ -281,7 +282,6 @@ public class FragmentPop extends FragmentBase {
         Helper.setViewsEnabled(view, false);
 
         tilPassword.setEndIconMode(id < 0 || Helper.isSecure(getContext()) ? END_ICON_PASSWORD_TOGGLE : END_ICON_NONE);
-        tvCharacters.setVisibility(View.GONE);
         pbSave.setVisibility(View.GONE);
         grpError.setVisibility(View.GONE);
 
@@ -308,6 +308,7 @@ public class FragmentPop extends FragmentBase {
         args.putString("password", tilPassword.getEditText().getText().toString());
 
         args.putString("name", etName.getText().toString());
+        args.putString("category", etCategory.getText().toString());
         args.putInt("color", btnColor.getColor());
 
         args.putBoolean("synchronize", cbSynchronize.isChecked());
@@ -331,7 +332,7 @@ public class FragmentPop extends FragmentBase {
             @Override
             protected void onPreExecute(Bundle args) {
                 saving = true;
-                getActivity().invalidateOptionsMenu();
+                invalidateOptionsMenu();
                 Helper.setViewsEnabled(view, false);
                 pbSave.setVisibility(View.VISIBLE);
                 grpError.setVisibility(View.GONE);
@@ -340,7 +341,7 @@ public class FragmentPop extends FragmentBase {
             @Override
             protected void onPostExecute(Bundle args) {
                 saving = false;
-                getActivity().invalidateOptionsMenu();
+                invalidateOptionsMenu();
                 Helper.setViewsEnabled(view, true);
                 pbSave.setVisibility(View.GONE);
             }
@@ -357,6 +358,7 @@ public class FragmentPop extends FragmentBase {
                 String password = args.getString("password");
 
                 String name = args.getString("name");
+                String category = args.getString("category");
                 Integer color = args.getInt("color");
 
                 boolean synchronize = args.getBoolean("synchronize");
@@ -376,10 +378,9 @@ public class FragmentPop extends FragmentBase {
                 boolean pro = ActivityBilling.isPro(context);
                 boolean should = args.getBoolean("should");
 
-                if (host.contains(":")) {
-                    Uri h = Uri.parse(host);
-                    host = h.getHost();
-                }
+                int semi = host.indexOf(':');
+                if (semi > 0 && host.indexOf(':', semi + 1) < 0)
+                    host = host.substring(0, semi);
 
                 if (TextUtils.isEmpty(host) && !should)
                     throw new IllegalArgumentException(context.getString(R.string.title_no_host));
@@ -396,6 +397,8 @@ public class FragmentPop extends FragmentBase {
 
                 if (TextUtils.isEmpty(name))
                     name = user;
+                if (TextUtils.isEmpty(category))
+                    category = null;
                 if (color == Color.TRANSPARENT || !pro)
                     color = null;
                 if (!pro)
@@ -423,6 +426,8 @@ public class FragmentPop extends FragmentBase {
                     if (!Objects.equals(account.password, password))
                         return true;
                     if (!Objects.equals(account.name, name))
+                        return true;
+                    if (!Objects.equals(account.category, category))
                         return true;
                     if (!Objects.equals(account.color, color))
                         return true;
@@ -488,7 +493,7 @@ public class FragmentPop extends FragmentBase {
                     db.beginTransaction();
 
                     if (account != null && !account.password.equals(password)) {
-                        String domain = UriHelper.getParentDomain(account.host);
+                        String domain = UriHelper.getParentDomain(context, account.host);
                         String match = (Objects.equals(account.host, domain) ? account.host : "%." + domain);
                         int count = db.identity().setIdentityPassword(account.id, account.user, password, match);
                         Log.i("Updated passwords=" + count + " match=" + match);
@@ -508,6 +513,7 @@ public class FragmentPop extends FragmentBase {
                     account.password = password;
 
                     account.name = name;
+                    account.category = category;
                     account.color = color;
 
                     account.synchronize = synchronize;
@@ -623,9 +629,10 @@ public class FragmentPop extends FragmentBase {
                 ServiceSynchronize.eval(context, "POP3");
 
                 if (!synchronize) {
-                    NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-                    nm.cancel("receive:" + account.id, 1);
-                    nm.cancel("alert:" + account.id, 1);
+                    NotificationManager nm =
+                            (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+                    nm.cancel("receive:" + account.id, NotificationHelper.NOTIFICATION_TAGGED);
+                    nm.cancel("alert:" + account.id, NotificationHelper.NOTIFICATION_TAGGED);
                 }
 
                 args.putBoolean("saved", true);
@@ -679,6 +686,8 @@ public class FragmentPop extends FragmentBase {
                     getMainHandler().post(new Runnable() {
                         @Override
                         public void run() {
+                            if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                                return;
                             scroll.smoothScrollTo(0, tvError.getBottom());
                         }
                     });
@@ -728,6 +737,7 @@ public class FragmentPop extends FragmentBase {
                     tilPassword.getEditText().setText(account == null ? null : account.password);
 
                     etName.setText(account == null ? null : account.name);
+                    etCategory.setText(account == null ? null : account.category);
                     btnColor.setColor(account == null ? null : account.color);
 
                     cbSynchronize.setChecked(account == null ? true : account.synchronize);
@@ -856,6 +866,8 @@ public class FragmentPop extends FragmentBase {
                         getMainHandler().post(new Runnable() {
                             @Override
                             public void run() {
+                                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                                    return;
                                 scroll.smoothScrollTo(0, btnSave.getBottom());
                             }
                         });

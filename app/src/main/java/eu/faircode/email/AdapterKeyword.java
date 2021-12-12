@@ -28,7 +28,6 @@ import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
@@ -55,7 +54,6 @@ public class AdapterKeyword extends RecyclerView.Adapter<AdapterKeyword.ViewHold
     private LifecycleOwner owner;
     private LayoutInflater inflater;
     private SharedPreferences prefs;
-    private boolean pro;
 
     private long id;
     private List<TupleKeyword> all = new ArrayList<>();
@@ -100,9 +98,7 @@ public class AdapterKeyword extends RecyclerView.Adapter<AdapterKeyword.ViewHold
         private void bindTo(TupleKeyword keyword) {
             cbKeyword.setText(getTitle(keyword.name));
             cbKeyword.setChecked(keyword.selected);
-            cbKeyword.setEnabled(pro);
             btnColor.setColor(keyword.color);
-            btnColor.setEnabled(pro);
             grpNotEdit.setVisibility(View.VISIBLE);
             grpEdit.setVisibility(View.GONE);
         }
@@ -165,10 +161,7 @@ public class AdapterKeyword extends RecyclerView.Adapter<AdapterKeyword.ViewHold
                     @Override
                     public void run() {
                         etKeyword.requestFocus();
-                        InputMethodManager imm =
-                                (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
-                        if (imm != null)
-                            imm.showSoftInput(etKeyword, InputMethodManager.SHOW_IMPLICIT);
+                        Helper.showKeyboard(etKeyword);
                     }
                 });
             } else if (itemId == R.id.ibSave) {
@@ -246,7 +239,6 @@ public class AdapterKeyword extends RecyclerView.Adapter<AdapterKeyword.ViewHold
         this.owner = owner;
         this.inflater = LayoutInflater.from(context);
         this.prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        this.pro = ActivityBilling.isPro(context);
 
         setHasStableIds(false);
     }

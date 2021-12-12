@@ -76,21 +76,27 @@ public class ViewModelMessages extends ViewModel {
     private static final int REMOTE_PAGE_SIZE = 10;
     private static final int SEARCH_PAGE_SIZE = 10;
     private static final int MAX_CACHED_ITEMS = LOCAL_PAGE_SIZE * 50;
+    private static final int CHUNK_SIZE = 100;
 
     Model getModel(
             final Context context, final LifecycleOwner owner,
             final AdapterMessage.ViewType viewType,
             String type, long account, long folder,
-            String thread, long id, boolean filter_archive,
+            String thread, long id,
+            boolean threading,
+            boolean filter_archive,
             BoundaryCallbackMessages.SearchCriteria criteria, boolean server) {
 
-        Args args = new Args(context, viewType, type, account, folder, thread, id, filter_archive, criteria, server);
-        Log.d("Get model=" + viewType + " " + args);
+        Args args = new Args(context,
+                viewType, type, account, folder,
+                thread, id, threading,
+                filter_archive, criteria, server);
+        Log.i("Get model=" + viewType + " " + args);
         dump();
 
         Model model = models.get(viewType);
         if (model == null || !model.args.equals(args)) {
-            Log.d("Creating model=" + viewType + " replace=" + (model != null));
+            Log.i("Creating model=" + viewType + " replace=" + (model != null));
 
             if (model != null)
                 model.list.removeObservers(owner);
@@ -100,10 +106,10 @@ public class ViewModelMessages extends ViewModel {
             BoundaryCallbackMessages boundary = null;
             if (viewType == AdapterMessage.ViewType.FOLDER)
                 boundary = new BoundaryCallbackMessages(context,
-                        args.account, args.folder, true, args.criteria, REMOTE_PAGE_SIZE);
+                        viewType, args.account, args.folder, true, args.criteria, REMOTE_PAGE_SIZE);
             else if (viewType == AdapterMessage.ViewType.SEARCH)
                 boundary = new BoundaryCallbackMessages(context,
-                        args.account, args.folder, args.server, args.criteria,
+                        viewType, args.account, args.folder, args.server, args.criteria,
                         args.server ? REMOTE_PAGE_SIZE : SEARCH_PAGE_SIZE);
 
             LivePagedListBuilder<Integer, TupleMessageEx> builder = null;
@@ -204,20 +210,22 @@ public class ViewModelMessages extends ViewModel {
         owner.getLifecycle().addObserver(new LifecycleObserver() {
             @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
             public void onDestroyed() {
-                Log.d("Destroy model=" + viewType);
+                Log.i("Destroy model=" + viewType);
 
                 Model model = models.get(viewType);
                 if (model != null) {
-                    Log.d("Remove observer model=" + viewType);
+                    Log.i("Remove observer model=" + viewType);
                     model.list.removeObservers(owner);
                 }
 
                 if (viewType == AdapterMessage.ViewType.THREAD) {
-                    Log.d("Remove model=" + viewType);
+                    Log.i("Remove model=" + viewType);
                     models.remove(viewType);
                 }
 
                 dump();
+
+                owner.getLifecycle().removeObserver(this);
             }
         });
 
@@ -229,10 +237,10 @@ public class ViewModelMessages extends ViewModel {
 
         if (viewType != AdapterMessage.ViewType.THREAD) {
             last = viewType;
-            Log.d("Last model=" + last);
+            Log.i("Last model=" + last);
         }
 
-        Log.d("Returning model=" + viewType);
+        Log.i("Returning model=" + viewType);
         dump();
 
         return model;
@@ -250,8 +258,8 @@ public class ViewModelMessages extends ViewModel {
             models.remove(viewType);
     }
 
-    void observePrevNext(Context context, LifecycleOwner owner, final long id, final IPrevNext intf) {
-        Log.i("Observe prev/next model=" + last);
+    void observePrevNext(Context context, LifecycleOwner owner, final long id, int lpos, final IPrevNext intf) {
+        Log.i("Observe prev/next model=" + last + " id=" + id + " lpos=" + lpos);
 
         final Model model = models.get(last);
         if (model == null) {
@@ -263,53 +271,77 @@ public class ViewModelMessages extends ViewModel {
         }
 
         Log.i("Observe previous/next id=" + id);
+        //model.list.getValue().loadAround(lpos);
         model.list.observe(owner, new Observer<PagedList<TupleMessageEx>>() {
-            private boolean fallback = false;
+            private final Pair<Long, Integer>[] lastState = new Pair[3];
 
             @Override
             public void onChanged(PagedList<TupleMessageEx> messages) {
-                Log.d("Observe previous/next id=" + id + " messages=" + messages.size());
+                Log.i("Observe previous/next id=" + id +
+                        " lpos=" + lpos +
+                        " messages=" + messages.size());
 
+                Pair<Long, Integer>[] curState = new Pair[3];
                 for (int pos = 0; pos < messages.size(); pos++) {
                     TupleMessageEx item = messages.get(pos);
                     if (item != null && id == item.id) {
-                        fallback = true;
+                        curState[1] = new Pair<>(id, pos);
                         Log.i("Observe previous/next found id=" + id + " pos=" + pos);
 
                         if (pos - 1 >= 0) {
                             TupleMessageEx next = messages.get(pos - 1);
-                            Log.i("Observe previous/next found id=" + id + " next=" + (next == null ? null : next.id));
-                            intf.onNext(true, next == null ? null : next.id);
-                        } else
-                            intf.onNext(false, null);
+                            curState[2] = new Pair<>(next == null ? null : next.id, pos - 1);
+                        }
 
                         if (pos + 1 < messages.size()) {
                             TupleMessageEx prev = messages.get(pos + 1);
-                            Log.i("Observe previous/next found id=" + id + " prev=" + (prev == null ? null : prev.id));
-                            intf.onPrevious(true, prev == null ? null : prev.id);
-                        } else
-                            intf.onPrevious(false, null);
+                            curState[0] = new Pair<>(prev == null ? null : prev.id, pos + 1);
+                        }
 
-                        intf.onFound(pos, messages.size());
-
-                        return;
+                        break;
                     }
                 }
 
-                Log.w("Observe previous/next gone id=" + id + " fallback=" + fallback);
+                if (curState[1] == null) // first changed
+                    curState[1] = new Pair<>(id, -1);
 
-                if (fallback)
+                if (Objects.equals(lastState[0], curState[0]) &&
+                        Objects.equals(lastState[1], curState[1]) &&
+                        Objects.equals(lastState[2], curState[2])) {
+                    Log.i("Observe previous/next unchanged");
                     return;
+                }
 
-                fallback = true;
+                Log.i("Observe previous/next" +
+                        " prev=" + (curState[0] == null ? null : curState[0].first + "/" + curState[0].second) +
+                        " base=" + (curState[1] == null ? null : curState[1].first + "/" + curState[1].second) +
+                        " next=" + (curState[2] == null ? null : curState[2].first + "/" + curState[2].second));
+
+                if (curState[1].second >= 0)
+                    intf.onFound(curState[1].second, messages.size());
+                if (!(lastState[0] != null && curState[0] == null))
+                    intf.onPrevious(curState[0] != null, curState[0] == null ? null : curState[0].first);
+                if (!(lastState[2] != null && curState[2] == null))
+                    intf.onNext(curState[2] != null, curState[2] == null ? null : curState[2].first);
+
+                lastState[0] = curState[0];
+                lastState[1] = curState[1];
+                lastState[2] = curState[2];
+
+                if (curState[1].second >= 0 &&
+                        (curState[0] == null || curState[0].first != null) &&
+                        (curState[2] == null || curState[2].first != null))
+                    return;
 
                 Bundle args = new Bundle();
                 args.putLong("id", id);
+                args.putInt("lpos", lpos);
 
                 new SimpleTask<Pair<Long, Long>>() {
                     @Override
                     protected Pair<Long, Long> onExecute(Context context, Bundle args) {
                         long id = args.getLong("id");
+                        int lpos = args.getInt("lpos");
 
                         PagedList<TupleMessageEx> plist = model.list.getValue();
                         if (plist == null)
@@ -317,47 +349,76 @@ public class ViewModelMessages extends ViewModel {
 
                         LimitOffsetDataSource<TupleMessageEx> ds = (LimitOffsetDataSource<TupleMessageEx>) plist.getDataSource();
                         int count = ds.countItems();
-                        for (int i = 0; i < count; i += 100) {
-                            List<TupleMessageEx> messages = ds.loadRange(i, Math.min(100, count - i));
+
+                        if (lpos >= 0) {
+                            int from = Math.max(0, lpos - 10);
+                            int load = Math.min(20, count - from);
+                            Log.i("Observe previous/next load lpos=" + lpos +
+                                    " range=" + from + "/#" + load);
+                            List<TupleMessageEx> messages = ds.loadRange(from, load);
                             for (int j = 0; j < messages.size(); j++)
-                                if (messages.get(j).id == id) {
-                                    int pos = i + j;
-
-                                    if (pos < plist.size())
-                                        plist.loadAround(pos);
-
-                                    List<TupleMessageEx> lprev = null;
-                                    if (pos - 1 >= 0)
-                                        lprev = ds.loadRange(pos - 1, 1);
-
-                                    List<TupleMessageEx> lnext = null;
-                                    if (pos + 1 < count)
-                                        lnext = ds.loadRange(pos + 1, 1);
-
-                                    TupleMessageEx prev = (lprev != null && lprev.size() > 0 ? lprev.get(0) : null);
-                                    TupleMessageEx next = (lnext != null && lnext.size() > 0 ? lnext.get(0) : null);
-
-                                    Pair<Long, Long> result = new Pair<>(
-                                            prev == null ? null : prev.id,
-                                            next == null ? null : next.id);
-                                    Log.i("Observe previous/next fallback=" + result);
-                                    return result;
-                                }
+                                if (messages.get(j).id == id)
+                                    return getPair(plist, ds, count, from + j);
                         }
+
+                        for (int i = 0; i < count; i += CHUNK_SIZE) {
+                            Log.i("Observe previous/next load" +
+                                    " range=" + i + "/#" + count);
+                            List<TupleMessageEx> messages = ds.loadRange(i, Math.min(CHUNK_SIZE, count - i));
+                            for (int j = 0; j < messages.size(); j++)
+                                if (messages.get(j).id == id)
+                                    return getPair(plist, ds, count, i + j);
+
+                            if (lpos < 0 && i == CHUNK_SIZE * 2 && count > CHUNK_SIZE * 4)
+                                i = count - CHUNK_SIZE * 2;
+                        }
+
+                        Log.i("Observe previous/next message not found" +
+                                " lpos=" + lpos + " count=" + count + " " + model.args);
 
                         return null;
                     }
 
                     @Override
                     protected void onExecuted(Bundle args, Pair<Long, Long> data) {
-                        intf.onPrevious(data != null && data.first != null, data == null ? null : data.first);
-                        intf.onNext(data != null && data.second != null, data == null ? null : data.second);
+                        if (data == null) {
+                            Log.i("Observe previous/next fallback=none");
+                            return; // keep current
+                        }
+
+                        intf.onPrevious(data.first != null, data.first);
+                        intf.onNext(data.second != null, data.second);
                         intf.onFound(-1, messages.size());
                     }
 
                     @Override
                     protected void onException(Bundle args, Throwable ex) {
                         // No nothing
+                    }
+
+                    private Pair<Long, Long> getPair(
+                            PagedList<TupleMessageEx> plist,
+                            LimitOffsetDataSource<TupleMessageEx> ds,
+                            int count, int pos) {
+                        if (pos < plist.size())
+                            plist.loadAround(pos);
+
+                        List<TupleMessageEx> lprev = null;
+                        if (pos - 1 >= 0)
+                            lprev = ds.loadRange(pos - 1, 1);
+
+                        List<TupleMessageEx> lnext = null;
+                        if (pos + 1 < count)
+                            lnext = ds.loadRange(pos + 1, 1);
+
+                        TupleMessageEx prev = (lprev != null && lprev.size() > 0 ? lprev.get(0) : null);
+                        TupleMessageEx next = (lnext != null && lnext.size() > 0 ? lnext.get(0) : null);
+
+                        Pair<Long, Long> result = new Pair<>(
+                                prev == null ? null : prev.id,
+                                next == null ? null : next.id);
+                        Log.i("Observe previous/next fallback=" + result);
+                        return result;
                     }
                 }.execute(context, owner, args, "model:fallback");
             }
@@ -428,7 +489,8 @@ public class ViewModelMessages extends ViewModel {
         Args(Context context,
              AdapterMessage.ViewType viewType,
              String type, long account, long folder,
-             String thread, long id, boolean filter_archive,
+             String thread, long id, boolean threading,
+             boolean filter_archive,
              BoundaryCallbackMessages.SearchCriteria criteria, boolean server) {
 
             this.type = type;
@@ -436,19 +498,18 @@ public class ViewModelMessages extends ViewModel {
             this.folder = folder;
             this.thread = thread;
             this.id = id;
+            this.threading = threading;
             this.filter_archive = filter_archive;
             this.criteria = criteria;
             this.server = server;
 
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-            this.threading = prefs.getBoolean("threading", true);
-            this.sort = prefs.getString("sort", "time");
-            this.ascending = prefs.getBoolean(
-                    viewType == AdapterMessage.ViewType.THREAD ? "ascending_thread" : "ascending_list", false);
-            this.filter_seen = prefs.getBoolean(FragmentMessages.getFilter("seen", type), false);
-            this.filter_unflagged = prefs.getBoolean(FragmentMessages.getFilter("unflagged", type), false);
-            this.filter_unknown = prefs.getBoolean(FragmentMessages.getFilter("unknown", type), false);
-            this.filter_snoozed = prefs.getBoolean(FragmentMessages.getFilter("snoozed", type), true);
+            this.sort = prefs.getString(FragmentMessages.getSort(context, viewType, type), "time");
+            this.ascending = prefs.getBoolean(FragmentMessages.getSortOrder(context, viewType, type), false);
+            this.filter_seen = prefs.getBoolean(FragmentMessages.getFilter(context, "seen", viewType, type), false);
+            this.filter_unflagged = prefs.getBoolean(FragmentMessages.getFilter(context, "unflagged", viewType, type), false);
+            this.filter_unknown = prefs.getBoolean(FragmentMessages.getFilter(context, "unknown", viewType, type), false);
+            this.filter_snoozed = prefs.getBoolean(FragmentMessages.getFilter(context, "snoozed", viewType, type), true);
 
             boolean language_detection = prefs.getBoolean("language_detection", false);
             String filter_language = prefs.getString("filter_language", null);
@@ -502,7 +563,7 @@ public class ViewModelMessages extends ViewModel {
     }
 
     private void dump() {
-        Log.d("Current models=" + TextUtils.join(", ", models.keySet()));
+        Log.i("Current models=" + TextUtils.join(", ", models.keySet()));
     }
 
     class Model {
@@ -519,11 +580,15 @@ public class ViewModelMessages extends ViewModel {
         void setCallback(LifecycleOwner owner, BoundaryCallbackMessages.IBoundaryCallbackMessages callback) {
             if (boundary != null) {
                 BoundaryCallbackMessages.State state = boundary.setCallback(callback);
+                PagedList<TupleMessageEx> plist = list.getValue();
+                if (plist != null && plist.size() > 0)
+                    plist.loadAround(0);
 
                 owner.getLifecycle().addObserver(new LifecycleObserver() {
                     @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
                     public void onDestroyed() {
                         boundary.destroy(state);
+                        owner.getLifecycle().removeObserver(this);
                     }
                 });
             }

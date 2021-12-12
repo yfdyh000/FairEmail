@@ -1,5 +1,6 @@
 package com.bugsnag.android
 
+import com.bugsnag.android.internal.ImmutableConfig
 import java.io.IOException
 
 internal class EventInternal @JvmOverloads internal constructor(
@@ -129,12 +130,21 @@ internal class EventInternal @JvmOverloads internal constructor(
     }
 
     protected fun updateSeverityInternal(severity: Severity) {
-        severityReason = SeverityReason.newInstance(
+        severityReason = SeverityReason(
             severityReason.severityReasonType,
             severity,
+            severityReason.unhandled,
             severityReason.attributeValue
         )
-        this.severity = severity
+    }
+
+    protected fun updateSeverityReason(@SeverityReason.SeverityReasonType reason: String) {
+        severityReason = SeverityReason(
+            reason,
+            severityReason.currentSeverity,
+            severityReason.unhandled,
+            severityReason.attributeValue
+        )
     }
 
     fun getSeverityReasonType(): String = severityReason.severityReasonType

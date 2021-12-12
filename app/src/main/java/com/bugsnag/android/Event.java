@@ -1,5 +1,7 @@
 package com.bugsnag.android;
 
+import com.bugsnag.android.internal.ImmutableConfig;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -316,6 +318,10 @@ public class Event implements JsonStream.Streamable, MetadataAware, UserAware {
 
     protected void updateSeverityInternal(@NonNull Severity severity) {
         impl.updateSeverityInternal(severity);
+    }
+
+    protected void updateSeverityReason(@NonNull @SeverityReason.SeverityReasonType String reason) {
+        impl.updateSeverityReason(reason);
     }
 
     void setApp(@NonNull AppWithState app) {

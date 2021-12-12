@@ -29,7 +29,6 @@ import android.net.NetworkInfo;
 import android.os.Build;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
-import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
 import androidx.preference.PreferenceManager;
@@ -37,22 +36,25 @@ import androidx.preference.PreferenceManager;
 import com.sun.mail.iap.ConnectionException;
 import com.sun.mail.util.FolderClosedIOException;
 
-import org.bouncycastle.asn1.x509.GeneralName;
-
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
+import javax.net.SocketFactory;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+
 public class ConnectionHelper {
     static final List<String> PREF_NETWORK = Collections.unmodifiableList(Arrays.asList(
-            "metered", "roaming", "rlah" // update network state
+            "metered", "roaming", "rlah", "require_validated", "vpn_only" // update network state
     ));
 
     // Roam like at home
@@ -83,13 +85,21 @@ public class ConnectionHelper {
             "NO", // Norway
             "PL", // Poland
             "PT", // Portugal
+            "RE", // La Réunion
             "RO", // Romania
             "SK", // Slovakia
             "SI", // Slovenia
             "ES", // Spain
-            "SE", // Sweden
-            "GB" // United Kingdom
+            "SE" // Sweden
     ));
+
+    static {
+        System.loadLibrary("fairemail");
+    }
+
+    public static native int jni_socket_keep_alive(int fd, int seconds);
+
+    public static native int jni_socket_get_send_buffer(int fd);
 
     static class NetworkState {
         private Boolean connected = null;
@@ -221,6 +231,7 @@ public class ConnectionHelper {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean standalone_vpn = prefs.getBoolean("standalone_vpn", false);
         boolean require_validated = prefs.getBoolean("require_validated", false);
+        boolean vpn_only = prefs.getBoolean("vpn_only", false);
 
         ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         if (cm == null) {
@@ -282,6 +293,13 @@ public class ConnectionHelper {
                 !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_FOREGROUND)) {
             Log.i("isMetered: active background");
             return null;
+        }
+
+        if (vpn_only) {
+            boolean vpn = vpnActive(context);
+            Log.i("VPN only vpn=" + vpn);
+            if (!vpn)
+                return null;
         }
 
         if (standalone_vpn ||
@@ -387,6 +405,7 @@ public class ConnectionHelper {
                     ex instanceof AccountsException ||
                     ex instanceof InterruptedException ||
                     "EOF on socket".equals(ex.getMessage()) ||
+                    "Read timed out".equals(ex.getMessage()) || // POP3
                     "failed to connect".equals(ex.getMessage()))
                 return true;
             ex = ex.getCause();
@@ -463,46 +482,28 @@ public class ConnectionHelper {
                 Settings.Global.AIRPLANE_MODE_ON, 0) != 0;
     }
 
-    static List<String> getDnsNames(X509Certificate certificate) throws CertificateParsingException {
+    static List<String> getCommonNames(Context context, String domain, int port, int timeout) throws IOException {
         List<String> result = new ArrayList<>();
+        InetSocketAddress address = new InetSocketAddress(domain, port);
+        SocketFactory factory = SSLSocketFactory.getDefault();
+        try (SSLSocket sslSocket = (SSLSocket) factory.createSocket()) {
+            EntityLog.log(context, "Connecting to " + address);
+            sslSocket.connect(address, timeout);
+            EntityLog.log(context, "Connected " + address);
 
-        Collection<List<?>> altNames = certificate.getSubjectAlternativeNames();
-        if (altNames == null)
-            return result;
+            sslSocket.setSoTimeout(timeout);
+            sslSocket.startHandshake();
 
-        for (List altName : altNames)
-            if (altName.get(0).equals(GeneralName.dNSName))
-                result.add((String) altName.get(1));
-
+            Certificate[] certs = sslSocket.getSession().getPeerCertificates();
+            for (Certificate cert : certs)
+                if (cert instanceof X509Certificate) {
+                    try {
+                        result.addAll(EntityCertificate.getDnsNames((X509Certificate) cert));
+                    } catch (CertificateParsingException ex) {
+                        Log.w(ex);
+                    }
+                }
+        }
         return result;
-    }
-
-     static boolean matches(String server, List<String> names) {
-        for (String name : names)
-            if (matches(server, name)) {
-                Log.i("Trusted server=" + server + " name=" + name);
-                return true;
-            }
-        return false;
-    }
-
-    private static boolean matches(String server, String name) {
-        if (name.startsWith("*.")) {
-            // Wildcard certificate
-            String domain = name.substring(2);
-            if (TextUtils.isEmpty(domain))
-                return false;
-
-            int dot = server.indexOf(".");
-            if (dot < 0)
-                return false;
-
-            String cdomain = server.substring(dot + 1);
-            if (TextUtils.isEmpty(cdomain))
-                return false;
-
-            return domain.equalsIgnoreCase(cdomain);
-        } else
-            return server.equalsIgnoreCase(name);
     }
 }

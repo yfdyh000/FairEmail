@@ -4,7 +4,7 @@
 
 Máte-li dotaz, nejprve se prosím podívejte na následující často kladené dotazy (FAQ). Jak pokládat další otázky, žádat o funkce a hlásit chyby naleznete [v dolní části](#user-content-get-support).
 
-Wenn Sie eine Frage haben, überprüfen Sie bitte zuerst die nachstehenden häufig gestellten Fragen (FAQ). [Ganz unten erfahren Sie](#user-content-get-support), wie Sie weitere Fragen stellen, Funktionen anfordern und Fehler melden können.
+Pokud máte dotaz, podívejte se nejprve na často kladené otázky (FAQ) níže. [V dolní části najdete](#user-content-get-support), jak můžete klást další otázky, požadovat funkce a hlásit chyby.
 
 ## Obsah
 
@@ -69,10 +69,10 @@ Související dotazy:
 * ~~[Chyba v Androidu 5.1 a 6](https://issuetracker.google.com/issues/37054851) způsobuje, že aplikace mohou někdy zobrazovat špatný formát času. Přepnutí nastavení Androidu *Použít 24hod. formát* může dočasně problém vyřešit. Bylo přidáno provizorní řešení.~~
 * ~~[Chyba v Google Disku](https://issuetracker.google.com/issues/126362828) způsobí, že soubory exportované do Google Disku jsou prázdné. Google toto opravil.~~
 * ~~[Chyba v AndroidX](https://issuetracker.google.com/issues/78495471) působí občasné pády FairEmailu při dlouhém podržení nebo tažení. Google toto opravil.~~
-* ~~[Chyba v AndroidX ROOM](https://issuetracker.google.com/issues/138441698) někdy způsobí pád s "*... Exception while computing database live data ... Couldn't read row ...*". Bylo přidáno provizorní řešení.~~
-* [Chyba v Androidu](https://issuetracker.google.com/issues/119872129) způsobí pád FairEmailu s "*... Bad notification posted ...*" on some devices once after updating FairEmail and tapping on a notification.
-* [Chyba v Androidu](https://issuetracker.google.com/issues/62427912) někdy způsobí pád s "*... ActivityRecord not found for ...*" after updating FairEmail. Přeinstalování ([zdroj](https://stackoverflow.com/questions/46309428/android-activitythread-reportsizeconfigurations-causes-app-to-freeze-with-black)) může problém vyřešit.
-* [Chyba v Androidu](https://issuetracker.google.com/issues/37018931) někdy způsobí pád s "*... InputChannel is not initialized ...* on some devices.
+* ~~[Chyba v AndroidX ROOM](https://issuetracker.google.com/issues/138441698) někdy způsobí pád s "*... Výjimka při výpočtu živých dat databáze ... Nelze přečíst řádek ... * ". Bylo přidáno provizorní řešení.~~
+* [Chyba v Androidu](https://issuetracker.google.com/issues/119872129) způsobí pád FairEmailu s "*... Na některých zařízeních zobrazeno chybné oznámení ... * po aktualizaci FairEmail a klepnutí na něj.
+* [Chyba v Androidu](https://issuetracker.google.com/issues/62427912) někdy způsobí pád s "*... ActivityRecord nebyl nalezen pro ...*" po aktualizaci FairEmail. Přeinstalování ([zdroj](https://stackoverflow.com/questions/46309428/android-activitythread-reportsizeconfigurations-causes-app-to-freeze-with-black)) může problém vyřešit.
+* [Chyba v Androidu](https://issuetracker.google.com/issues/37018931) někdy způsobí pád s "*... InputChannel není inicializován ...* na některých zařízeních.
 * ~~[Chyba v LineageOS](https://review.lineageos.org/c/LineageOS/android_frameworks_base/+/265273) někdy způsobí pád s *... java.lang.ArrayIndexOutOfBoundsException: length=...; index=... ...*.~~
 * Chyba v Nova Launcher na Android 5.x způsobí pád FairEmailu s *java.lang.StackOverflowError* má-li Nova Launcher přístup ke službě usnadnění.
 * ~~Dialog výběru složky někdy nezobrazí žádné složky z dosud neznámých důvodů. Toto se zdá být opraveno. ~~
@@ -80,7 +80,7 @@ Související dotazy:
 * ~~Šifrování s YubiKey vyústí v nekonečnou smyčku. Toto je zdá se způsobeno [chybou v OpenKeychain](https://github.com/open-keychain/open-keychain/issues/2507).~~
 * Posun na interně odkazovanou pozici v původních zprávách nefunguje. Toto nelze opravit, protože zobrazení původní zprávy je uvnitř posuvného náhledu.
 * Náhled textu zprávy se na Samsung hodinkách někdy (nikdy) nezobrazí, protože [setLocalOnly](https://developer.android.com/reference/androidx/core/app/NotificationCompat.Builder.html#setLocalOnly(boolean)) se zdá být ignorován. Správné zobrazování náhledu zpráv je ověřeno s nositelnými zařízeními Pebble 2, Fitbit Charge 3, Mi band 3, a Xiaomi Amazfit BIP. Viz také [tento nejčastější dotaz](#user-content-faq126).
-* [Chyba v Androidu 6.0](https://issuetracker.google.com/issues/37068143) způsobuje pád s *... Invalid offset: ... Valid range is ...* při výběru textu a následném stisku mimo vybraný text. Tato chyba byla opravena v Androidu 6.0.1.
+* [Chyba v Androidu 6.0](https://issuetracker.google.com/issues/37068143) způsobuje pád s *... Neplatný posun: ... Valid range is ...* při výběru textu a následném stisku mimo vybraný text. Tato chyba byla opravena v Androidu 6.0.1.
 * Interní (kotevní) odkazy nebudou fungovat, protože původní zprávy jsou zobrazeny ve vloženém WebView, v posouvajícím se zobrazení (seznam konverzací). Jedná se o omezení Androidu, které nelze opravit či obejít.
 * Detekce jazyka [přestala fungovat](https://issuetracker.google.com/issues/173337263) na zařízeních Pixel s (aktualizovaným?) Android 11
 * [Chyba v OpenKeychain](https://github.com/open-keychain/open-keychain/issues/2688) způsobuje neplatné PGP podpisy při použití hardwarového tokenu.
@@ -156,10 +156,10 @@ Design je založen na mnoha diskuzích a pokud chcete, můžete se do diskuze za
 * [(28) Jak mohu spravovat oznámení ve stavové liště?](#user-content-faq28)
 * [(29) Jak získám oznámení pro nové zprávy z ostatních složek?](#user-content-faq29)
 * [(30) Jak mohu použít poskytnuté rychlé nastavení?](#user-content-faq30)
-* [(31) How can I use the provided shortcuts?](#user-content-faq31)
+* [(31) Jak mohu použít poskytované zkratky?](#user-content-faq31)
 * [(32) Jak ověřím, že čtení e-mailu je skutečně bezpečné?](#user-content-faq32)
-* [(33) Why are edited sender addresses not working?](#user-content-faq33)
-* [(34) How are identities matched?](#user-content-faq34)
+* [(33) Proč upravované adresy odesílatele nefungují?](#user-content-faq33)
+* [(34) Jak se přiřazují identity?](#user-content-faq34)
 * [(35) Proč bych měl být opatrný při prohlížení obrázků, příloh, původních zpráv a otevírání odkazů?](#user-content-faq35)
 * [(36) Jak jsou soubory nastavení šifrovány?](#user-content-faq36)
 * [(37) Jak jsou ukládána hesla?](#user-content-faq37)
@@ -176,49 +176,49 @@ Design je založen na mnoha diskuzích a pokud chcete, můžete se do diskuze za
 * [(49) Jak opravit „Zastaralá aplikace poslala cestu k souboru namísto datového proudu“?](#user-content-faq49)
 * [(50) Můžete přidat možnost pro synchronizaci všech zpráv?](#user-content-faq50)
 * [(51) Jak jsou složky řazeny?](#user-content-faq51)
-* [(52) Why does it take some time to reconnect to an account?](#user-content-faq52)
-* [(53) Can you stick the message action bar to the top/bottom?](#user-content-faq53)
-* [~~(54) How do I use a namespace prefix?~~](#user-content-faq54)
-* [(55) How can I mark all messages as read / move or delete all messages?](#user-content-faq55)
-* [(56) Can you add support for JMAP?](#user-content-faq56)
-* [(57) Can I use HTML in signatures?](#user-content-faq57)
-* [(58) What does an open/closed email icon mean?](#user-content-faq58)
-* [(59) Can original messages be opened in the browser?](#user-content-faq59)
+* [(52) Proč nějakou dobu trvá, než se znovu připojí k účtu?](#user-content-faq52)
+* [(53) Je možné připnout panel zpráv nahoru/dolů?](#user-content-faq53)
+* [~~(54) Jak použít prefix jmenného prostoru?~~](#user-content-faq54)
+* [(55) Jak mohu označit všechny zprávy jako přečtené/přesunout nebo odstranit všechny zprávy?](#user-content-faq55)
+* [(56) Můžete přidat podporu pro JMAP?](#user-content-faq56)
+* [(57) Mohu použít HTML v podpisech?](#user-content-faq57)
+* [(58) Co znamená otevřená/uzavřená e-mailová ikona?](#user-content-faq58)
+* [(59) Lze v prohlížeči otevřít původní zprávy?](#user-content-faq59)
 * [(60) Věděl jste, že ...?](#user-content-faq60)
 * [(61) Proč jsou některé zprávy zobrazeny zašedlé?](#user-content-faq61)
 * [(62) Které metody ověřování jsou podporovány?](#user-content-faq62)
-* [(63) How are images resized for displaying on screens?](#user-content-faq63)
-* [~~(64) Can you add custom actions for swipe left/right?~~](#user-content-faq64)
+* [(63) Jak je změněna velikost obrázku pro zobrazení na displeji?](#user-content-faq63)
+* [~~(64) Mohu přidat vlastní akce pro přejetí vlevo/vpravo?~~](#user-content-faq64)
 * [(65) Proč jsou některé přílohy zobrazeny zašedlé?](#user-content-faq65)
-* [(66) Is FairEmail available in the Google Play Family Library?](#user-content-faq66)
+* [(66) Je FairEmail k dispozici v Google Play Family Library?](#user-content-faq66)
 * [(67) Jak odložím konverzaci?](#user-content-faq67)
 * [~~(68) Proč Adobe Acrobat Reader nemůže otevírat PDF přílohy / Microsoft aplikace nemohou otevírat přiložené dokumenty?~~](#user-content-faq68)
-* [(69) Can you add auto scroll up on new message?](#user-content-faq69)
-* [(70) When will messages be auto expanded?](#user-content-faq70)
-* [(71) How do I use filter rules?](#user-content-faq71)
-* [(72) What are primary accounts/identities?](#user-content-faq72)
-* [(73) Is moving messages across accounts safe/efficient?](#user-content-faq73)
-* [(74) Why do I see duplicate messages?](#user-content-faq74)
-* [(75) Can you make an iOS, Windows, Linux, etc version?](#user-content-faq75)
-* [(76) What does 'Clear local messages' do?](#user-content-faq76)
-* [(77) Why are messages sometimes shown with a small delay?](#user-content-faq77)
-* [(78) How do I use schedules?](#user-content-faq78)
-* [(79) How do I use synchronize on demand (manual)?](#user-content-faq79)
-* [~~(80) How do I fix the error 'Unable to load BODYSTRUCTURE'?~~](#user-content-faq80)
-* [~~(81) Can you make the background of the original message dark in the dark theme?~~](#user-content-faq81)
-* [(82) What is a tracking image?](#user-content-faq82)
-* [(84) What are local contacts for?](#user-content-faq84)
-* [(85) Why is an identity not available?](#user-content-faq85)
-* [~~(86) What are 'extra privacy features'?~~](#user-content-faq86)
-* [(87) What does 'invalid credentials' mean?](#user-content-faq87)
-* [(88) How can I use a Yahoo, AOL or Sky account?](#user-content-faq88)
-* [(89) How can I send plain text only messages?](#user-content-faq89)
-* [(90) Why are some texts linked while not being a link?](#user-content-faq90)
-* [~~(91) Can you add periodical synchronization to save battery power?~~](#user-content-faq91)
-* [(92) Can you add spam filtering, verification of the DKIM signature and SPF authorization?](#user-content-faq92)
-* [(93) Can you allow installation/data storage on external storage media (sdcard)?](#user-content-faq93)
-* [(94) What does the red/orange stripe at the end of the header mean?](#user-content-faq94)
-* [(95) Why are not all apps shown when selecting an attachment or image?](#user-content-faq95)
+* [(69) Můžete přidat automatické posouvání nové zprávy?](#user-content-faq69)
+* [(70) Kdy budou zprávy automaticky rozbaleny?](#user-content-faq70)
+* [(71) Jak používat pravidla pro filtry?](#user-content-faq71)
+* [(72) Co jsou primární účty/identity?](#user-content-faq72)
+* [(73) Je přesun zpráv mezi účty bezpečný/efektivní?](#user-content-faq73)
+* [(74) Proč vidím duplicitní zprávy?](#user-content-faq74)
+* [(75) Dokážete vytvořit iOS, Windows, Linux, atd. verzi?](#user-content-faq75)
+* [(76) Co dělá funkce "Vymazat místní zprávy"?](#user-content-faq76)
+* [(77) Proč se někdy zprávy zobrazují s malým zpožděním?](#user-content-faq77)
+* [(78) Jak používat plánování?](#user-content-faq78)
+* [(79) Jak používat synchronizaci na vyžádání (manuální)?](#user-content-faq79)
+* [~~(80) Jak opravit chybu 'Unable to load BODYSTRUCTURE'?~~](#user-content-faq80)
+* [~~(81) Je možné pozadí původní zprávy ztmavit v tmavém motivu?~~](#user-content-faq81)
+* [(82) Co je to sledovací obrázek?](#user-content-faq82)
+* [(84) K čemu slouží místní kontakty?](#user-content-faq84)
+* [(85) Proč není dostupná identita?](#user-content-faq85)
+* [~~(86) Co jsou "extra funkce ochrany osobních údajů"?~~](#user-content-faq86)
+* [(87) Co znamená "neplatné přihlašovací údaje"?](#user-content-faq87)
+* [(88) Jak mohu použít Yahoo, AOL nebo Sky účet?](#user-content-faq88)
+* [(89) Jak mohu poslat zprávy v prostém textu?](#user-content-faq89)
+* [(90) Proč jsou některé texty propojeny, i když není vložen odkaz?](#user-content-faq90)
+* [~~(91) Je možné přidat periodickou synchronizaci pro úsporu baterie?~~](#user-content-faq91)
+* [(92) Je možné přidat filtrování spamu, ověření podpisu DKIM a autorizace SPF?](#user-content-faq92)
+* [(93) Můžete povolit instalaci/ukládání dat na externích paměťových médiích (sd karty)?](#user-content-faq93)
+* [(94) Co znamená červený/oranžový pruh na konci záhlaví?](#user-content-faq94)
+* [(95) Proč nejsou zobrazeny všechny aplikace při výběru přílohy nebo obrázku?](#user-content-faq95)
 * [(96) Kde najdu nastavení IMAP a SMTP?](#user-content-faq96)
 * [(97) Co je to „úklid“?](#user-content-faq97)
 * [(98) Proč mohu stále vybírat kontakty i po odvolání oprávnění pro kontakty?](#user-content-faq98)
@@ -230,28 +230,28 @@ Design je založen na mnoha diskuzích a pokud chcete, můžete se do diskuze za
 * [(104) Co potřebuji vědět o hlášení chyb?](#user-content-faq104)
 * [(105) Jak funguje volba roaming jako doma (RLAH)?](#user-content-faq105)
 * [(106) Které spouštěče aplikací umí zobrazit odznáček s počtem nepřečtených zpráv?](#user-content-faq106)
-* [(107) How do I use colored stars?](#user-content-faq107)
-* [~~(108) Can you add permanently delete messages from any folder?~~](#user-content-faq108)
-* [~~(109) Why is 'select account' available in official versions only?~~](#user-content-faq109)
-* [(110) Why are (some) messages empty and/or attachments corrupted?](#user-content-faq110)
+* [(107) Jak používat barevné hvězdičky?](#user-content-faq107)
+* [~~(108) Můžete přidat trvalé smazání zpráv z libovolné složky?~~](#user-content-faq108)
+* [~~(109) Proč je funkce 'vyberte účet' dostupná pouze v oficiálních verzích?~~](#user-content-faq109)
+* [(110) Proč jsou (některé) zprávy prázdné a/nebo přílohy poškozeny?](#user-content-faq110)
 * [(111) Je podporován OAuth?](#user-content-faq111)
 * [(112) Kterého poskytovatele doporučujete?](#user-content-faq112)
 * [(113) Jak funguje biometrické ověřování?](#user-content-faq113)
-* [(114) Can you add an import for the settings of other email apps?](#user-content-faq114)
+* [(114) Můžete přidat import pro nastavení z jiných e-mailových aplikací?](#user-content-faq114)
 * [(115) Can you add email address chips?](#user-content-faq115)
-* [~~(116) How can I show images in messages from trusted senders by default?~~](#user-content-faq116)
-* [(117) Can you help me restore my purchase?](#user-content-faq117)
-* [(118) What does 'Remove tracking parameters' exactly?](#user-content-faq118)
-* [~~(119) Can you add colors to the unified inbox widget?~~](#user-content-faq119)
-* [(120) Why are new message notifications not removed on opening the app?](#user-content-faq120)
-* [(121) How are messages grouped into a conversation?](#user-content-faq121)
-* [~~(122) Why is the recipient name/email address show with a warning color?~~](#user-content-faq122)
-* [(123) What will happen when FairEmail cannot connect to an email server?](#user-content-faq123)
-* [(124) Why do I get 'Message too large or too complex to display'?](#user-content-faq124)
-* [(125) What are the current experimental features?](#user-content-faq125)
-* [(126) Can message previews be sent to my wearable?](#user-content-faq126)
-* [(127) How can I fix 'Syntactically invalid HELO argument(s)'?](#user-content-faq127)
-* [(128) How can I reset asked questions, for example to show images?](#user-content-faq128)
+* [~~(116) Jak mohu zobrazovat obrázky ve zprávách od důvěryhodných odesílatelů ve výchozím nastavení?~~](#user-content-faq116)
+* [(117) Můžete mi pomoci obnovit můj nákup?](#user-content-faq117)
+* [(118) Co přesně odstraní funkce "Odstranit sledovací parametry"?](#user-content-faq118)
+* [~~(119) Dokážeš přidat barvy do widgetu jednotné doručené pošty?~~](#user-content-faq119)
+* [(120) Proč nejsou při otevření aplikace odstraněna nová oznámení o zprávách?](#user-content-faq120)
+* [(121) Jak jsou zprávy seskupeny do konverzace?](#user-content-faq121)
+* [~~(122) Proč je zobrazeno jméno/e-mailová adresa příjemce s barvou varování?~~](#user-content-faq122)
+* [(123) Co se stane, když se FairEmail nemůže připojit k e-mailovému serveru?](#user-content-faq123)
+* [(124) Proč se mi zobrazuje hláška "Zpráva příliš velká nebo příliš složitá na zobrazení"?](#user-content-faq124)
+* [(125) Co jsou současné experimentální funkce?](#user-content-faq125)
+* [(126) Je možné poslat náhled zpráv na moje nositelné příslušenství?](#user-content-faq126)
+* [(127) Jak mohu opravit "Syntakticky neplatný HELO argument(y)"?](#user-content-faq127)
+* [(128) Jak mohu obnovit nastavení položených otázek, například zobrazení obrázků ve zprávách?](#user-content-faq128)
 * [(129) Jsou ProtonMail, Tutanota podporovány?](#user-content-faq129)
 * [(130) What does message error ... mean?](#user-content-faq130)
 * [(131) Can you change the direction for swiping to previous/next message?](#user-content-faq131)

@@ -63,13 +63,7 @@ abstract class FileStore {
      */
     private boolean isStorageDirValid(@NonNull File storageDir) {
         try {
-            if (!storageDir.isDirectory() || !storageDir.canWrite()) {
-                if (!storageDir.mkdirs()) {
-                    this.logger.e("Could not prepare storage directory at "
-                            + storageDir.getAbsolutePath());
-                    return false;
-                }
-            }
+            storageDir.mkdirs();
         } catch (Exception exception) {
             this.logger.e("Could not prepare file storage directory", exception);
             return false;
@@ -104,8 +98,7 @@ abstract class FileStore {
                     out.close();
                 }
             } catch (Exception exception) {
-                logger.w(String.format("Failed to close unsent payload writer (%s) ",
-                        filename), exception);
+                logger.w("Failed to close unsent payload writer: " + filename, exception);
             }
             lock.unlock();
         }
@@ -130,7 +123,7 @@ abstract class FileStore {
             Writer out = new BufferedWriter(new OutputStreamWriter(fos, "UTF-8"));
             stream = new JsonStream(out);
             stream.value(streamable);
-            logger.i(String.format("Saved unsent payload to disk (%s) ", filename));
+            logger.i("Saved unsent payload to disk: '" + filename + '\'');
             return filename;
         } catch (FileNotFoundException exc) {
             logger.w("Ignoring FileNotFoundException - unable to create file", exc);
@@ -168,8 +161,8 @@ abstract class FileStore {
                     File oldestFile = files.get(k);
 
                     if (!queuedFiles.contains(oldestFile)) {
-                        logger.w(String.format("Discarding oldest error as stored "
-                                + "error limit reached (%s)", oldestFile.getPath()));
+                        logger.w("Discarding oldest error as stored "
+                                + "error limit reached: '" + oldestFile.getPath() + '\'');
                         deleteStoredFiles(Collections.singleton(oldestFile));
                         files.remove(k);
                         k--;

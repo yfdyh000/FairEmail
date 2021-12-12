@@ -113,6 +113,7 @@ public class EntityMessage implements Serializable {
     static final Long SWIPE_ACTION_FLAG = -6L;
     static final Long SWIPE_ACTION_DELETE = -7L;
     static final Long SWIPE_ACTION_JUNK = -8L;
+    static final Long SWIPE_ACTION_REPLY = -9L;
 
     @PrimaryKey(autoGenerate = true)
     public Long id;
@@ -140,15 +141,18 @@ public class EntityMessage implements Serializable {
     public Integer dsn;
     public Boolean receipt_request;
     public Address[] receipt_to;
+    public String bimi_selector;
     public Boolean dkim;
     public Boolean spf;
     public Boolean dmarc;
     public Boolean mx;
     public Boolean blocklist;
-    public Boolean reply_domain; // differs from 'from'
+    public Boolean from_domain; // spf/smtp.mailfrom <> from
+    public Boolean reply_domain; // reply-to <> from
     public String avatar; // lookup URI from sender
     public String sender; // sort key: from email address
     public Address[] return_path;
+    public Address[] smtp_from;
     public Address[] submitter; // sent on behalf of
     public Address[] from;
     public Address[] to;
@@ -159,6 +163,7 @@ public class EntityMessage implements Serializable {
     public String unsubscribe;
     public String autocrypt;
     public String headers;
+    public String infrastructure;
     public Boolean raw;
     public String subject;
     public Long size;
@@ -195,11 +200,11 @@ public class EntityMessage implements Serializable {
     public String[] keywords; // user flags
     public String[] labels; // Gmail
     @NonNull
-    public Integer notifying = 0;
-    @NonNull
     public Boolean fts = false;
     @NonNull
     public Boolean auto_classified = false;
+    @NonNull
+    public Integer notifying = 0;
     @NonNull
     public Boolean ui_seen = false;
     @NonNull
@@ -304,32 +309,12 @@ public class EntityMessage implements Serializable {
         return hasKeyword(MessageHelper.FLAG_FORWARDED);
     }
 
-    String checkReplyDomain(Context context) {
-        if (from == null || from.length == 0)
-            return null;
-        if (reply == null || reply.length == 0)
-            return null;
+    String[] checkFromDomain(Context context) {
+        return MessageHelper.equalDomain(context, from, smtp_from);
+    }
 
-        for (Address _reply : reply) {
-            String r = ((InternetAddress) _reply).getAddress();
-            int rat = (r == null ? -1 : r.indexOf('@'));
-            if (rat < 0)
-                continue;
-            String rdomain = UriHelper.getParentDomain(r.substring(rat + 1));
-
-            for (Address _from : from) {
-                String f = ((InternetAddress) _from).getAddress();
-                int fat = (f == null ? -1 : f.indexOf('@'));
-                if (fat < 0)
-                    continue;
-                String fdomain = UriHelper.getParentDomain(f.substring(fat + 1));
-
-                if (!rdomain.equalsIgnoreCase(fdomain))
-                    return context.getString(R.string.title_reply_domain, fdomain, rdomain);
-            }
-        }
-
-        return null;
+    String[] checkReplyDomain(Context context) {
+        return MessageHelper.equalDomain(context, reply, from);
     }
 
     static String collapsePrefixes(Context context, String language, String subject, boolean forward) {
@@ -415,13 +400,12 @@ public class EntityMessage implements Serializable {
         } else
             p.text(DF.format(new Date(received)) + " " + MessageHelper.formatAddresses(from) + ":");
 
-        if (separate) {
-            Element div = document.createElement("div");
+        Element div = document.createElement("div")
+                .attr("fairemail", "reply");
+        if (separate)
             div.appendElement("hr");
-            div.appendChild(p);
-            return div;
-        } else
-            return p;
+        div.appendChild(p);
+        return div;
     }
 
     String getNotificationChannelId() {
@@ -526,15 +510,18 @@ public class EntityMessage implements Serializable {
                     Objects.equals(this.dsn, other.dsn) &&
                     Objects.equals(this.receipt_request, other.receipt_request) &&
                     MessageHelper.equal(this.receipt_to, other.receipt_to) &&
+                    Objects.equals(this.bimi_selector, other.bimi_selector) &&
                     Objects.equals(this.dkim, other.dkim) &&
                     Objects.equals(this.spf, other.spf) &&
                     Objects.equals(this.dmarc, other.dmarc) &&
                     Objects.equals(this.mx, other.mx) &&
                     Objects.equals(this.blocklist, other.blocklist) &&
+                    Objects.equals(this.from_domain, other.from_domain) &&
                     Objects.equals(this.reply_domain, other.reply_domain) &&
                     Objects.equals(this.avatar, other.avatar) &&
                     Objects.equals(this.sender, other.sender) &&
                     MessageHelper.equal(this.return_path, other.return_path) &&
+                    MessageHelper.equal(this.smtp_from, other.smtp_from) &&
                     MessageHelper.equal(this.submitter, other.submitter) &&
                     MessageHelper.equal(this.from, other.from) &&
                     MessageHelper.equal(this.to, other.to) &&
@@ -545,6 +532,7 @@ public class EntityMessage implements Serializable {
                     Objects.equals(this.unsubscribe, other.unsubscribe) &&
                     Objects.equals(this.autocrypt, other.autocrypt) &&
                     Objects.equals(this.headers, other.headers) &&
+                    Objects.equals(this.infrastructure, other.infrastructure) &&
                     Objects.equals(this.raw, other.raw) &&
                     Objects.equals(this.subject, other.subject) &&
                     Objects.equals(this.size, other.size) &&
@@ -569,6 +557,7 @@ public class EntityMessage implements Serializable {
                     this.deleted.equals(other.deleted) &&
                     Objects.equals(this.flags, other.flags) &&
                     Helper.equal(this.keywords, other.keywords) &&
+                    this.auto_classified.equals(other.auto_classified) &&
                     this.notifying.equals(other.notifying) &&
                     this.ui_seen.equals(other.ui_seen) &&
                     this.ui_answered.equals(other.ui_answered) &&

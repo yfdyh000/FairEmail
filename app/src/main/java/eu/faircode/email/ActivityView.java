@@ -19,6 +19,10 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
+import static androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_OPEN;
+import static androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_UNLOCKED;
+
 import android.annotation.SuppressLint;
 import android.app.Dialog;
 import android.app.NotificationManager;
@@ -30,14 +34,17 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
+import android.util.Pair;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -49,6 +56,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.PopupMenu;
+import androidx.constraintlayout.widget.Group;
 import androidx.core.app.NotificationCompat;
 import androidx.core.widget.NestedScrollView;
 import androidx.fragment.app.Fragment;
@@ -78,39 +87,57 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 import javax.net.ssl.HttpsURLConnection;
 
-import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
-import static androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_OPEN;
-import static androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_UNLOCKED;
-
 public class ActivityView extends ActivityBilling implements FragmentManager.OnBackStackChangedListener {
     private String startup;
+    private boolean nav_expanded;
+    private boolean nav_pinned;
+    private boolean nav_options;
+    private int colorDrawerScrim;
 
+    private int layoutId;
     private View view;
 
     private View content_separator;
     private View content_pane;
 
-    private TwoStateOwner owner = new TwoStateOwner("drawer");
+    private TwoStateOwner owner;
     private DrawerLayoutEx drawerLayout;
     private ActionBarDrawerToggle drawerToggle;
     private NestedScrollView drawerContainer;
+    private ImageButton ibExpanderNav;
+    private ImageButton ibPin;
+    private ImageButton ibHide;
+    private ImageButton ibSettings;
+    private ImageButton ibFetchMore;
+    private ImageButton ibForceSync;
+
+    private View vSeparatorOptions;
     private ImageButton ibExpanderAccount;
+
     private RecyclerView rvAccount;
     private ImageButton ibExpanderUnified;
+
+    private ImageButton ibExpanderSearch;
+    private RecyclerView rvSearch;
+    private View vSeparatorSearch;
+
     private RecyclerView rvUnified;
-    private ImageButton ibExpanderFolder;
-    private RecyclerView rvFolder;
     private ImageButton ibExpanderMenu;
+
     private RecyclerView rvMenu;
     private ImageButton ibExpanderExtra;
+
     private RecyclerView rvMenuExtra;
 
-    private AdapterNavAccount adapterNavAccount;
+    private Group grpOptions;
+
+    private AdapterNavAccountFolder adapterNavAccount;
     private AdapterNavUnified adapterNavUnified;
-    private AdapterNavFolder adapterNavFolder;
+    private AdapterNavSearch adapterNavSearch;
     private AdapterNavMenu adapterNavMenu;
     private AdapterNavMenu adapterNavMenuExtra;
 
@@ -121,13 +148,11 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
 
     static final int PI_UNIFIED = 1;
     static final int PI_WHY = 2;
-    static final int PI_ALERT = 3;
-    static final int PI_THREAD = 4;
-    static final int PI_OUTBOX = 5;
-    static final int PI_ERROR = 6;
-    static final int PI_UPDATE = 7;
-    static final int PI_WIDGET = 8;
-    static final int PI_POWER = 9;
+    static final int PI_THREAD = 3;
+    static final int PI_OUTBOX = 4;
+    static final int PI_UPDATE = 5;
+    static final int PI_WIDGET = 6;
+    static final int PI_POWER = 7;
 
     static final String ACTION_VIEW_FOLDERS = BuildConfig.APPLICATION_ID + ".VIEW_FOLDERS";
     static final String ACTION_VIEW_MESSAGES = BuildConfig.APPLICATION_ID + ".VIEW_MESSAGES";
@@ -173,23 +198,33 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         if (savedInstanceState != null)
             searching = savedInstanceState.getBoolean("fair:searching");
 
+        colorDrawerScrim = Helper.resolveColor(this, R.attr.colorDrawerScrim);
+
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         startup = prefs.getString("startup", "unified");
+        nav_expanded = getDrawerExpanded();
+        nav_pinned = getDrawerPinned();
+        nav_options = prefs.getBoolean("nav_options", true);
+
+        // Fix imported settings from other device
+        if (nav_expanded && nav_pinned && !canExpandAndPin())
+            nav_pinned = false;
 
         Configuration config = getResources().getConfiguration();
-        final boolean normal = config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_NORMAL);
-        final boolean portrait2 = prefs.getBoolean("portrait2", false);
-        final boolean landscape = prefs.getBoolean("landscape", true);
-        final boolean landscape3 = prefs.getBoolean("landscape3", true);
-        Log.i("Orientation=" + config.orientation + " normal=" + normal +
-                " landscape=" + landscape + "/" + landscape3);
+        boolean portrait2 = prefs.getBoolean("portrait2", false);
+        boolean portrait2c = prefs.getBoolean("portrait2c", false);
+        boolean landscape = prefs.getBoolean("landscape", true);
+        Log.i("Orientation=" + config.orientation +
+                " portrait rows=" + portrait2 + " cols=" + portrait2c + " landscape cols=" + landscape);
 
-        int viewId;
-        if (config.orientation == ORIENTATION_PORTRAIT || !normal || !landscape)
-            viewId = (portrait2 ? R.layout.activity_view_portrait_split : R.layout.activity_view_portrait);
+        if (config.orientation == ORIENTATION_PORTRAIT && portrait2c)
+            layoutId = R.layout.activity_view_landscape_split;
+        else if (config.orientation == ORIENTATION_PORTRAIT || !landscape)
+            layoutId = (portrait2 ? R.layout.activity_view_portrait_split : R.layout.activity_view_portrait);
         else
-            viewId = R.layout.activity_view_landscape_split;
-        view = LayoutInflater.from(this).inflate(viewId, null);
+            layoutId = R.layout.activity_view_landscape_split;
+
+        view = LayoutInflater.from(this).inflate(layoutId, null);
         setContentView(view);
 
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
@@ -199,6 +234,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         content_separator = findViewById(R.id.content_separator);
         content_pane = findViewById(R.id.content_pane);
 
+        // Special: Surface Duo
         boolean duo = Helper.isSurfaceDuo();
         if (duo && content_pane != null) {
             View content_frame = findViewById(R.id.content_frame);
@@ -211,6 +247,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             content_separator.getLayoutParams().width = Helper.dp2pixels(this, 34);
         }
 
+        owner = new TwoStateOwner(this, "drawer");
         drawerLayout = findViewById(R.id.drawer_layout);
 
         final ViewGroup childContent = (ViewGroup) drawerLayout.getChildAt(0);
@@ -232,10 +269,10 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                 Log.i("Drawer opened");
                 owner.start();
 
-                if (normal && landscape3 &&
-                        config.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                if (nav_pinned) {
                     drawerLayout.setDrawerLockMode(LOCK_MODE_LOCKED_OPEN);
-                    childContent.setPaddingRelative(childDrawer.getLayoutParams().width, 0, 0, 0);
+                    int padding = childDrawer.getLayoutParams().width;
+                    childContent.setPaddingRelative(padding, 0, 0, 0);
                 }
             }
 
@@ -248,62 +285,195 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                 else
                     owner.stop();
 
-                if (normal && landscape3 &&
-                        config.orientation == Configuration.ORIENTATION_LANDSCAPE)
-                    childContent.setPaddingRelative(
-                            Math.round(slideOffset * childDrawer.getLayoutParams().width), 0, 0, 0);
+                if (nav_pinned) {
+                    int padding = Math.round(slideOffset * childDrawer.getLayoutParams().width);
+                    childContent.setPaddingRelative(padding, 0, 0, 0);
+                }
             }
         };
         drawerLayout.addDrawerListener(drawerToggle);
 
         drawerContainer = findViewById(R.id.drawer_container);
+        ibExpanderNav = drawerContainer.findViewById(R.id.ibExpanderNav);
+        ibPin = drawerContainer.findViewById(R.id.ibPin);
+        ibHide = drawerContainer.findViewById(R.id.ibHide);
+        ibSettings = drawerContainer.findViewById(R.id.ibSettings);
+        ibFetchMore = drawerContainer.findViewById(R.id.ibFetchMore);
+        ibForceSync = drawerContainer.findViewById(R.id.ibForceSync);
+        vSeparatorOptions = drawerContainer.findViewById(R.id.vSeparatorOptions);
+        grpOptions = drawerContainer.findViewById(R.id.grpOptions);
 
-        int drawerWidth;
-        DisplayMetrics dm = getResources().getDisplayMetrics();
-        if (viewId != R.layout.activity_view_landscape_split || !landscape3) {
-            int actionBarHeight;
-            TypedValue tv = new TypedValue();
-            if (getTheme().resolveAttribute(android.R.attr.actionBarSize, tv, true))
-                actionBarHeight = TypedValue.complexToDimensionPixelSize(tv.data, dm);
-            else
-                actionBarHeight = Helper.dp2pixels(this, 56);
+        ibExpanderAccount = drawerContainer.findViewById(R.id.ibExpanderAccount);
+        rvAccount = drawerContainer.findViewById(R.id.rvAccount);
 
-            int screenWidth = Math.min(dm.widthPixels, dm.heightPixels);
-            int dp320 = Helper.dp2pixels(this, 320);
-            drawerWidth = Math.min(screenWidth - actionBarHeight, dp320);
-        } else
-            drawerWidth = Helper.dp2pixels(this, 300);
+        ibExpanderUnified = drawerContainer.findViewById(R.id.ibExpanderUnified);
+        rvUnified = drawerContainer.findViewById(R.id.rvUnified);
+
+        ibExpanderSearch = drawerContainer.findViewById(R.id.ibExpanderSearch);
+        rvSearch = drawerContainer.findViewById(R.id.rvSearch);
+        vSeparatorSearch = drawerContainer.findViewById(R.id.vSeparatorSearch);
+
+        ibExpanderMenu = drawerContainer.findViewById(R.id.ibExpanderMenu);
+        rvMenu = drawerContainer.findViewById(R.id.rvMenu);
+
+        ibExpanderExtra = drawerContainer.findViewById(R.id.ibExpanderExtra);
+        rvMenuExtra = drawerContainer.findViewById(R.id.rvMenuExtra);
 
         ViewGroup.LayoutParams lparam = drawerContainer.getLayoutParams();
-        lparam.width = drawerWidth;
+        lparam.width = getDrawerWidth();
         drawerContainer.setLayoutParams(lparam);
 
-        // Accounts
-        ibExpanderAccount = drawerContainer.findViewById(R.id.ibExpanderAccount);
+        // Navigation expander
+        ibExpanderNav.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                nav_expanded = !nav_expanded;
+                if (nav_expanded && nav_pinned && !canExpandAndPin()) {
+                    nav_pinned = false;
+                    setDrawerPinned(nav_pinned);
+                }
+                setDrawerExpanded(nav_expanded);
+            }
+        });
+        ibExpanderNav.setImageLevel(nav_expanded ? 0 : 1);
 
-        rvAccount = drawerContainer.findViewById(R.id.rvAccount);
+        // Navigation pinning
+        ibPin.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                nav_pinned = !nav_pinned;
+                if (nav_pinned && nav_expanded && !canExpandAndPin()) {
+                    nav_expanded = false;
+                    setDrawerExpanded(nav_expanded);
+                }
+                setDrawerPinned(nav_pinned);
+            }
+        });
+        ibPin.setImageLevel(nav_pinned ? 1 : 0);
+
+        ibHide.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                View dview = LayoutInflater.from(ActivityView.this).inflate(R.layout.dialog_nav_options, null);
+                new AlertDialog.Builder(ActivityView.this)
+                        .setView(dview)
+                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                prefs.edit().putBoolean("nav_options", false).apply();
+                            }
+                        })
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+            }
+        });
+
+        // Navigation settings
+        ibSettings.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                PopupMenuLifecycle popupMenu = new PopupMenuLifecycle(ActivityView.this, owner, ibSettings);
+
+                for (int i = 0; i < FragmentOptions.PAGE_TITLES.length; i++)
+                    popupMenu.getMenu()
+                            .add(Menu.NONE, i, i, FragmentOptions.PAGE_TITLES[i])
+                            .setIcon(FragmentOptions.PAGE_ICONS[i]);
+
+                popupMenu.insertIcons(ActivityView.this);
+
+                popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+                    @Override
+                    public boolean onMenuItemClick(MenuItem item) {
+                        String tab = FragmentOptions.TAB_LABELS.get(item.getOrder());
+                        startActivity(new Intent(ActivityView.this, ActivitySetup.class)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                .putExtra("tab", tab));
+                        return true;
+                    }
+                });
+
+                popupMenu.show();
+            }
+        });
+
+        ibSettings.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View view) {
+                startActivity(new Intent(ActivityView.this, ActivitySetup.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+                return true;
+            }
+        });
+
+        // Fetch more messages
+        ibFetchMore.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Bundle args = new Bundle();
+                args.putLong("folder", -1L); // Unified inbox
+
+                FragmentDialogSync sync = new FragmentDialogSync();
+                sync.setArguments(args);
+                sync.show(getSupportFragmentManager(), "nav:fetch");
+            }
+        });
+
+        // Force sync
+        ibForceSync.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                ServiceSynchronize.reload(ActivityView.this, null, true, "nav:sync");
+                ToastEx.makeText(ActivityView.this, R.string.title_force_sync, Toast.LENGTH_LONG).show();
+            }
+        });
+
+        ibExpanderNav.setVisibility(nav_options ? View.VISIBLE : View.GONE);
+        grpOptions.setVisibility(nav_expanded && nav_options ? View.VISIBLE : View.GONE);
+        vSeparatorOptions.setVisibility(nav_options ? View.VISIBLE : View.GONE);
+
+        // Accounts
         rvAccount.setLayoutManager(new LinearLayoutManager(this));
-        adapterNavAccount = new AdapterNavAccount(this, this);
+        adapterNavAccount = new AdapterNavAccountFolder(this, this);
         rvAccount.setAdapter(adapterNavAccount);
 
         boolean nav_account = prefs.getBoolean("nav_account", true);
-        ibExpanderAccount.setImageLevel(nav_account ? 0 /* less */ : 1 /* more */);
-        rvAccount.setVisibility(nav_account ? View.VISIBLE : View.GONE);
+        boolean nav_folder = prefs.getBoolean("nav_folder", true);
+        ibExpanderAccount.setImageLevel(nav_account || nav_folder ? 0 /* less */ : 1 /* more */);
+        rvAccount.setVisibility(nav_account || nav_folder ? View.VISIBLE : View.GONE);
 
         ibExpanderAccount.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                boolean nav_account = !prefs.getBoolean("nav_account", true);
-                prefs.edit().putBoolean("nav_account", nav_account).apply();
-                ibExpanderAccount.setImageLevel(nav_account ? 0 /* less */ : 1 /* more */);
-                rvAccount.setVisibility(nav_account ? View.VISIBLE : View.GONE);
+                boolean nav_account = prefs.getBoolean("nav_account", true);
+                boolean nav_folder = prefs.getBoolean("nav_folder", true);
+                boolean nav_quick = prefs.getBoolean("nav_quick", true);
+                boolean expanded = (nav_account || nav_folder);
+
+                if (expanded && nav_quick && adapterNavAccount.hasFolders())
+                    nav_quick = false;
+                else {
+                    expanded = !expanded;
+                    if (expanded)
+                        nav_quick = true;
+                }
+
+                prefs.edit()
+                        .putBoolean("nav_account", expanded)
+                        .putBoolean("nav_folder", expanded)
+                        .putBoolean("nav_quick", nav_quick)
+                        .apply();
+
+                adapterNavAccount.setFolders(nav_quick);
+
+                if (expanded && nav_quick && adapterNavAccount.hasFolders())
+                    ibExpanderAccount.setImageLevel(2 /* unfold less */);
+                else
+                    ibExpanderAccount.setImageLevel(expanded ? 0 /* less */ : 1 /* more */);
+                rvAccount.setVisibility(expanded ? View.VISIBLE : View.GONE);
             }
         });
 
         // Unified system folders
-        ibExpanderUnified = drawerContainer.findViewById(R.id.ibExpanderUnified);
-
-        rvUnified = drawerContainer.findViewById(R.id.rvUnified);
         rvUnified.setLayoutManager(new LinearLayoutManager(this));
         adapterNavUnified = new AdapterNavUnified(this, this);
         rvUnified.setAdapter(adapterNavUnified);
@@ -322,32 +492,28 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             }
         });
 
-        // Navigation folders
-        ibExpanderFolder = drawerContainer.findViewById(R.id.ibExpanderFolder);
+        // Menus
+        rvSearch.setLayoutManager(new LinearLayoutManager(this));
+        adapterNavSearch = new AdapterNavSearch(this, this, getSupportFragmentManager());
+        rvSearch.setAdapter(adapterNavSearch);
 
-        rvFolder = drawerContainer.findViewById(R.id.rvFolder);
-        rvFolder.setLayoutManager(new LinearLayoutManager(this));
-        adapterNavFolder = new AdapterNavFolder(this, this);
-        rvFolder.setAdapter(adapterNavFolder);
+        boolean nav_search = prefs.getBoolean("nav_search", true);
+        ibExpanderSearch.setImageLevel(nav_search ? 0 /* less */ : 1 /* more */);
+        ibExpanderSearch.setVisibility(View.GONE);
+        rvSearch.setVisibility(View.GONE);
+        vSeparatorSearch.setVisibility(View.GONE);
 
-        boolean nav_folder = prefs.getBoolean("nav_folder", true);
-        ibExpanderFolder.setImageLevel(nav_folder ? 0 /* less */ : 1 /* more */);
-        rvFolder.setVisibility(nav_folder ? View.VISIBLE : View.GONE);
-
-        ibExpanderFolder.setOnClickListener(new View.OnClickListener() {
+        ibExpanderSearch.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                boolean nav_folder = !prefs.getBoolean("nav_folder", true);
-                prefs.edit().putBoolean("nav_folder", nav_folder).apply();
-                ibExpanderFolder.setImageLevel(nav_folder ? 0 /* less */ : 1 /* more */);
-                rvFolder.setVisibility(nav_folder ? View.VISIBLE : View.GONE);
+                boolean nav_search = !prefs.getBoolean("nav_search", true);
+                prefs.edit().putBoolean("nav_search", nav_search).apply();
+                ibExpanderSearch.setImageLevel(nav_search ? 0 /* less */ : 1 /* more */);
+                rvSearch.setVisibility(nav_search ? View.VISIBLE : View.GONE);
             }
         });
 
         // Menus
-        ibExpanderMenu = drawerContainer.findViewById(R.id.ibExpanderMenu);
-
-        rvMenu = drawerContainer.findViewById(R.id.rvMenu);
         rvMenu.setLayoutManager(new LinearLayoutManager(this));
         adapterNavMenu = new AdapterNavMenu(this, this);
         rvMenu.setAdapter(adapterNavMenu);
@@ -367,9 +533,6 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         });
 
         // Extra menus
-        ibExpanderExtra = drawerContainer.findViewById(R.id.ibExpanderExtra);
-
-        rvMenuExtra = drawerContainer.findViewById(R.id.rvMenuExtra);
         LinearLayoutManager llm = new LinearLayoutManager(this);
         rvMenuExtra.setLayoutManager(llm);
         adapterNavMenuExtra = new AdapterNavMenu(this, this);
@@ -445,6 +608,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             case "folders":
                 fragment = new FragmentFolders();
                 args.putLong("account", account);
+                args.putBoolean("unified", true);
                 break;
             case "primary":
                 fragment = new FragmentFolders();
@@ -519,9 +683,21 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                     drawerLayout.closeDrawer(drawerContainer);
                 onMenuSetup();
             }
+        }, new Runnable() {
+            @Override
+            public void run() {
+                if (BuildConfig.DEBUG)
+                    try {
+                        DnsBlockList.clearCache();
+                        ContactInfo.clearCache(ActivityView.this, true);
+                        ToastEx.makeText(ActivityView.this, R.string.title_completed, Toast.LENGTH_LONG).show();
+                    } catch (Throwable ex) {
+                        Log.unexpectedError(getSupportFragmentManager(), ex);
+                    }
+            }
         }));
 
-        adapterNavMenu.set(menus);
+        adapterNavMenu.set(menus, nav_expanded);
 
         // Collapsible menus
 
@@ -612,7 +788,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                     drawerLayout.closeDrawer(drawerContainer);
                 startActivity(new Intent(ActivityView.this, ActivityBilling.class));
             }
-        }));
+        }).setExtraIcon(ActivityBilling.isPro(this) ? R.drawable.twotone_check_24 : 0));
 
         if ((Helper.isPlayStoreInstall() || BuildConfig.DEBUG))
             extra.add(new NavMenuItem(R.drawable.twotone_star_24, R.string.menu_rate, new Runnable() {
@@ -624,18 +800,30 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                 }
             }).setExternal(true));
 
-        adapterNavMenuExtra.set(extra);
+        adapterNavMenuExtra.set(extra, nav_expanded);
 
         // Live data
 
         DB db = DB.getInstance(this);
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
 
-        db.account().liveAccountsEx(false).observe(owner, new Observer<List<TupleAccountEx>>() {
+        db.account().liveAccountFolder().observe(owner, new Observer<List<TupleAccountFolder>>() {
             @Override
-            public void onChanged(@Nullable List<TupleAccountEx> accounts) {
+            public void onChanged(@Nullable List<TupleAccountFolder> accounts) {
                 if (accounts == null)
                     accounts = new ArrayList<>();
-                adapterNavAccount.set(accounts);
+
+                boolean nav_account = prefs.getBoolean("nav_account", true);
+                boolean nav_folder = prefs.getBoolean("nav_folder", true);
+                boolean nav_quick = prefs.getBoolean("nav_quick", true);
+                boolean expanded = (nav_account || nav_folder);
+
+                adapterNavAccount.set(accounts, nav_expanded, nav_quick);
+
+                if (expanded && nav_quick && adapterNavAccount.hasFolders())
+                    ibExpanderAccount.setImageLevel(2 /* unfold less */);
+                else
+                    ibExpanderAccount.setImageLevel(expanded ? 0 /* less */ : 1 /* more */);
             }
         });
 
@@ -644,16 +832,21 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             public void onChanged(List<TupleFolderUnified> folders) {
                 if (folders == null)
                     folders = new ArrayList<>();
-                adapterNavUnified.set(folders);
+                adapterNavUnified.set(folders, nav_expanded);
             }
         });
 
-        db.folder().liveNavigation().observe(owner, new Observer<List<TupleFolderNav>>() {
+        db.search().liveSearch().observe(owner, new Observer<List<EntitySearch>>() {
             @Override
-            public void onChanged(List<TupleFolderNav> folders) {
-                if (folders == null)
-                    folders = new ArrayList<>();
-                adapterNavFolder.set(folders);
+            public void onChanged(List<EntitySearch> search) {
+                if (search == null)
+                    search = new ArrayList<>();
+                adapterNavSearch.set(search, nav_expanded);
+
+                boolean nav_search = prefs.getBoolean("nav_search", true);
+                ibExpanderSearch.setVisibility(search.size() > 0 ? View.VISIBLE : View.GONE);
+                rvSearch.setVisibility(search.size() > 0 && nav_search ? View.VISIBLE : View.GONE);
+                vSeparatorSearch.setVisibility(search.size() > 0 ? View.VISIBLE : View.GONE);
             }
         });
 
@@ -669,7 +862,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         Log.i("Drawer start");
         owner.start();
 
-        drawerLayout.setup(getResources().getConfiguration(), drawerContainer, drawerToggle);
+        setupDrawer();
         drawerToggle.syncState();
     }
 
@@ -723,14 +916,147 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        drawerLayout.setup(newConfig, drawerContainer, drawerToggle);
+        nav_pinned = getDrawerPinned();
+        setupDrawer();
         drawerToggle.onConfigurationChanged(newConfig);
+    }
+
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences prefs, String key) {
+        super.onSharedPreferenceChanged(prefs, key);
+        if ("nav_options".equals(key)) {
+            nav_options = prefs.getBoolean(key, true);
+            ibExpanderNav.setVisibility(nav_options ? View.VISIBLE : View.GONE);
+            grpOptions.setVisibility(nav_expanded && nav_options ? View.VISIBLE : View.GONE);
+            vSeparatorOptions.setVisibility(nav_options ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private void setupDrawer() {
+        if (nav_pinned) {
+            drawerLayout.setScrimColor(Color.TRANSPARENT);
+            drawerLayout.openDrawer(drawerContainer, false);
+            drawerToggle.onDrawerOpened(drawerContainer);
+        } else {
+            drawerLayout.setScrimColor(colorDrawerScrim);
+            drawerLayout.closeDrawer(drawerContainer, false);
+            drawerToggle.onDrawerClosed(drawerContainer);
+        }
+    }
+
+    private boolean getDrawerExpanded() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean legacy = prefs.getBoolean("nav_expanded", true);
+        return prefs.getBoolean("nav_expanded_" + getOrientation(), legacy);
+    }
+
+    private void setDrawerExpanded(boolean value) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        prefs.edit()
+                .remove("nav_expanded") // legacy
+                .putBoolean("nav_expanded_" + getOrientation(), value)
+                .apply();
+
+        ViewGroup.LayoutParams lparam = drawerContainer.getLayoutParams();
+        lparam.width = getDrawerWidth();
+        drawerContainer.setLayoutParams(lparam);
+
+        ViewGroup childContent = (ViewGroup) drawerLayout.getChildAt(0);
+        ViewGroup childDrawer = (ViewGroup) drawerLayout.getChildAt(1);
+        int padding = (nav_pinned ? childDrawer.getLayoutParams().width : 0);
+        childContent.setPaddingRelative(padding, 0, 0, 0);
+
+        grpOptions.setVisibility(nav_expanded ? View.VISIBLE : View.GONE);
+        ibExpanderNav.setImageLevel(nav_expanded ? 0 : 1);
+
+        adapterNavAccount.setExpanded(nav_expanded);
+        adapterNavUnified.setExpanded(nav_expanded);
+        adapterNavMenu.setExpanded(nav_expanded);
+        adapterNavMenuExtra.setExpanded(nav_expanded);
+    }
+
+    private boolean getDrawerPinned() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        Configuration config = getResources().getConfiguration();
+        boolean legacy;
+        if (config.orientation == ORIENTATION_PORTRAIT)
+            legacy = prefs.getBoolean("portrait3", false);
+        else
+            legacy = prefs.getBoolean("landscape3", true);
+        return prefs.getBoolean("nav_pinned_" + getOrientation(), legacy);
+    }
+
+    private void setDrawerPinned(boolean value) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        prefs.edit()
+                .remove("portrait3") // legacy
+                .remove("landscape3") // legacy
+                .putBoolean("nav_pinned_" + getOrientation(), value)
+                .apply();
+
+        drawerLayout.setDrawerLockMode(nav_pinned ? LOCK_MODE_LOCKED_OPEN : LOCK_MODE_UNLOCKED);
+        drawerLayout.setScrimColor(nav_pinned ? Color.TRANSPARENT : colorDrawerScrim);
+        drawerLayout.openDrawer(drawerContainer, false);
+
+        ViewGroup.LayoutParams lparam = drawerContainer.getLayoutParams();
+        lparam.width = getDrawerWidth();
+        drawerContainer.setLayoutParams(lparam);
+
+        ViewGroup childContent = (ViewGroup) drawerLayout.getChildAt(0);
+        ViewGroup childDrawer = (ViewGroup) drawerLayout.getChildAt(1);
+        int padding = (nav_pinned ? childDrawer.getLayoutParams().width : 0);
+        childContent.setPaddingRelative(padding, 0, 0, 0);
+
+        ibPin.setImageLevel(nav_pinned ? 1 : 0);
+    }
+
+    private String getOrientation() {
+        Configuration config = getResources().getConfiguration();
+        return (config.orientation == ORIENTATION_PORTRAIT ? "portrait" : "landscape");
+    }
+
+    private int getDrawerWidth() {
+        if (!nav_expanded)
+            return Helper.dp2pixels(this, 48); // one icon + padding
+
+        if (nav_pinned)
+            return getDrawerWidthPinned();
+        else {
+            DisplayMetrics dm = getResources().getDisplayMetrics();
+
+            int actionBarHeight;
+            TypedValue tv = new TypedValue();
+            if (getTheme().resolveAttribute(android.R.attr.actionBarSize, tv, true))
+                actionBarHeight = TypedValue.complexToDimensionPixelSize(tv.data, dm);
+            else
+                actionBarHeight = Helper.dp2pixels(this, 56);
+
+            int screenWidth = Math.min(dm.widthPixels, dm.heightPixels);
+            // Screen width 320 - action bar 56 = 264 dp
+            // Icons 6 x (24 width + 2x6 padding) = 216 dp
+            int drawerWidth = screenWidth - actionBarHeight;
+            int dp320 = Helper.dp2pixels(this, 320);
+            return Math.min(drawerWidth, dp320);
+        }
+    }
+
+    private int getDrawerWidthPinned() {
+        int dp300 = Helper.dp2pixels(this, 300);
+        DisplayMetrics dm = getResources().getDisplayMetrics();
+        int maxWidth = dm.widthPixels - dp300;
+        return Math.min(dp300, maxWidth);
+    }
+
+    private boolean canExpandAndPin() {
+        int dp200 = Helper.dp2pixels(this, 200);
+        return (getDrawerWidthPinned() >= dp200);
     }
 
     @Override
     public void onBackPressed() {
         int count = getSupportFragmentManager().getBackStackEntryCount();
-        if (drawerLayout.isDrawerOpen(drawerContainer) &&
+        if (!nav_pinned &&
+                drawerLayout.isDrawerOpen(drawerContainer) &&
                 (!drawerLayout.isLocked(drawerContainer) || count == 1))
             drawerLayout.closeDrawer(drawerContainer);
         else {
@@ -787,9 +1113,13 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (drawerToggle.onOptionsItemSelected(item)) {
-            int count = getSupportFragmentManager().getBackStackEntryCount();
-            if (count == 1 && drawerLayout.isLocked(drawerContainer))
-                drawerLayout.closeDrawer(drawerContainer);
+            if (nav_pinned)
+                onBackPressed();
+            else {
+                int count = getSupportFragmentManager().getBackStackEntryCount();
+                if (count == 1 && drawerLayout.isLocked(drawerContainer))
+                    drawerLayout.closeDrawer(drawerContainer);
+            }
             return true;
         }
 
@@ -868,9 +1198,34 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     }
 
     private void checkFirst() {
+        String version = BuildConfig.VERSION_NAME + BuildConfig.REVISION;
+
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        if (prefs.getBoolean("first", true))
+        boolean first = prefs.getBoolean("first", true);
+        boolean show_changelog = prefs.getBoolean("show_changelog", !BuildConfig.PLAY_STORE_RELEASE);
+
+        if (first)
             new FragmentDialogFirst().show(getSupportFragmentManager(), "first");
+        else if (show_changelog) {
+            // checkFirst: onCreate
+            // checkIntent: onResume
+            Intent intent = getIntent();
+            String action = (intent == null ? null : intent.getAction());
+            if (action != null &&
+                    (action.startsWith("thread") || action.equals("widget")))
+                return;
+
+            String last = prefs.getString("changelog", null);
+            if (!Objects.equals(version, last) || BuildConfig.DEBUG) {
+                Bundle args = new Bundle();
+                args.putString("name", "CHANGELOG.md");
+                FragmentDialogMarkdown fragment = new FragmentDialogMarkdown();
+                fragment.setArguments(args);
+                fragment.show(getSupportFragmentManager(), "changelog");
+            }
+        }
+
+        prefs.edit().putString("changelog", version).apply();
     }
 
     private void checkBanner() {
@@ -963,11 +1318,13 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                     InputStream inputStream = (status == HttpsURLConnection.HTTP_OK
                             ? urlConnection.getInputStream() : urlConnection.getErrorStream());
 
-                    BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
+                    if (inputStream != null) {
+                        BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
 
-                    String line;
-                    while ((line = br.readLine()) != null)
-                        response.append(line);
+                        String line;
+                        while ((line = br.readLine()) != null)
+                            response.append(line);
+                    }
 
                     if (status == HttpsURLConnection.HTTP_FORBIDDEN) {
                         // {"message":"API rate limit exceeded for ...","documentation_url":"https://developer.github.com/v3/#rate-limiting"}
@@ -1058,7 +1415,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
 
                 Intent manage = new Intent(ActivityView.this, ActivitySetup.class)
                         .setAction("misc")
-                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK)
                         .putExtra("tab", "misc");
                 PendingIntent piManage = PendingIntentCompat.getActivity(
                         ActivityView.this, ActivitySetup.PI_MISC, manage, PendingIntent.FLAG_UPDATE_CURRENT);
@@ -1071,7 +1428,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                 if (!TextUtils.isEmpty(info.download_url)) {
                     Intent download = new Intent(Intent.ACTION_VIEW, Uri.parse(info.download_url))
                             .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    PendingIntent piDownload = PendingIntent.getActivity(
+                    PendingIntent piDownload = PendingIntentCompat.getActivity(
                             ActivityView.this, 0, download, 0);
                     NotificationCompat.Action.Builder actionDownload = new NotificationCompat.Action.Builder(
                             R.drawable.twotone_cloud_download_24,
@@ -1081,8 +1438,10 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                 }
 
                 try {
-                    NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                    nm.notify(Helper.NOTIFICATION_UPDATE, builder.build());
+                    NotificationManager nm =
+                            (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                    nm.notify(NotificationHelper.NOTIFICATION_UPDATE,
+                            builder.build());
                 } catch (Throwable ex) {
                     Log.w(ex);
                 }
@@ -1164,12 +1523,6 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                     Helper.viewFAQ(this, 2);
                 }
 
-            } else if ("alert".equals(action) || "error".equals(action)) {
-                if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-                    getSupportFragmentManager().popBackStack("unified", 0);
-
-                Helper.viewFAQ(this, "alert".equals(action) ? 23 : 22);
-
             } else if ("outbox".equals(action)) {
                 if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
                     getSupportFragmentManager().popBackStack("unified", 0);
@@ -1177,7 +1530,11 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                 onMenuOutbox();
 
             } else if (action.startsWith("thread")) {
-                intent.putExtra("id", Long.parseLong(action.split(":", 2)[1]));
+                long id = Long.parseLong(action.split(":", 2)[1]);
+                boolean ignore = intent.getBooleanExtra("ignore", false);
+                if (ignore)
+                    ServiceUI.ignore(this, id);
+                intent.putExtra("id", id);
                 onViewThread(intent);
 
             } else if (action.equals("widget")) {
@@ -1297,7 +1654,8 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     }
 
     private void onMenuSetup() {
-        startActivity(new Intent(ActivityView.this, ActivitySetup.class));
+        startActivity(new Intent(ActivityView.this, ActivitySetup.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
     }
 
     private void onMenuLegend() {
@@ -1326,7 +1684,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     }
 
     private void onMenuPrivacy() {
-        Helper.view(this, Uri.parse(Helper.PRIVACY_URI), false);
+        Helper.view(this, Helper.getPrivacyUri(this), false);
     }
 
     private void onMenuAbout() {
@@ -1390,23 +1748,36 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         }
     };
 
-    private List<Long> updatedFolders = new ArrayList<>();
+    private List<Pair<Long, String>> updatedFolders = new ArrayList<>();
 
-    boolean isFolderUpdated(long folder) {
-        boolean value = updatedFolders.contains(folder);
+    boolean isFolderUpdated(Long folder, String type) {
+        Pair<Long, String> key = new Pair<>(
+                folder == null ? -1L : folder,
+                folder == null ? type : null);
+        boolean value = updatedFolders.contains(key);
         if (value)
-            updatedFolders.remove(folder);
+            updatedFolders.remove(key);
         return value;
     }
 
     private void onNewMessage(Intent intent) {
         long folder = intent.getLongExtra("folder", -1);
+        String type = intent.getStringExtra("type");
         boolean unified = intent.getBooleanExtra("unified", false);
 
-        if (!updatedFolders.contains(folder))
-            updatedFolders.add(folder);
-        if (unified && !updatedFolders.contains(-1L))
-            updatedFolders.add(-1L);
+        Pair<Long, String> pfolder = new Pair<>(folder, null);
+        if (!updatedFolders.contains(pfolder))
+            updatedFolders.add(pfolder);
+
+        Pair<Long, String> ptype = new Pair<>(-1L, type);
+        if (!updatedFolders.contains(ptype))
+            updatedFolders.add(ptype);
+
+        if (unified) {
+            Pair<Long, String> punified = new Pair<>(-1L, null);
+            if (!updatedFolders.contains(punified))
+                updatedFolders.add(punified);
+        }
     }
 
     private BroadcastReceiver receiver = new BroadcastReceiver() {
@@ -1492,8 +1863,10 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         args.putLong("folder", intent.getLongExtra("folder", -1));
         args.putString("thread", intent.getStringExtra("thread"));
         args.putLong("id", intent.getLongExtra("id", -1));
+        args.putInt("lpos", intent.getIntExtra("lpos", -1));
         args.putBoolean("filter_archive", intent.getBooleanExtra("filter_archive", true));
         args.putBoolean("found", found);
+        args.putString("searched", intent.getStringExtra("searched"));
         args.putBoolean("pinned", intent.getBooleanExtra("pinned", false));
         args.putString("msgid", intent.getStringExtra("msgid"));
 

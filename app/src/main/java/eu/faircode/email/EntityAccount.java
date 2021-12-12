@@ -32,6 +32,7 @@ import androidx.annotation.RequiresApi;
 import androidx.preference.PreferenceManager;
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 import org.json.JSONException;
@@ -42,10 +43,13 @@ import java.text.Collator;
 import java.util.Comparator;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.UUID;
 
 @Entity(
         tableName = EntityAccount.TABLE_NAME,
         indices = {
+                @Index(value = {"synchronize"}),
+                @Index(value = {"category"})
         }
 )
 public class EntityAccount extends EntityOrder implements Serializable {
@@ -61,6 +65,9 @@ public class EntityAccount extends EntityOrder implements Serializable {
 
     @PrimaryKey(autoGenerate = true)
     public Long id;
+
+    @NonNull
+    public String uuid = UUID.randomUUID().toString();
 
     @NonNull
     @ColumnInfo(name = "pop")
@@ -88,6 +95,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
     public String fingerprint;
 
     public String name;
+    public String category;
     public String signature; // obsolete
     public Integer color;
 
@@ -112,7 +120,8 @@ public class EntityAccount extends EntityOrder implements Serializable {
     public Integer max_messages; // POP3
     @NonNull
     public Boolean auto_seen = true;
-    public Character separator;
+    @ColumnInfo(name = "separator")
+    public Character _separator; // obsolete
     public Long swipe_left;
     public Long swipe_right;
     public Long move_to;
@@ -146,6 +155,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
     public Long last_connected;
     public Long backoff_until;
     public Long max_size;
+    public String capabilities;
     public Boolean capability_idle;
     public Boolean capability_utf8;
 
@@ -153,11 +163,31 @@ public class EntityAccount extends EntityOrder implements Serializable {
         return "imap.gmail.com".equalsIgnoreCase(host);
     }
 
+    boolean isOutlook() {
+        return "outlook.office365.com".equalsIgnoreCase(host);
+    }
+
+    boolean isYahooJp() {
+        return "imap.mail.yahoo.co.jp".equalsIgnoreCase(host);
+    }
+
+    boolean isSeznam() {
+        return "imap.seznam.cz".equalsIgnoreCase(host);
+    }
+
+    boolean isZoho() {
+        return (host != null && host.toLowerCase(Locale.ROOT).startsWith("imap.zoho."));
+    }
+
     boolean isTransient(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean enabled = prefs.getBoolean("enabled", true);
         int pollInterval = ServiceSynchronize.getPollInterval(context);
-        return (!enabled || this.ondemand || (pollInterval > 0 && !this.poll_exempted));
+        return (!enabled || this.ondemand || (pollInterval > 0 && !isExempted(context)));
+    }
+
+    boolean isExempted(Context context) {
+        return (!Helper.isOptimizing12(context) && this.poll_exempted);
     }
 
     String getProtocol() {
@@ -190,6 +220,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
                 NotificationManager.IMPORTANCE_HIGH);
         channel.setGroup(group.getId());
         channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
+        channel.setBypassDnd(true);
         channel.enableLights(true);
         nm.createNotificationChannel(channel);
     }
@@ -221,6 +252,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
     public JSONObject toJSON() throws JSONException {
         JSONObject json = new JSONObject();
         json.put("id", id);
+        json.put("uuid", uuid);
         json.put("order", order);
         json.put("protocol", protocol);
         json.put("host", host);
@@ -236,6 +268,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
         json.put("fingerprint", fingerprint);
 
         json.put("name", name);
+        json.put("category", category);
         json.put("color", color);
 
         json.put("synchronize", synchronize);
@@ -276,6 +309,9 @@ public class EntityAccount extends EntityOrder implements Serializable {
         if (json.has("id"))
             account.id = json.getLong("id");
 
+        if (json.has("uuid"))
+            account.uuid = json.getString("uuid");
+
         if (json.has("order"))
             account.order = json.getInt("order");
 
@@ -306,6 +342,8 @@ public class EntityAccount extends EntityOrder implements Serializable {
 
         if (json.has("name") && !json.isNull("name"))
             account.name = json.getString("name");
+        if (json.has("category") && !json.isNull("category"))
+            account.category = json.getString("category");
         if (json.has("color"))
             account.color = json.getInt("color");
 
@@ -352,7 +390,8 @@ public class EntityAccount extends EntityOrder implements Serializable {
     public boolean equals(Object obj) {
         if (obj instanceof EntityAccount) {
             EntityAccount other = (EntityAccount) obj;
-            return (Objects.equals(this.order, other.order) &&
+            return (Objects.equals(this.uuid, other.uuid) &&
+                    Objects.equals(this.order, other.order) &&
                     this.protocol.equals(other.protocol) &&
                     this.host.equals(other.host) &&
                     this.encryption.equals(other.encryption) &&
@@ -363,6 +402,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
                     this.password.equals(other.password) &&
                     Objects.equals(this.realm, other.realm) &&
                     Objects.equals(this.name, other.name) &&
+                    Objects.equals(this.category, other.category) &&
                     Objects.equals(this.color, other.color) &&
                     this.synchronize.equals(other.synchronize) &&
                     this.primary.equals(other.primary) &&
@@ -389,6 +429,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
                     Objects.equals(this.last_connected, other.last_connected) &&
                     Objects.equals(this.backoff_until, other.backoff_until) &&
                     Objects.equals(this.max_size, other.max_size) &&
+                    Objects.equals(this.capabilities, other.capabilities) &&
                     Objects.equals(this.capability_idle, other.capability_idle) &&
                     Objects.equals(this.capability_utf8, other.capability_utf8));
         } else

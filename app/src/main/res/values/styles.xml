@@ -5,10 +5,12 @@
     <attr name="colorUnreadHighlight" format="reference" />
     <attr name="colorBlockquote" format="reference" />
     <attr name="colorHighlight" format="reference" />
+    <attr name="colorVerified" format="reference" />
     <attr name="colorEncrypt" format="reference" />
     <attr name="colorSeparator" format="reference" />
     <attr name="colorThumb" format="reference" />
     <attr name="colorWarning" format="reference" />
+    <attr name="colorBadge" format="reference" />
     <attr name="colorDrawerScrim" format="reference" />
     <attr name="colorDrawerText" format="reference" />
     <attr name="colorDrawerBackground" format="reference" />
@@ -24,6 +26,14 @@
 
     <style name="AppThemeBaseLight" parent="Base.Theme.AppCompat.Light.DarkActionBar">
         <item name="themeName">light</item>
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
+        <item name="android:windowSplashScreenBackground" tools:targetApi="s">
+            @android:color/darker_gray
+        </item>
+        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">
+            @mipmap/ic_launcher_round
+        </item>
+
         <item name="android:windowDisablePreview">true</item>
         <item name="android:windowAnimationStyle">@style/activityAnimationStyle</item>
 
@@ -32,11 +42,13 @@
 
         <item name="colorHighlight">@color/colorHighlightLight</item>
 
+        <item name="colorVerified">@color/colorVerifiedLight</item>
         <item name="colorEncrypt">@color/colorEncryptLight</item>
 
         <item name="colorSeparator">@color/lightColorSeparator</item>
         <item name="colorThumb">@color/lightColorThumb</item>
         <item name="colorWarning">@color/lightColorWarning</item>
+        <item name="colorBadge">@color/red</item>
 
         <item name="colorDrawerScrim">@color/lightColorDrawerScrim</item>
         <item name="colorDrawerText">@color/lightColorDrawerText</item>
@@ -66,6 +78,14 @@
 
     <style name="AppThemeBaseDark" parent="Base.Theme.AppCompat">
         <item name="themeName">dark</item>
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
+        <item name="android:windowSplashScreenBackground" tools:targetApi="s">
+            @android:color/darker_gray
+        </item>
+        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">
+            @mipmap/ic_launcher_round
+        </item>
+
         <item name="android:windowDisablePreview">true</item>
         <item name="android:windowAnimationStyle">@style/activityAnimationStyle</item>
 
@@ -76,11 +96,13 @@
 
         <item name="colorHighlight">@color/colorHighlightDark</item>
 
+        <item name="colorVerified">@color/colorVerifiedDark</item>
         <item name="colorEncrypt">@color/colorEncryptDark</item>
 
         <item name="colorSeparator">@color/darkColorSeparator</item>
         <item name="colorThumb">@color/darkColorThumb</item>
         <item name="colorWarning">@color/darkColorWarning</item>
+        <item name="colorBadge">@color/red</item>
 
         <item name="colorDrawerScrim">@color/darkColorDrawerScrim</item>
         <item name="colorDrawerText">@color/darkColorDrawerText</item>
@@ -463,7 +485,7 @@
         <item name="android:windowIsFloating">true</item>
         <item name="android:backgroundDimEnabled">false</item>
         <item name="android:windowContentOverlay">@null</item>
-        <item name="android:windowAnimationStyle">@android:style/Animation</item>
+        <item name="android:windowAnimationStyle">@null</item>
     </style>
 
     <style name="activityAnimationStyle" parent="@android:style/Animation.Activity">

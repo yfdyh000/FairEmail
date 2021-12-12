@@ -3,9 +3,102 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:animateLayoutChanges="false">
+    android:animateLayoutChanges="false"
+    android:descendantFocusability="beforeDescendants"
+    android:focusable="true"
+    android:focusableInTouchMode="true">
 
-    <ImageButton
+    <eu.faircode.email.FixedImageButton
+        android:id="@+id/ibExpanderNav"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/title_legend_expander"
+        android:padding="6dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/expander_hor" />
+
+    <eu.faircode.email.FixedImageButton
+        android:id="@+id/ibPin"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/title_advanced_nav_pin"
+        android:padding="6dp"
+        android:tooltipText="@string/title_advanced_nav_pin"
+        app:layout_constraintEnd_toStartOf="@+id/ibHide"
+        app:layout_constraintStart_toEndOf="@id/ibExpanderNav"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/pin" />
+
+    <eu.faircode.email.FixedImageButton
+        android:id="@+id/ibHide"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/title_hide"
+        android:padding="6dp"
+        android:tooltipText="@string/title_hide"
+        app:layout_constraintEnd_toStartOf="@+id/ibSettings"
+        app:layout_constraintStart_toEndOf="@id/ibPin"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/twotone_visibility_off_24" />
+
+    <eu.faircode.email.FixedImageButton
+        android:id="@+id/ibSettings"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/title_setup"
+        android:padding="6dp"
+        android:tooltipText="@string/title_setup"
+        app:layout_constraintEnd_toStartOf="@+id/ibFetchMore"
+        app:layout_constraintStart_toEndOf="@id/ibHide"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/twotone_settings_24" />
+
+    <eu.faircode.email.FixedImageButton
+        android:id="@+id/ibFetchMore"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/title_synchronize_more"
+        android:padding="6dp"
+        android:tooltipText="@string/title_synchronize_more"
+        app:layout_constraintEnd_toStartOf="@+id/ibForceSync"
+        app:layout_constraintStart_toEndOf="@id/ibSettings"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/twotone_save_alt_24" />
+
+    <eu.faircode.email.FixedImageButton
+        android:id="@+id/ibForceSync"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/title_force_sync"
+        android:padding="6dp"
+        android:tooltipText="@string/title_force_sync"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/twotone_sync_24" />
+
+    <androidx.constraintlayout.widget.Group
+        android:id="@+id/grpOptions"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:constraint_referenced_ids="ibPin,ibHide,ibSettings,ibFetchMore,ibForceSync" />
+
+    <View
+        android:id="@+id/vSeparatorOptions"
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:background="?attr/colorSeparator"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/ibExpanderNav" />
+
+    <eu.faircode.email.FixedImageButton
         android:id="@+id/ibExpanderAccount"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -13,8 +106,8 @@
         android:contentDescription="@string/title_legend_expander"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/expander" />
+        app:layout_constraintTop_toBottomOf="@id/vSeparatorOptions"
+        app:srcCompat="@drawable/expander3" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvAccount"
@@ -35,7 +128,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/rvAccount" />
 
-    <ImageButton
+    <eu.faircode.email.FixedImageButton
         android:id="@+id/ibExpanderUnified"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -65,8 +158,8 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/rvUnified" />
 
-    <ImageButton
-        android:id="@+id/ibExpanderFolder"
+    <eu.faircode.email.FixedImageButton
+        android:id="@+id/ibExpanderSearch"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:background="?android:attr/selectableItemBackground"
@@ -77,25 +170,25 @@
         app:srcCompat="@drawable/expander" />
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvFolder"
+        android:id="@+id/rvSearch"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:animateLayoutChanges="false"
         android:nestedScrollingEnabled="false"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/ibExpanderFolder" />
+        app:layout_constraintTop_toBottomOf="@id/ibExpanderSearch" />
 
     <View
-        android:id="@+id/vSeparatorFolder"
+        android:id="@+id/vSeparatorSearch"
         android:layout_width="0dp"
         android:layout_height="1dp"
         android:background="?attr/colorSeparator"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/rvFolder" />
+        app:layout_constraintTop_toBottomOf="@id/rvSearch" />
 
-    <ImageButton
+    <eu.faircode.email.FixedImageButton
         android:id="@+id/ibExpanderMenu"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -103,7 +196,7 @@
         android:contentDescription="@string/title_legend_expander"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/vSeparatorFolder"
+        app:layout_constraintTop_toBottomOf="@id/vSeparatorSearch"
         app:srcCompat="@drawable/expander" />
 
     <androidx.recyclerview.widget.RecyclerView
@@ -125,7 +218,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/rvMenu" />
 
-    <ImageButton
+    <eu.faircode.email.FixedImageButton
         android:id="@+id/ibExpanderExtra"
         android:layout_width="0dp"
         android:layout_height="wrap_content"

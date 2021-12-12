@@ -23,6 +23,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
@@ -50,6 +51,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.constraintlayout.widget.Group;
 import androidx.core.content.pm.ShortcutInfoCompat;
@@ -67,10 +69,12 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.snackbar.Snackbar;
 
+import java.text.DateFormat;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -79,11 +83,13 @@ import java.util.Map;
 public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder> {
     private Fragment parentFragment;
     private long account;
+    private boolean unified;
     private boolean primary;
     private boolean show_compact;
     private boolean show_hidden;
     private boolean show_flagged;
     private boolean subscribed_only;
+    private boolean sort_unread_atop;
     private IFolderSelectedListener listener;
 
     private Context context;
@@ -94,14 +100,16 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
 
     private int dp12;
     private float textSize;
+    private int colorStripeWidth;
     private int textColorPrimary;
     private int textColorSecondary;
     private int colorUnread;
     private int colorControlNormal;
 
+    private String search = null;
     private List<Long> disabledIds = new ArrayList<>();
     private List<TupleFolderEx> all = new ArrayList<>();
-    private List<TupleFolderEx> items = new ArrayList<>();
+    private List<TupleFolderEx> selected = new ArrayList<>();
 
     private NumberFormat NF = NumberFormat.getNumberInstance();
 
@@ -119,6 +127,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
         private ImageView ivSubscribed;
         private ImageView ivRule;
         private ImageView ivNotify;
+        private ImageView ivAutoAdd;
         private TextView tvName;
         private TextView tvMessages;
         private ImageView ivMessages;
@@ -127,7 +136,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
         private TextView tvType;
         private TextView tvTotal;
         private TextView tvAfter;
-        private ImageView ivSync;
+        private ImageButton ibSync;
 
         private TextView tvKeywords;
         private TextView tvFlagged;
@@ -157,6 +166,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
             ivSubscribed = itemView.findViewById(R.id.ivSubscribed);
             ivRule = itemView.findViewById(R.id.ivRule);
             ivNotify = itemView.findViewById(R.id.ivNotify);
+            ivAutoAdd = itemView.findViewById(R.id.ivAutoAdd);
             tvName = itemView.findViewById(R.id.tvName);
             tvMessages = itemView.findViewById(R.id.tvMessages);
             ivMessages = itemView.findViewById(R.id.ivMessages);
@@ -165,7 +175,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
             tvType = itemView.findViewById(R.id.tvType);
             tvTotal = itemView.findViewById(R.id.tvTotal);
             tvAfter = itemView.findViewById(R.id.tvAfter);
-            ivSync = itemView.findViewById(R.id.ivSync);
+            ibSync = itemView.findViewById(R.id.ibSync);
 
             tvKeywords = itemView.findViewById(R.id.tvKeywords);
             tvFlagged = itemView.findViewById(R.id.tvFlagged);
@@ -176,48 +186,54 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
 
             grpFlagged = itemView.findViewById(R.id.grpFlagged);
             grpExtended = itemView.findViewById(R.id.grpExtended);
+
+            if (vwColor != null)
+                vwColor.getLayoutParams().width = colorStripeWidth;
         }
 
         private void wire() {
             view.setOnClickListener(this);
+            view.setOnLongClickListener(this);
             ibExpander.setOnClickListener(this);
             if (tvFlagged != null)
                 tvFlagged.setOnClickListener(this);
             if (ibFlagged != null)
                 ibFlagged.setOnClickListener(this);
-            if (listener == null)
-                view.setOnLongClickListener(this);
+            if (ibSync != null)
+                ibSync.setOnClickListener(this);
             if (btnHelp != null)
                 btnHelp.setOnClickListener(this);
         }
 
         private void unwire() {
             view.setOnClickListener(null);
+            view.setOnLongClickListener(null);
             ibExpander.setOnClickListener(null);
             if (tvFlagged != null)
                 tvFlagged.setOnClickListener(null);
             if (ibFlagged != null)
                 ibFlagged.setOnClickListener(null);
-            if (listener == null)
-                view.setOnLongClickListener(null);
+            if (ibSync != null)
+                ibSync.setOnClickListener(null);
             if (btnHelp != null)
                 btnHelp.setOnClickListener(null);
         }
 
         private void bindTo(final TupleFolderEx folder) {
+            boolean disabled = isDisabled(folder);
+
             view.setActivated(folder.tbc != null || folder.rename != null || folder.tbd != null);
-            view.setAlpha(
-                    folder.hide ||
-                            !folder.selectable ||
-                            (folder.read_only && listener != null) ||
-                            disabledIds.contains(folder.id)
-                            ? Helper.LOW_LIGHT : 1.0f);
+            view.setEnabled(!disabled);
+            view.setAlpha(folder.hide || disabled ? Helper.LOW_LIGHT : 1.0f);
 
             if (textSize != 0)
                 tvName.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
 
             if (listener == null) {
-                vwColor.setBackgroundColor(folder.color == null ? Color.TRANSPARENT : folder.color);
+                Integer color =
+                        (folder.color == null && unified && EntityFolder.INBOX.equals(folder.type)
+                                ? folder.accountColor : folder.color);
+                vwColor.setBackgroundColor(color == null ? Color.TRANSPARENT : color);
                 vwColor.setVisibility(ActivityBilling.isPro(context) ? View.VISIBLE : View.GONE);
 
                 if (folder.sync_state == null || "requested".equals(folder.sync_state)) {
@@ -272,6 +288,10 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                 ivSubscribed.setVisibility(subscriptions && folder.subscribed != null && folder.subscribed ? View.VISIBLE : View.GONE);
                 ivRule.setVisibility(folder.rules > 0 ? View.VISIBLE : View.GONE);
                 ivNotify.setVisibility(folder.notify ? View.VISIBLE : View.GONE);
+                ivAutoAdd.setVisibility(BuildConfig.DEBUG &&
+                        EntityFolder.SENT.equals(folder.type) &&
+                        (folder.auto_add == null || folder.auto_add)
+                        ? View.VISIBLE : View.GONE);
             }
 
             int cunseen = (folder.collapsed ? folder.childs_unseen : 0);
@@ -321,8 +341,8 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
 
                 if (folder.account == null) {
                     tvAfter.setText(null);
-                    ivSync.setImageResource(R.drawable.twotone_sync_24);
-                    ivSync.setContentDescription(context.getString(R.string.title_legend_synchronize_on));
+                    ibSync.setImageResource(R.drawable.twotone_sync_24);
+                    ibSync.setContentDescription(context.getString(R.string.title_legend_synchronize_on));
                 } else {
                     StringBuilder a = new StringBuilder();
 
@@ -340,24 +360,28 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
 
                     tvAfter.setText(a.toString());
                     if (folder.synchronize) {
-                        ivSync.setImageResource(folder.poll
+                        ibSync.setImageResource(folder.poll
                                 ? R.drawable.twotone_hourglass_top_24
                                 : R.drawable.twotone_sync_24);
-                        ivSync.setContentDescription(context.getString(folder.poll
+                        ibSync.setContentDescription(context.getString(folder.poll
                                 ? R.string.title_legend_synchronize_poll
                                 : R.string.title_legend_synchronize_on));
                     } else {
-                        ivSync.setImageResource(R.drawable.twotone_sync_disabled_24);
-                        ivSync.setContentDescription(context.getString(R.string.title_legend_synchronize_off));
+                        ibSync.setImageResource(R.drawable.twotone_sync_disabled_24);
+                        ibSync.setContentDescription(context.getString(R.string.title_legend_synchronize_off));
                     }
                 }
-                ivSync.setImageTintList(ColorStateList.valueOf(
+                ibSync.setImageTintList(ColorStateList.valueOf(
                         folder.synchronize && folder.initialize != 0 &&
                                 !EntityFolder.OUTBOX.equals(folder.type) &&
                                 folder.accountProtocol == EntityAccount.TYPE_IMAP
                                 ? textColorPrimary : textColorSecondary));
+                ibSync.setEnabled(folder.last_sync != null);
 
-                tvKeywords.setText(BuildConfig.DEBUG ? TextUtils.join(" ", folder.keywords) : null);
+                tvKeywords.setText(BuildConfig.DEBUG ?
+                        (folder.separator == null ? "" : folder.separator + " ") +
+                                (folder.namespace == null ? "" : folder.namespace + " ") +
+                                TextUtils.join(" ", folder.keywords) : null);
                 tvKeywords.setVisibility(show_flagged ? View.VISIBLE : View.GONE);
 
                 tvFlagged.setText(NF.format(folder.flagged));
@@ -385,7 +409,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                 if (pos == RecyclerView.NO_POSITION)
                     return;
 
-                TupleFolderEx folder = items.get(pos);
+                TupleFolderEx folder = selected.get(pos);
                 if (folder.tbd != null)
                     return;
 
@@ -394,26 +418,29 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                     onCollapse(folder, pos);
                 } else if (id == R.id.tvFlagged || id == R.id.ibFlagged) {
                     onFlagged(folder);
+                } else if (id == R.id.ibSync) {
+                    onLastSync(folder);
                 } else {
-                    if (listener == null) {
-                        if (!folder.selectable)
-                            return;
+                    if (isDisabled(folder))
+                        return;
 
+                    if (listener == null) {
                         LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(context);
                         lbm.sendBroadcast(
                                 new Intent(ActivityView.ACTION_VIEW_MESSAGES)
                                         .putExtra("account", folder.account)
                                         .putExtra("folder", folder.id)
                                         .putExtra("type", folder.type));
-                    } else {
-                        if (folder.read_only)
-                            return;
-                        if (disabledIds.contains(folder.id))
-                            return;
+                    } else
                         listener.onFolderSelected(folder);
-                    }
                 }
             }
+        }
+
+        private boolean isDisabled(EntityFolder folder) {
+            return (!folder.selectable ||
+                    (folder.read_only && listener != null) ||
+                    disabledIds.contains(folder.id));
         }
 
         private void onCollapse(TupleFolderEx folder, int pos) {
@@ -463,15 +490,25 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                     folder.account, folder.id, false, criteria);
         }
 
+        private void onLastSync(TupleFolderEx folder) {
+            if (folder.last_sync == null)
+                return;
+            DateFormat DTF = Helper.getDateTimeInstance(context, SimpleDateFormat.LONG, SimpleDateFormat.LONG);
+            ToastEx.makeText(context, DTF.format(folder.last_sync), Toast.LENGTH_LONG).show();
+        }
+
         @Override
         public boolean onLongClick(View v) {
             int pos = getAdapterPosition();
             if (pos == RecyclerView.NO_POSITION)
                 return false;
 
-            final TupleFolderEx folder = items.get(pos);
+            final TupleFolderEx folder = selected.get(pos);
             if (folder.tbd != null || folder.local)
                 return false;
+
+            if (listener != null)
+                return listener.onFolderLongPress(folder);
 
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
             boolean perform_expunge = prefs.getBoolean("perform_expunge", true);
@@ -504,7 +541,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                     popupMenu.getMenu().add(Menu.NONE, R.string.title_delete_local, order++, R.string.title_delete_local);
                     popupMenu.getMenu().add(Menu.NONE, R.string.title_delete_browsed, order++, R.string.title_delete_browsed);
                     if (!perform_expunge || BuildConfig.DEBUG)
-                        popupMenu.getMenu().add(Menu.NONE, R.string.title_advanced_expunge, order++, R.string.title_advanced_expunge);
+                        popupMenu.getMenu().add(Menu.NONE, R.string.title_expunge, order++, R.string.title_expunge);
                 }
 
                 if (EntityFolder.TRASH.equals(folder.type))
@@ -575,6 +612,8 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                 submenu.add(Menu.FIRST, R.string.title_synchronize_now, 1, R.string.title_synchronize_now);
                 submenu.add(Menu.FIRST, R.string.title_synchronize_batch_enable, 2, R.string.title_synchronize_batch_enable);
                 submenu.add(Menu.FIRST, R.string.title_synchronize_batch_disable, 3, R.string.title_synchronize_batch_disable);
+                submenu.add(Menu.FIRST, R.string.title_notify_batch_enable, 4, R.string.title_notify_batch_enable);
+                submenu.add(Menu.FIRST, R.string.title_notify_batch_disable, 5, R.string.title_notify_batch_disable);
             }
 
             if (folder.account != null && folder.accountProtocol == EntityAccount.TYPE_IMAP)
@@ -584,9 +623,8 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
             if (Shortcuts.can(context))
                 popupMenu.getMenu().add(Menu.NONE, R.string.title_pin, order++, R.string.title_pin);
 
-            if (!folder.selectable && debug)
-                popupMenu.getMenu().add(Menu.NONE, R.string.title_delete, order++, R.string.title_delete)
-                        .setEnabled(folder.inferiors);
+            if (!folder.read_only && EntityFolder.USER.equals(folder.type))
+                popupMenu.getMenu().add(Menu.NONE, R.string.title_delete, order++, R.string.title_delete);
 
             popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
                 @Override
@@ -597,10 +635,16 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                             onActionSync(true);
                             return true;
                         } else if (itemId == R.string.title_synchronize_batch_enable) {
-                            onActionEnable(true);
+                            onActionEnableSync(true);
                             return true;
                         } else if (itemId == R.string.title_synchronize_batch_disable) {
-                            onActionEnable(false);
+                            onActionEnableSync(false);
+                            return true;
+                        } else if (itemId == R.string.title_notify_batch_enable) {
+                            onActionEnableNotify(true);
+                            return true;
+                        } else if (itemId == R.string.title_notify_batch_disable) {
+                            onActionEnableNotify(false);
                             return true;
                         }
                         return false;
@@ -625,7 +669,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                     } else if (itemId == R.string.title_delete_browsed) {
                         OnActionDeleteLocal(true);
                         return true;
-                    } else if (itemId == R.string.title_advanced_expunge) {
+                    } else if (itemId == R.string.title_expunge) {
                         onActionExpunge();
                         return true;
                     } else if (itemId == R.string.title_empty_trash) {
@@ -733,10 +777,10 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                                         .setGestureInsetBottomIgnored(true);
                                 snackbar.setAction(R.string.title_fix, new View.OnClickListener() {
                                     @Override
-                                    public void onClick(View view) {
-                                        context.startActivity(
-                                                new Intent(context, ActivitySetup.class)
-                                                        .putExtra("tab", "connection"));
+                                    public void onClick(View v) {
+                                        v.getContext().startActivity(new Intent(v.getContext(), ActivitySetup.class)
+                                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                                .putExtra("tab", "connection"));
                                     }
                                 });
                                 snackbar.show();
@@ -749,7 +793,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                     }.execute(context, owner, args, "folder:sync");
                 }
 
-                private void onActionEnable(boolean enabled) {
+                private void onActionEnableSync(boolean enabled) {
                     Bundle args = new Bundle();
                     args.putLong("id", folder.id);
                     args.putLong("account", folder.account);
@@ -778,6 +822,42 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                             }
 
                             ServiceSynchronize.reload(context, aid, false, "child sync=" + enabled);
+
+                            return null;
+                        }
+
+                        @Override
+                        protected void onException(Bundle args, Throwable ex) {
+                            Log.unexpectedError(parentFragment.getParentFragmentManager(), ex);
+                        }
+                    }.execute(context, owner, args, "enable");
+                }
+
+                private void onActionEnableNotify(boolean enabled) {
+                    Bundle args = new Bundle();
+                    args.putLong("id", folder.id);
+                    args.putBoolean("enabled", enabled);
+
+                    new SimpleTask<Void>() {
+                        @Override
+                        protected Void onExecute(Context context, Bundle args) throws Throwable {
+                            long id = args.getLong("id");
+                            boolean enabled = args.getBoolean("enabled");
+
+                            DB db = DB.getInstance(context);
+                            try {
+                                db.beginTransaction();
+                                List<EntityFolder> childs = db.folder().getChildFolders(id);
+                                if (childs == null)
+                                    return null;
+
+                                for (EntityFolder child : childs)
+                                    db.folder().setFolderNotify(child.id, enabled);
+
+                                db.setTransactionSuccessful();
+                            } finally {
+                                db.endTransaction();
+                            }
 
                             return null;
                         }
@@ -875,6 +955,26 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                 }
 
                 private void onActionExpunge() {
+                    new AlertDialog.Builder(view.getContext())
+                            .setIcon(R.drawable.twotone_warning_24)
+                            .setTitle(R.string.title_expunge)
+                            .setMessage(R.string.title_expunge_remark)
+                            .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    expunge();
+                                }
+                            })
+                            .setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    // Do nothing
+                                }
+                            })
+                            .show();
+                }
+
+                private void expunge() {
                     Bundle args = new Bundle();
                     args.putLong("id", folder.id);
 
@@ -936,7 +1036,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                 private void onActionExecuteRules() {
                     Bundle args = new Bundle();
                     args.putString("question", context.getString(R.string.title_execute_rules));
-                    args.putLong("folder", folder.id);
+                    args.putLong("id", folder.id);
 
                     FragmentDialogAsk ask = new FragmentDialogAsk();
                     ask.setArguments(args);
@@ -1037,13 +1137,14 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
         }
     }
 
-    AdapterFolder(Fragment parentFragment, long account, boolean primary, boolean show_compact, boolean show_hidden, boolean show_flagged, IFolderSelectedListener listener) {
-        this(parentFragment.getContext(), parentFragment.getViewLifecycleOwner(), account, primary, show_compact, show_hidden, show_flagged, listener);
+    AdapterFolder(Fragment parentFragment, long account, boolean unified, boolean primary, boolean show_compact, boolean show_hidden, boolean show_flagged, IFolderSelectedListener listener) {
+        this(parentFragment.getContext(), parentFragment.getViewLifecycleOwner(), account, unified, primary, show_compact, show_hidden, show_flagged, listener);
         this.parentFragment = parentFragment;
     }
 
-    AdapterFolder(Context context, LifecycleOwner owner, long account, boolean primary, boolean show_compact, boolean show_hidden, boolean show_flagged, IFolderSelectedListener listener) {
+    AdapterFolder(Context context, LifecycleOwner owner, long account, boolean unified, boolean primary, boolean show_compact, boolean show_hidden, boolean show_flagged, IFolderSelectedListener listener) {
         this.account = account;
+        this.unified = unified;
         this.primary = primary;
         this.show_compact = show_compact;
         this.show_hidden = show_hidden;
@@ -1062,9 +1163,12 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
 
         this.subscriptions = prefs.getBoolean("subscriptions", false);
         this.subscribed_only = prefs.getBoolean("subscribed_only", false) && subscriptions;
+        this.sort_unread_atop = prefs.getBoolean("sort_unread_atop", false);
 
         this.dp12 = Helper.dp2pixels(context, 12);
         this.textSize = Helper.getTextSize(context, zoom);
+        boolean color_stripe_wide = prefs.getBoolean("color_stripe_wide", false);
+        this.colorStripeWidth = Helper.dp2pixels(context, color_stripe_wide ? 12 : 6);
         this.textColorPrimary = Helper.resolveColor(context, android.R.attr.textColorPrimary);
         this.textColorSecondary = Helper.resolveColor(context, android.R.attr.textColorSecondary);
 
@@ -1080,6 +1184,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
             public void onDestroyed() {
                 Log.d(AdapterFolder.this + " parent destroyed");
                 AdapterFolder.this.parentFragment = null;
+                owner.getLifecycle().removeObserver(this);
             }
         });
     }
@@ -1108,12 +1213,19 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
         }
     }
 
+    void setSortUnreadAtop(boolean sort_unread_atop) {
+        if (this.sort_unread_atop != sort_unread_atop) {
+            this.sort_unread_atop = sort_unread_atop;
+            set(all);
+        }
+    }
+
     void setDisabled(List<Long> ids) {
         disabledIds = ids;
     }
 
     public void set(@NonNull List<TupleFolderEx> folders) {
-        Log.i("Set folders=" + folders.size());
+        Log.i("Set folders=" + folders.size() + " search=" + search);
         all = folders;
 
         List<TupleFolderEx> hierarchical;
@@ -1121,6 +1233,14 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
             if (folders.size() > 0)
                 Collections.sort(folders, folders.get(0).getComparator(context));
             hierarchical = folders;
+
+            if (sort_unread_atop)
+                Collections.sort(hierarchical, new Comparator<TupleFolderEx>() {
+                    @Override
+                    public int compare(TupleFolderEx f1, TupleFolderEx f2) {
+                        return -Boolean.compare(f1.unseen > 0, f2.unseen > 0);
+                    }
+                });
         } else {
             List<TupleFolderEx> parents = new ArrayList<>();
             Map<Long, TupleFolderEx> idFolder = new HashMap<>();
@@ -1169,12 +1289,23 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                         }
             }
 
-            hierarchical = getHierarchical(parents, anyChild ? 0 : 1);
+            hierarchical = getHierarchical(parents, anyChild ? 0 : 1, sort_unread_atop);
         }
 
-        DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffCallback(items, hierarchical), false);
+        List<TupleFolderEx> items;
+        if (TextUtils.isEmpty(search))
+            items = hierarchical;
+        else {
+            items = new ArrayList<>();
+            String query = search.toLowerCase().trim();
+            for (TupleFolderEx item : hierarchical)
+                if (item.getDisplayName(context).toLowerCase().contains(query))
+                    items.add(item);
+        }
 
-        items = hierarchical;
+        DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffCallback(selected, items), false);
+
+        selected = items;
 
         diff.dispatchUpdatesTo(new ListUpdateCallback() {
             @Override
@@ -1200,6 +1331,12 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
         diff.dispatchUpdatesTo(this);
     }
 
+    public void search(String query) {
+        Log.i("Contacts query=" + query);
+        search = query;
+        set(all);
+    }
+
     public void search(String query, final int result, final ISearchResult intf) {
         if (TextUtils.isEmpty(query)) {
             intf.onNotFound();
@@ -1218,8 +1355,8 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                 int pos = -1;
                 int next = -1;
                 int count = result + 1;
-                for (int i = 0; i < items.size(); i++)
-                    if (items.get(i).getDisplayName(context).toLowerCase().contains(query.toLowerCase())) {
+                for (int i = 0; i < selected.size(); i++)
+                    if (selected.get(i).getDisplayName(context).toLowerCase().contains(query.toLowerCase())) {
                         count--;
                         if (count == 0)
                             pos = i;
@@ -1242,11 +1379,19 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
         void onNotFound();
     }
 
-    private List<TupleFolderEx> getHierarchical(List<TupleFolderEx> parents, int indentation) {
+    private List<TupleFolderEx> getHierarchical(List<TupleFolderEx> parents, int indentation, boolean sort_unread_atop) {
         List<TupleFolderEx> result = new ArrayList<>();
 
         if (parents.size() > 0)
             Collections.sort(parents, parents.get(0).getComparator(context));
+
+        if (sort_unread_atop)
+            Collections.sort(parents, new Comparator<TupleFolderEx>() {
+                @Override
+                public int compare(TupleFolderEx f1, TupleFolderEx f2) {
+                    return -Boolean.compare(f1.unseen > 0, f2.unseen > 0);
+                }
+            });
 
         for (TupleFolderEx parent : parents) {
             if (parent.hide && !show_hidden)
@@ -1254,7 +1399,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
 
             List<TupleFolderEx> childs = null;
             if (parent.child_refs != null) {
-                childs = getHierarchical(parent.child_refs, indentation + 1);
+                childs = getHierarchical(parent.child_refs, indentation + 1, sort_unread_atop);
                 for (TupleFolderEx child : childs) {
                     parent.childs_unseen += child.unseen;
                     if (child.collapsed)
@@ -1333,18 +1478,25 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
 
     @Override
     public long getItemId(int position) {
-        return items.get(position).id;
+        return selected.get(position).id;
+    }
+
+    public TupleFolderEx getItemAtPosition(int pos) {
+        if (pos >= 0 && pos < selected.size())
+            return selected.get(pos);
+        else
+            return null;
     }
 
     @Override
     public int getItemCount() {
-        return items.size();
+        return selected.size();
     }
 
     @Override
     public int getItemViewType(int position) {
         if (listener == null)
-            return (items.get(position).selectable ? R.layout.item_folder : R.layout.item_folder_unselectable);
+            return (selected.get(position).selectable ? R.layout.item_folder : R.layout.item_folder_unselectable);
         else
             return R.layout.item_folder_select;
     }
@@ -1357,7 +1509,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        TupleFolderEx folder = items.get(position);
+        TupleFolderEx folder = selected.get(position);
         holder.powner.recreate(folder == null ? null : folder.id);
 
         holder.unwire();
@@ -1367,5 +1519,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
 
     interface IFolderSelectedListener {
         void onFolderSelected(@NonNull TupleFolderEx folder);
+
+        boolean onFolderLongPress(@NonNull TupleFolderEx folder);
     }
 }

@@ -14,6 +14,9 @@
             android:id="@+id/tvMessage"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:drawableStart="@drawable/twotone_report_24"
+            android:drawablePadding="6dp"
+            android:drawableTint="?attr/colorWarning"
             android:text="@string/title_ask_spam_who"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textColor="?android:attr/textColorPrimary"
@@ -33,7 +36,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/tvMessage" />
 
-        <ImageButton
+        <eu.faircode.email.FixedImageButton
             android:id="@+id/ibInfoProvider"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -61,8 +64,9 @@
             android:id="@+id/cbBlockDomain"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
             android:layout_marginTop="12dp"
-            android:text="@string/title_block_domain"
+            android:text="@string/title_block_sender_domain"
             android:textAppearance="@style/TextAppearance.AppCompat.Small"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/cbBlockSender" />
@@ -78,7 +82,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/cbBlockDomain" />
 
-        <ImageButton
+        <eu.faircode.email.FixedImageButton
             android:id="@+id/ibMore"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -102,18 +106,6 @@
             app:layout_constraintStart_toEndOf="@+id/ibMore"
             app:layout_constraintTop_toTopOf="@+id/ibMore" />
 
-        <Button
-            android:id="@+id/btnEditRules"
-            style="?android:attr/buttonStyleSmall"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:drawableEnd="@drawable/twotone_edit_24"
-            android:drawablePadding="6dp"
-            android:text="@string/title_edit_rules"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tvMore" />
-
         <CheckBox
             android:id="@+id/cbJunkFilter"
             android:layout_width="0dp"
@@ -123,7 +115,7 @@
             android:textAppearance="@style/TextAppearance.AppCompat.Small"
             app:layout_constraintEnd_toStartOf="@+id/ibInfoFilter"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/btnEditRules" />
+            app:layout_constraintTop_toBottomOf="@id/tvMore" />
 
         <eu.faircode.email.FixedTextView
             android:id="@+id/tvJunkFilterHint"
@@ -138,7 +130,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/cbJunkFilter" />
 
-        <ImageButton
+        <eu.faircode.email.FixedImageButton
             android:id="@+id/ibInfoFilter"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -188,7 +180,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvBlocklist" />
 
-        <ImageButton
+        <eu.faircode.email.FixedImageButton
             android:id="@+id/ibInfoBlocklist"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -201,6 +193,59 @@
             app:layout_constraintTop_toTopOf="@id/cbBlocklist"
             app:srcCompat="@drawable/twotone_info_24"
             app:tint="?attr/colorAccent" />
+
+        <Button
+            android:id="@+id/btnClear"
+            style="?android:attr/buttonStyleSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:drawableEnd="@drawable/twotone_delete_24"
+            android:drawablePadding="6dp"
+            android:text="@string/title_junk_clear"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvBlocklistHint" />
+
+        <eu.faircode.email.FixedImageButton
+            android:id="@+id/ibRules"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/title_edit_rules"
+            android:padding="6dp"
+            android:scaleType="fitCenter"
+            android:tooltipText="@string/title_edit_rules"
+            app:layout_constraintBottom_toBottomOf="@id/btnClear"
+            app:layout_constraintEnd_toStartOf="@+id/ibManage"
+            app:layout_constraintTop_toTopOf="@id/btnClear"
+            app:srcCompat="@drawable/twotone_filter_alt_24" />
+
+        <eu.faircode.email.FixedImageButton
+            android:id="@+id/ibManage"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/title_setup_manage"
+            android:padding="6dp"
+            android:scaleType="fitCenter"
+            android:tooltipText="@string/title_setup_manage"
+            app:layout_constraintBottom_toBottomOf="@id/btnClear"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/btnClear"
+            app:srcCompat="@drawable/twotone_settings_24" />
+
+        <eu.faircode.email.FixedTextView
+            android:id="@+id/tvClearHint"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/title_junk_clear_hint"
+            android:textAppearance="@style/TextAppearance.AppCompat.Small"
+            android:textColor="?attr/colorWarning"
+            android:textStyle="italic"
+            app:layout_constraintEnd_toStartOf="@+id/ibInfoFilter"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/btnClear" />
 
         <androidx.constraintlayout.widget.Group
             android:id="@+id/grpInJunk"
@@ -215,8 +260,8 @@
             android:layout_width="0dp"
             android:layout_height="0dp"
             app:constraint_referenced_ids="
-            btnEditRules,
             cbJunkFilter,tvJunkFilterHint,ibInfoFilter,
-            cbBlocklist,tvBlocklist,tvBlocklistHint,ibInfoBlocklist" />
+            cbBlocklist,tvBlocklist,tvBlocklistHint,ibInfoBlocklist,
+            btnClear,ibRules,ibManage,tvClearHint" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 </eu.faircode.email.ScrollViewEx>

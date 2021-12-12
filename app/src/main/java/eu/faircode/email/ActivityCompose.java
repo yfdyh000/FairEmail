@@ -22,6 +22,7 @@ package eu.faircode.email;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Html;
@@ -30,9 +31,12 @@ import android.text.TextUtils;
 
 import androidx.core.app.TaskStackBuilder;
 import androidx.core.net.MailTo;
+import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
+import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleOwner;
+import androidx.preference.PreferenceManager;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -54,20 +58,22 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
         getSupportFragmentManager().addOnBackStackChangedListener(this);
 
         if (getSupportFragmentManager().getBackStackEntryCount() == 0)
-            handle(getIntent());
+            handle(getIntent(), true);
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        handle(intent);
+        handle(intent, false);
     }
 
     @Override
     public void onBackStackChanged() {
         if (getSupportFragmentManager().getBackStackEntryCount() == 0) {
-            if (!isShared(getIntent().getAction())) {
+            String action = getIntent().getAction();
+            if (!isShared(action) &&
+                    (action == null || !action.startsWith("widget:"))) {
                 Intent parent = getParentActivityIntent();
                 if (parent != null)
                     if (shouldUpRecreateTask(parent))
@@ -84,13 +90,13 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
         }
     }
 
-    private void handle(Intent intent) {
+    private void handle(Intent intent, boolean create) {
         Bundle args;
         String action = intent.getAction();
+        Log.i("Handle action=" + action + " create=" + create + " " + this);
+
         if (isShared(action)) {
             args = new Bundle();
-            args.putString("action", "new");
-            args.putLong("account", -1);
 
             Uri uri = intent.getData();
             if (uri != null && "mailto".equalsIgnoreCase(uri.getScheme())) {
@@ -98,27 +104,31 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
                 MailTo mailto = MailTo.parse(uri.toString());
 
                 List<String> to = sanitize(new String[]{mailto.getTo()});
-                if (to.size() == 1)
+                if (to.size() > 0)
                     args.putString("to", to.get(0));
 
                 List<String> cc = sanitize(new String[]{mailto.getCc()});
-                if (cc.size() == 1)
+                if (cc.size() > 0)
                     args.putString("cc", cc.get(0));
 
                 String subject = mailto.getSubject();
-                if (subject != null)
+                if (!TextUtils.isEmpty(subject))
                     args.putString("subject", subject);
 
                 Map<String, String> headers = mailto.getHeaders();
                 if (headers != null)
-                    for (String key : headers.keySet())
+                    for (String key : headers.keySet()) {
+                        List<String> address = sanitize(new String[]{headers.get(key)});
+                        if (address.size() == 0)
+                            continue;
                         if ("bcc".equalsIgnoreCase(key))
-                            args.putString("bcc", headers.get(key));
+                            args.putString("bcc", address.get(0));
                         else if ("in-reply-to".equalsIgnoreCase(key))
-                            args.putString("inreplyto", headers.get(key));
+                            args.putString("inreplyto", address.get(0));
+                    }
 
                 String body = mailto.getBody();
-                if (body != null) {
+                if (!TextUtils.isEmpty(body)) {
                     StringBuilder sb = new StringBuilder();
                     for (String line : body.split("\\r?\\n"))
                         sb.append("<span>").append(Html.escapeHtml(line)).append("<span><br>");
@@ -127,9 +137,9 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
             }
 
             if (intent.hasExtra(Intent.EXTRA_SHORTCUT_ID)) {
-                String to = intent.getStringExtra(Intent.EXTRA_SHORTCUT_ID);
-                if (to != null)
-                    args.putString("to", to);
+                List<String> to = sanitize(new String[]{intent.getStringExtra(Intent.EXTRA_SHORTCUT_ID)});
+                if (to.size() > 0)
+                    args.putString("to", to.get(0));
             }
 
             if (intent.hasExtra(Intent.EXTRA_EMAIL)) {
@@ -152,27 +162,30 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
 
             if (intent.hasExtra(Intent.EXTRA_SUBJECT)) {
                 String subject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
-                if (subject != null)
+                if (!TextUtils.isEmpty(subject))
                     args.putString("subject", subject);
             }
 
-            if (intent.hasExtra(Intent.EXTRA_HTML_TEXT)) {
-                String html = intent.getStringExtra(Intent.EXTRA_HTML_TEXT);
-                if (!TextUtils.isEmpty(html))
-                    args.putString("body", html);
-            } else if (intent.hasExtra(Intent.EXTRA_TEXT)) {
+            String html = null;
+
+            if (intent.hasExtra(Intent.EXTRA_HTML_TEXT))
+                html = intent.getStringExtra(Intent.EXTRA_HTML_TEXT);
+
+            if (TextUtils.isEmpty(html) &&
+                    intent.hasExtra(Intent.EXTRA_TEXT)) {
                 CharSequence body = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
                 if (body != null)
                     if (body instanceof Spanned)
-                        args.putString("body", HtmlHelper.toHtml((Spanned) body, this));
+                        html = HtmlHelper.toHtml((Spanned) body, this);
                     else {
                         String text = body.toString();
-                        if (!TextUtils.isEmpty(text)) {
-                            String html = "<span>" + text.replaceAll("\\r?\\n", "<br>") + "</span>";
-                            args.putString("body", html);
-                        }
+                        if (!TextUtils.isEmpty(text))
+                            html = "<span>" + text.replaceAll("\\r?\\n", "<br>") + "</span>";
                     }
             }
+
+            if (!TextUtils.isEmpty(html))
+                args.putString("body", html);
 
             if (intent.hasExtra(Intent.EXTRA_STREAM))
                 if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
@@ -197,10 +210,32 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
         } else
             args = intent.getExtras();
 
+        FragmentManager fm = getSupportFragmentManager();
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean attach_new = prefs.getBoolean("attach_new", true);
+
+        if (!attach_new && !create &&
+                args.size() == 1 && args.containsKey("attachments")) {
+            List<Fragment> fragments = fm.getFragments();
+            if (fragments.size() == 1) {
+                ((FragmentCompose) fragments.get(0)).onSharedAttachments(
+                        args.getParcelableArrayList("attachments"));
+                return;
+            }
+        }
+
+        if (isShared(action)) {
+            args.putString("action", "new");
+            args.putLong("account", -1);
+        }
+
+        if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+            getSupportFragmentManager().popBackStack("compose", FragmentManager.POP_BACK_STACK_INCLUSIVE);
+
         FragmentCompose fragment = new FragmentCompose();
         fragment.setArguments(args);
 
-        FragmentTransaction fragmentTransaction = getSupportFragmentManager().beginTransaction();
+        FragmentTransaction fragmentTransaction = fm.beginTransaction();
         fragmentTransaction.replace(R.id.content_frame, fragment).addToBackStack("compose");
         fragmentTransaction.commit();
     }
@@ -218,7 +253,7 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
             for (String address : addresses) {
                 if (TextUtils.isEmpty(address))
                     continue;
-                address = address.replaceAll("\\s+", "");
+                address = address.replaceAll("\\s+", " ");
                 address = address.replaceAll("\u200b", ""); // Discord: zero width space
                 if (!TextUtils.isEmpty(address))
                     result.add(address);
@@ -312,8 +347,9 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
 
         ServiceSynchronize.eval(context, "outbox/drafts");
 
-        NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        nm.cancel("send:" + id, 1);
+        NotificationManager nm =
+                (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        nm.cancel("send:" + id, NotificationHelper.NOTIFICATION_TAGGED);
 
         return message.id;
     }

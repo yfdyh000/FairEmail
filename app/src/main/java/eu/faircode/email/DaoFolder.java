@@ -24,6 +24,7 @@ import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.Query;
 import androidx.room.Transaction;
+import androidx.room.Update;
 
 import java.util.List;
 
@@ -37,7 +38,7 @@ public interface DaoFolder {
 
     @Query("SELECT folder.*" +
             ", account.id AS accountId, account.pop AS accountProtocol, account.`order` AS accountOrder" +
-            ", account.name AS accountName, account.state AS accountState" +
+            ", account.name AS accountName, account.category AS accountCategory, account.color AS accountColor, account.state AS accountState" +
             ", COUNT(DISTINCT CASE WHEN rule.enabled THEN rule.id ELSE NULL END) rules" +
             ", COUNT(DISTINCT message.id) AS messages" +
             ", COUNT(DISTINCT CASE WHEN message.content = 1 THEN message.id ELSE NULL END) AS content" +
@@ -76,7 +77,7 @@ public interface DaoFolder {
     @Transaction
     @Query("SELECT folder.*" +
             ", account.id AS accountId, account.pop AS accountProtocol, account.`order` AS accountOrder" +
-            ", account.name AS accountName, account.state AS accountState" +
+            ", account.name AS accountName, account.category AS accountCategory, account.color AS accountColor, account.state AS accountState" +
             ", COUNT(DISTINCT CASE WHEN rule.enabled THEN rule.id ELSE NULL END) rules" +
             ", COUNT(DISTINCT CASE WHEN message.ui_hide THEN NULL ELSE message.id END) AS messages" +
             ", COUNT(DISTINCT CASE WHEN message.content = 1 AND NOT message.ui_hide THEN message.id ELSE NULL END) AS content" +
@@ -99,7 +100,7 @@ public interface DaoFolder {
 
     @Query("SELECT folder.*" +
             ", account.id AS accountId, account.pop AS accountProtocol, account.`order` AS accountOrder" +
-            ", account.name AS accountName, account.state AS accountState" +
+            ", account.name AS accountName, account.category AS accountCategory, account.color AS accountColor, account.state AS accountState" +
             ", COUNT(DISTINCT CASE WHEN rule.enabled THEN rule.id ELSE NULL END) rules" +
             ", COUNT(DISTINCT message.id) AS messages" +
             ", COUNT(DISTINCT CASE WHEN message.content = 1 THEN message.id ELSE NULL END) AS content" +
@@ -116,28 +117,14 @@ public interface DaoFolder {
             " GROUP BY folder.id")
     LiveData<List<TupleFolderEx>> liveUnified(String type);
 
-    @Query("SELECT folder.*" +
-            ", account.`order` AS accountOrder, account.name AS accountName, COALESCE(folder.color, account.color) AS accountColor" +
-            ", COUNT(message.id) AS messages" +
-            ", SUM(CASE WHEN NOT message.ui_seen THEN 1 ELSE 0 END) AS unseen" +
-            ", (SELECT COUNT(operation.id) FROM operation WHERE operation.folder = folder.id) AS operations" +
-            ", (SELECT COUNT(operation.id) FROM operation WHERE operation.folder = folder.id AND operation.state = 'executing') AS executing" +
-            " FROM folder" +
-            " LEFT JOIN account ON account.id = folder.account" +
-            " LEFT JOIN message ON message.folder = folder.id AND NOT message.ui_hide" +
-            " WHERE account.id IS NULL" +
-            " OR (account.`synchronize` AND folder.navigation)" +
-            " GROUP BY folder.id")
-    LiveData<List<TupleFolderNav>> liveNavigation();
-
-    @Query("SELECT COUNT(id) FROM folder" +
-            " WHERE sync_state = 'syncing'" +
+    @Query("SELECT account, id AS folder, unified, sync_state FROM folder" +
+            " WHERE sync_state IS NOT NULL" +
             " AND folder.type <> '" + EntityFolder.OUTBOX + "'")
-    LiveData<Integer> liveSynchronizing();
+    LiveData<List<TupleFolderSync>> liveSynchronizing();
 
     @Query("SELECT folder.*" +
             ", account.id AS accountId, account.pop AS accountProtocol, account.`order` AS accountOrder" +
-            ", account.name AS accountName, account.state AS accountState" +
+            ", account.name AS accountName, account.category AS accountCategory, account.color AS accountColor, account.state AS accountState" +
             ", COUNT(DISTINCT CASE WHEN rule.enabled THEN rule.id ELSE NULL END) rules" +
             ", COUNT(DISTINCT message.id) AS messages" +
             ", COUNT(DISTINCT CASE WHEN message.content = 1 THEN message.id ELSE NULL END) AS content" +
@@ -189,10 +176,12 @@ public interface DaoFolder {
     @Query("SELECT folder.type" +
             ", COUNT(message.id) AS messages" +
             ", SUM(CASE WHEN NOT message.ui_seen THEN 1 ELSE 0 END) AS unseen" +
+            ", CASE WHEN folder.account IS NULL THEN folder.sync_state ELSE NULL END AS sync_state" +
+            ", folder.color, COUNT (DISTINCT folder.color) AS colorCount" +
             " FROM folder" +
-            " JOIN account ON account.id = folder.account" +
+            " LEFT JOIN account ON account.id = folder.account" +
             " LEFT JOIN message ON message.folder = folder.id AND NOT message.ui_hide" +
-            " WHERE account.synchronize" +
+            " WHERE (account.id IS NULL OR account.synchronize)" +
             " AND folder.type <> '" + EntityFolder.SYSTEM + "'" +
             " AND folder.type <> '" + EntityFolder.USER + "'" +
             " GROUP BY folder.type")
@@ -245,6 +234,11 @@ public interface DaoFolder {
     @Insert
     long insertFolder(EntityFolder folder);
 
+    @Query("UPDATE folder" +
+            " SET namespace = :namespace, separator = :separator" +
+            " WHERE id = :id AND NOT (namespace IS :namespace AND separator IS :separator)")
+    int setFolderNamespace(long id, String namespace, Character separator);
+
     @Query("UPDATE folder SET unified = :unified WHERE id = :id AND NOT (unified IS :unified)")
     int setFolderUnified(long id, boolean unified);
 
@@ -280,6 +274,9 @@ public interface DaoFolder {
 
     @Query("UPDATE folder SET inferiors = :inferiors WHERE id = :id AND NOT (inferiors IS :inferiors)")
     int setFolderInferiors(long id, Boolean inferiors);
+
+    @Query("UPDATE folder SET name = :name WHERE id = :id AND NOT (name IS :name)")
+    int setFolderName(long id, String name);
 
     @Query("UPDATE folder SET type = :type WHERE id = :id AND NOT (type IS :type)")
     int setFolderType(long id, String type);
@@ -353,8 +350,17 @@ public interface DaoFolder {
     @Query("UPDATE folder SET last_sync = :last_sync WHERE id = :id AND NOT (last_sync IS :last_sync)")
     int setFolderLastSync(long id, long last_sync);
 
+    @Query("UPDATE folder SET last_sync_foreground = :last_sync_foreground WHERE id = :id AND NOT (last_sync_foreground IS :last_sync_foreground)")
+    int setFolderLastSyncForeground(long id, long last_sync_foreground);
+
+    @Query("UPDATE folder SET last_sync_count = :last_sync_count WHERE id = :id AND NOT (last_sync_count IS :last_sync_count)")
+    int setFolderLastSyncCount(long id, Integer last_sync_count);
+
     @Query("UPDATE folder SET read_only = :read_only WHERE id = :id AND NOT (read_only IS :read_only)")
     int setFolderReadOnly(long id, boolean read_only);
+
+    @Query("UPDATE folder SET auto_add = :auto_add WHERE id = :id AND NOT (auto_add IS :auto_add)")
+    int setFolderAutoAdd(long id, Boolean auto_add);
 
     @Query("UPDATE folder SET tbc = NULL WHERE id = :id AND tbc IS NOT NULL")
     int resetFolderTbc(long id);
@@ -385,6 +391,9 @@ public interface DaoFolder {
             " WHERE id = :id" +
             " AND NOT (auto_classify_source IS :source AND auto_classify_target IS :target)")
     int setFolderAutoClassify(long id, boolean source, boolean target);
+
+    @Update
+    int updateFolder(EntityFolder folder);
 
     @Query("DELETE FROM folder WHERE id = :id")
     void deleteFolder(long id);

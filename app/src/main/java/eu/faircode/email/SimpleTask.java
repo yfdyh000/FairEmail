@@ -95,10 +95,8 @@ public abstract class SimpleTask<T> implements LifecycleObserver {
             return localExecutor;
 
         if (globalExecutor == null) {
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-            int threads = prefs.getInt("query_threads", Runtime.getRuntime().availableProcessors());
-            Log.i("Task threads=" + threads);
-            globalExecutor = Helper.getBackgroundExecutor(threads, "task");
+            int processors = Runtime.getRuntime().availableProcessors();
+            globalExecutor = Helper.getBackgroundExecutor(processors, "task");
         }
 
         return globalExecutor;
@@ -167,7 +165,9 @@ public abstract class SimpleTask<T> implements LifecycleObserver {
                     if (log)
                         Log.i("Executed task=" + name + " elapsed=" + elapsed + " ms");
                 } catch (Throwable ex) {
-                    if (!(ex instanceof IllegalArgumentException))
+                    if (ex instanceof IllegalArgumentException)
+                        Log.i(ex);
+                    else
                         Log.e(ex);
                     this.ex = ex;
                 } finally {
@@ -297,6 +297,26 @@ public abstract class SimpleTask<T> implements LifecycleObserver {
     }
 
     protected abstract T onExecute(Context context, Bundle args) throws Throwable;
+
+    protected void postProgress(CharSequence status) {
+        postProgress(status, null);
+    }
+
+    protected void postProgress(CharSequence status, Bundle data) {
+        ApplicationEx.getMainHandler().post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    onProgress(status, data);
+                } catch (Throwable ex) {
+                    Log.e(ex);
+                }
+            }
+        });
+    }
+
+    protected void onProgress(CharSequence status, Bundle data) {
+    }
 
     protected void onExecuted(Bundle args, T data) {
     }

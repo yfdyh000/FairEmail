@@ -19,6 +19,8 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static android.app.Activity.RESULT_OK;
+
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
@@ -34,6 +36,7 @@ import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.style.ImageSpan;
 import android.text.style.SuggestionSpan;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -53,8 +56,6 @@ import com.google.android.material.snackbar.Snackbar;
 
 import org.jsoup.nodes.Document;
 
-import static android.app.Activity.RESULT_OK;
-
 public class FragmentAnswer extends FragmentBase {
     private ViewGroup view;
     private EditText etName;
@@ -63,6 +64,7 @@ public class FragmentAnswer extends FragmentBase {
     private CheckBox cbReceipt;
     private CheckBox cbFavorite;
     private CheckBox cbHide;
+    private CheckBox cbExternal;
     private EditTextCompose etText;
     private BottomNavigationView style_bar;
     private BottomNavigationView bottom_navigation;
@@ -92,8 +94,13 @@ public class FragmentAnswer extends FragmentBase {
     @Override
     @Nullable
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+        final Context context = getContext();
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean monospaced = prefs.getBoolean("monospaced", false);
+        String compose_font = prefs.getString("compose_font", monospaced ? "monospace" : "sans-serif");
+        boolean compact = prefs.getBoolean("compose_compact", false);
+        int zoom = prefs.getInt("compose_zoom", compact ? 0 : 1);
+        int message_zoom = prefs.getInt("message_zoom", 100);
 
         setSubtitle(R.string.title_answer_caption);
         setHasOptionsMenu(true);
@@ -107,6 +114,7 @@ public class FragmentAnswer extends FragmentBase {
         cbReceipt = view.findViewById(R.id.cbReceipt);
         cbFavorite = view.findViewById(R.id.cbFavorite);
         cbHide = view.findViewById(R.id.cbHide);
+        cbExternal = view.findViewById(R.id.cbExternal);
         etText = view.findViewById(R.id.etText);
 
         style_bar = view.findViewById(R.id.style_bar);
@@ -115,7 +123,11 @@ public class FragmentAnswer extends FragmentBase {
         pbWait = view.findViewById(R.id.pbWait);
         grpReady = view.findViewById(R.id.grpReady);
 
-        etText.setTypeface(monospaced ? Typeface.MONOSPACE : Typeface.DEFAULT);
+        etText.setTypeface(StyleHelper.getTypeface(compose_font, context));
+
+        float textSize = Helper.getTextSize(context, zoom);
+        if (textSize != 0)
+            etText.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize * message_zoom / 100f);
 
         etText.setSelectionListener(new EditTextCompose.ISelection() {
             @Override
@@ -150,6 +162,9 @@ public class FragmentAnswer extends FragmentBase {
         });
 
         // Initialize
+        FragmentDialogTheme.setBackground(context, view, true);
+
+        cbExternal.setVisibility(View.GONE);
         grpReady.setVisibility(View.GONE);
         style_bar.setVisibility(View.GONE);
         bottom_navigation.setVisibility(View.GONE);
@@ -185,6 +200,8 @@ public class FragmentAnswer extends FragmentBase {
 
             @Override
             protected void onExecuted(Bundle args, EntityAnswer answer) {
+                final Context context = getContext();
+
                 if (copy > 0 && answer != null) {
                     answer.applied = 0;
                     answer.last_applied = null;
@@ -201,6 +218,7 @@ public class FragmentAnswer extends FragmentBase {
                     cbReceipt.setChecked(answer == null ? false : answer.receipt);
                     cbFavorite.setChecked(answer == null ? false : answer.favorite);
                     cbHide.setChecked(answer == null ? false : answer.hide);
+                    cbExternal.setChecked(answer == null ? false : answer.external);
 
                     String html = (answer == null ? a.getString("html") : answer.text);
                     if (html == null)
@@ -211,13 +229,15 @@ public class FragmentAnswer extends FragmentBase {
                             public Drawable getDrawable(String source) {
                                 if (source != null && source.startsWith("cid:"))
                                     source = null;
-                                return ImageHelper.decodeImage(getContext(), -1, source, true, 0, 1.0f, etText);
+                                return ImageHelper.decodeImage(context, -1, source, true, 0, 1.0f, etText);
                             }
-                        }, null, getContext()));
+                        }, null, context));
                 }
 
                 bottom_navigation.findViewById(R.id.action_delete).setVisibility(answer == null ? View.GONE : View.VISIBLE);
 
+                if (ActivityAnswer.canAnswer(context))
+                    cbExternal.setVisibility(View.VISIBLE);
                 grpReady.setVisibility(View.VISIBLE);
                 bottom_navigation.setVisibility(View.VISIBLE);
             }
@@ -321,6 +341,7 @@ public class FragmentAnswer extends FragmentBase {
         args.putBoolean("receipt", cbReceipt.isChecked());
         args.putBoolean("favorite", cbFavorite.isChecked());
         args.putBoolean("hide", cbHide.isChecked());
+        args.putBoolean("external", cbExternal.isChecked());
         args.putString("html", HtmlHelper.toHtml(etText.getText(), getContext()));
 
         new SimpleTask<Void>() {
@@ -343,6 +364,7 @@ public class FragmentAnswer extends FragmentBase {
                 boolean receipt = args.getBoolean("receipt");
                 boolean favorite = args.getBoolean("favorite");
                 boolean hide = args.getBoolean("hide");
+                boolean external = args.getBoolean("external");
                 String html = args.getString("html");
 
                 if (TextUtils.isEmpty(name))
@@ -361,27 +383,25 @@ public class FragmentAnswer extends FragmentBase {
                     if (receipt)
                         db.answer().resetReceipt();
 
-                    if (id < 0) {
-                        EntityAnswer answer = new EntityAnswer();
-                        answer.name = name;
-                        answer.group = group;
-                        answer.standard = standard;
-                        answer.receipt = receipt;
-                        answer.favorite = favorite;
-                        answer.hide = hide;
-                        answer.text = document.body().html();
+                    EntityAnswer answer;
+                    if (id < 0)
+                        answer = new EntityAnswer();
+                    else
+                        answer = db.answer().getAnswer(id);
+
+                    answer.name = name;
+                    answer.group = group;
+                    answer.standard = standard;
+                    answer.receipt = receipt;
+                    answer.favorite = favorite;
+                    answer.hide = hide;
+                    answer.external = external;
+                    answer.text = document.body().html();
+
+                    if (id < 0)
                         answer.id = db.answer().insertAnswer(answer);
-                    } else {
-                        EntityAnswer answer = db.answer().getAnswer(id);
-                        answer.name = name;
-                        answer.group = group;
-                        answer.standard = standard;
-                        answer.receipt = receipt;
-                        answer.favorite = favorite;
-                        answer.hide = hide;
-                        answer.text = document.body().html();
+                    else
                         db.answer().updateAnswer(answer);
-                    }
 
                     db.setTransactionSuccessful();
                 } finally {
@@ -436,7 +456,7 @@ public class FragmentAnswer extends FragmentBase {
             getContext().getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
             int start = etText.getSelectionStart();
-            SpannableStringBuilder ssb = new SpannableStringBuilder(etText.getText());
+            SpannableStringBuilder ssb = new SpannableStringBuilderEx(etText.getText());
             ssb.insert(start, " \uFFFC"); // Object replacement character
             String source = uri.toString();
             Drawable d = ImageHelper.decodeImage(getContext(), -1, source, true, 0, 1.0f, etText);

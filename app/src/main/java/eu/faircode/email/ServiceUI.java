@@ -35,6 +35,7 @@ import org.json.JSONException;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -56,7 +57,7 @@ public class ServiceUI extends IntentService {
     static final int PI_HIDE = 9;
     static final int PI_SNOOZE = 10;
     static final int PI_IGNORED = 11;
-    static final int PI_THREAD = 12;
+    static final int PI_DELETE = 12;
 
     public ServiceUI() {
         this(ServiceUI.class.getName());
@@ -108,6 +109,11 @@ public class ServiceUI extends IntentService {
                     onMove(id, EntityFolder.TRASH);
                     break;
 
+                case "delete":
+                    cancel(group, id);
+                    onDelete(id);
+                    break;
+
                 case "junk":
                     cancel(group, id);
                     onJunk(id);
@@ -150,8 +156,7 @@ public class ServiceUI extends IntentService {
                     break;
 
                 case "ignore":
-                    boolean view = intent.getBooleanExtra("view", false);
-                    onIgnore(id, view);
+                    onIgnore(id);
                     break;
 
                 case "wakeup":
@@ -159,7 +164,11 @@ public class ServiceUI extends IntentService {
                     break;
 
                 case "sync":
-                    onSync(id);
+                    onSync(id, -1L, false);
+                    break;
+
+                case "widget":
+                    onWidget(intent, (int) id);
                     break;
 
                 case "exists":
@@ -181,21 +190,27 @@ public class ServiceUI extends IntentService {
     }
 
     private void onClear(long group) {
+        // Group
+        // < 0: folder
+        // = 0: unified
+        // > 0: account
         DB db = DB.getInstance(this);
         int cleared;
         if (group < 0)
-            cleared = db.message().ignoreAll(null, -group);
+            cleared = db.message().ignoreAll(null, -group, null);
         else
-            cleared = db.message().ignoreAll(group == 0 ? null : group, null);
-        EntityLog.log(this, "Notify clear group=" + group + " cleared=" + cleared);
+            cleared = db.message().ignoreAll(group == 0 ? null : group, null, null);
+        EntityLog.log(this, EntityLog.Type.Notification,
+                "Notify clear group=" + group + " cleared=" + cleared);
     }
 
     private void cancel(long group, long id) {
         // https://issuetracker.google.com/issues/159152393
         String tag = "unseen." + group + ":" + id;
 
-        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        nm.cancel(tag, 1);
+        NotificationManager nm =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        nm.cancel(tag, NotificationHelper.NOTIFICATION_TAGGED);
     }
 
     private void onMove(long id, String folderType) {
@@ -240,10 +255,26 @@ public class ServiceUI extends IntentService {
         }
     }
 
+    private void onDelete(long id) {
+        DB db = DB.getInstance(this);
+        try {
+            db.beginTransaction();
+
+            EntityMessage message = db.message().getMessage(id);
+            if (message == null)
+                return;
+
+            EntityOperation.queue(this, message, EntityOperation.DELETE);
+
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
     private void onJunk(long id) throws JSONException {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         boolean block_sender = prefs.getBoolean("notify_block_sender", false);
-        List<String> whitelist = EmailProvider.getDomainNames(this);
 
         DB db = DB.getInstance(this);
         try {
@@ -260,7 +291,7 @@ public class ServiceUI extends IntentService {
             EntityOperation.queue(this, message, EntityOperation.MOVE, junk.id);
 
             if (block_sender) {
-                EntityRule rule = EntityRule.blockSender(this, message, junk, false, whitelist);
+                EntityRule rule = EntityRule.blockSender(this, message, junk, false);
                 if (rule != null)
                     rule.id = db.rule().insertRule(rule);
             }
@@ -427,7 +458,7 @@ public class ServiceUI extends IntentService {
         }
     }
 
-    private void onIgnore(long id, boolean open) {
+    private void onIgnore(long id) {
         EntityMessage message;
         EntityFolder folder;
 
@@ -449,31 +480,25 @@ public class ServiceUI extends IntentService {
         } finally {
             db.endTransaction();
         }
-
-        if (open) {
-            Intent thread = new Intent(this, ActivityView.class);
-            thread.setAction("thread:" + message.id);
-            thread.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            thread.putExtra("account", message.account);
-            thread.putExtra("folder", message.folder);
-            thread.putExtra("thread", message.thread);
-            thread.putExtra("filter_archive", !EntityFolder.ARCHIVE.equals(folder.type));
-            startActivity(thread);
-        }
     }
 
-    private void onSync(long aid) {
+    private void onSync(long aid, long fid, boolean unified) {
         DB db = DB.getInstance(this);
         try {
             db.beginTransaction();
 
             List<EntityAccount> accounts = db.account().getPollAccounts(aid < 0 ? null : aid);
             for (EntityAccount account : accounts) {
-                List<EntityFolder> folders = db.folder().getSynchronizingFolders(account.id);
+                List<EntityFolder> folders;
+                if (fid < 0)
+                    folders = db.folder().getSynchronizingFolders(account.id);
+                else
+                    folders = Arrays.asList(db.folder().getFolder(fid));
                 if (folders.size() > 0)
                     Collections.sort(folders, folders.get(0).getComparator(this));
                 for (EntityFolder folder : folders)
-                    EntityOperation.sync(this, folder.id, false);
+                    if (!unified || folder.unified)
+                        EntityOperation.sync(this, folder.id, true);
             }
 
             db.setTransactionSuccessful();
@@ -482,10 +507,17 @@ public class ServiceUI extends IntentService {
         }
     }
 
+    private void onWidget(Intent intent, int appWidgetId) {
+        long aid = intent.getLongExtra("account", -1L);
+        long fid = intent.getLongExtra("folder", -1L);
+        onSync(aid, fid, fid < 0);
+    }
+
     static void sync(Context context, Long account) {
         try {
-            context.startService(new Intent(context, ServiceUI.class)
-                    .setAction(account == null ? "sync" : "sync:" + account));
+            Intent sync = new Intent(context, ServiceUI.class)
+                    .setAction(account == null ? "sync" : "sync:" + account);
+            context.startService(sync);
         } catch (Throwable ex) {
             Log.e(ex);
             /*
@@ -497,6 +529,16 @@ public class ServiceUI extends IntentService {
                         at eu.faircode.email.ServiceTileUnseen.onClick(ServiceTileUnseen:103)
                         at android.service.quicksettings.TileService$H.handleMessage(TileService.java:449)
              */
+        }
+    }
+
+    static void ignore(Context context, long id) {
+        try {
+            Intent ignore = new Intent(context, ServiceUI.class)
+                    .setAction("ignore:" + id);
+            context.startService(ignore);
+        } catch (Throwable ex) {
+            Log.e(ex);
         }
     }
 }

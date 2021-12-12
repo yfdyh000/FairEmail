@@ -19,8 +19,13 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static androidx.core.text.HtmlCompat.TO_HTML_PARAGRAPH_LINES_INDIVIDUAL;
+import static org.w3c.css.sac.Condition.SAC_CLASS_CONDITION;
+
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -35,6 +40,7 @@ import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextDirectionHeuristics;
 import android.text.TextUtils;
+import android.text.style.AbsoluteSizeSpan;
 import android.text.style.AlignmentSpan;
 import android.text.style.BackgroundColorSpan;
 import android.text.style.BulletSpan;
@@ -78,7 +84,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Node;
 import org.jsoup.nodes.TextNode;
 import org.jsoup.safety.Cleaner;
-import org.jsoup.safety.Whitelist;
+import org.jsoup.safety.Safelist;
 import org.jsoup.select.Elements;
 import org.jsoup.select.NodeFilter;
 import org.jsoup.select.NodeTraversor;
@@ -100,6 +106,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.net.URI;
 import java.text.DateFormat;
 import java.text.ParsePosition;
 import java.util.ArrayList;
@@ -118,25 +125,26 @@ import javax.mail.internet.InternetHeaders;
 import javax.mail.internet.MailDateFormat;
 import javax.mail.internet.MimeUtility;
 
-import static androidx.core.text.HtmlCompat.TO_HTML_PARAGRAPH_LINES_INDIVIDUAL;
-import static org.w3c.css.sac.Condition.SAC_CLASS_CONDITION;
-
 public class HtmlHelper {
     static final int PREVIEW_SIZE = 500; // characters
 
     static final float FONT_SMALL = 0.8f;
     static final float FONT_LARGE = 1.25f;
 
+    static final int MAX_FULL_TEXT_SIZE = 1024 * 1024; // characters
+    static final int MAX_SHARE_TEXT_SIZE = 50 * 1024; // characters
+    static final int MAX_TRANSLATABLE_TEXT_SIZE = 50 * 1024; // characters
+
     private static final int DEFAULT_FONT_SIZE = 16; // pixels
     private static final int DEFAULT_FONT_SIZE_PT = 12; // points
     private static final int GRAY_THRESHOLD = Math.round(255 * 0.2f);
     private static final int COLOR_THRESHOLD = Math.round(255 * 0.1f);
     private static final float MIN_LUMINANCE = 0.7f;
-    private static final int TAB_SIZE = 2;
+    private static final float MIN_LUMINANCE_DARK = 0.1f;
+    private static final int TAB_SIZE = 4;
     private static final int MAX_ALT = 250;
     private static final int MAX_AUTO_LINK = 250;
     private static final int MAX_FORMAT_TEXT_SIZE = 200 * 1024; // characters
-    static final int MAX_FULL_TEXT_SIZE = 1024 * 1024; // characters
     private static final int SMALL_IMAGE_SIZE = 5; // pixels
     private static final int TRACKING_PIXEL_SURFACE = 25; // pixels
     private static final float[] HEADING_SIZES = {1.5f, 1.4f, 1.3f, 1.2f, 1.1f, 1f};
@@ -359,6 +367,15 @@ public class HtmlHelper {
         }
     }
 
+    private static int getMaxFormatTextSize(Context context) {
+        ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        int mc = am.getMemoryClass();
+        if (mc >= 256)
+            return MAX_FORMAT_TEXT_SIZE;
+        else
+            return mc * MAX_FORMAT_TEXT_SIZE / 256;
+    }
+
     private static Document sanitize(Context context, Document parsed, boolean view, boolean show_images) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         String theme = prefs.getString("theme", "blue_orange_system");
@@ -378,6 +395,16 @@ public class HtmlHelper {
         boolean dark = Helper.isDarkTheme(context);
         int textColorPrimary = Helper.resolveColor(context, android.R.attr.textColorPrimary);
         int textColorPrimaryInverse = Helper.resolveColor(context, android.R.attr.textColorPrimaryInverse);
+
+        int textSizeSmall;
+        TypedArray ta = context.obtainStyledAttributes(
+                R.style.TextAppearance_AppCompat_Small, new int[]{android.R.attr.textSize});
+        if (ta == null)
+            textSizeSmall = Helper.dp2pixels(context, 6);
+        else {
+            textSizeSmall = ta.getDimensionPixelSize(0, 0);
+            ta.recycle();
+        }
 
         // https://chromium.googlesource.com/chromium/blink/+/master/Source/core/css/html.css
 
@@ -412,7 +439,7 @@ public class HtmlHelper {
         normalizeNamespaces(parsed, display_hidden);
 
         // Limit length
-        if (view && truncate(parsed, MAX_FORMAT_TEXT_SIZE)) {
+        if (view && truncate(parsed, getMaxFormatTextSize(context))) {
             parsed.body()
                     .appendElement("p")
                     .appendElement("em")
@@ -430,7 +457,7 @@ public class HtmlHelper {
         if (parse_classes)
             sheets = parseStyles(parsed.head().select("style"));
 
-        Whitelist whitelist = Whitelist.relaxed()
+        Safelist safelist = Safelist.relaxed()
                 .addTags("hr", "abbr", "big", "font", "dfn", "del", "s", "tt")
                 .addAttributes(":all", "class")
                 .addAttributes(":all", "style")
@@ -449,17 +476,17 @@ public class HtmlHelper {
                 .addProtocols("img", "src", "data")
                 .removeTags("a").addAttributes("a", "href", "title");
         if (text_color)
-            whitelist.addAttributes("font", "color");
+            safelist.addAttributes("font", "color");
         if (text_size)
-            whitelist.addAttributes("font", "size");
+            safelist.addAttributes("font", "size");
         if (text_font)
-            whitelist.addAttributes("font", "face");
+            safelist.addAttributes("font", "face");
         if (text_align)
-            whitelist.addTags("center").addAttributes(":all", "align");
+            safelist.addTags("center").addAttributes(":all", "align");
         if (!view)
-            whitelist.addProtocols("img", "src", "content");
+            safelist.addProtocols("img", "src", "content");
 
-        final Document document = new Cleaner(whitelist).clean(parsed);
+        final Document document = new Cleaner(safelist).clean(parsed);
 
         // Remove tracking pixels
         if (disable_tracking)
@@ -540,6 +567,9 @@ public class HtmlHelper {
             // Element style
             style = mergeStyles(style, element.attr("style"));
 
+            if ("fairemail_debug_info".equals(clazz))
+                style = mergeStyles(style, "font-size: smaller");
+
             if (text_align) {
                 // https://developer.mozilla.org/en-US/docs/Web/HTML/Element/center
                 if ("center".equals(element.tagName())) {
@@ -588,51 +618,63 @@ public class HtmlHelper {
                     String value = kv.get(key);
                     switch (key) {
                         case "color":
+                        case "background":
                         case "background-color":
                             // https://developer.mozilla.org/en-US/docs/Web/CSS/color
-                            if ("color".equals(key) && !text_color)
-                                continue;
-                            if ("background-color".equals(key) && !background_color)
-                                continue;
+                            // https://developer.mozilla.org/en-US/docs/Web/CSS/background
+                            // https://developer.mozilla.org/en-US/docs/Web/CSS/background-color
+                            if ("color".equals(key)) {
+                                if (!text_color)
+                                    continue;
+                            } else {
+                                if (!background_color)
+                                    continue;
+                            }
 
                             Integer color = parseColor(value);
 
                             if ("color".equals(key)) {
-                                boolean bg = false;
+                                Integer bg = null;
                                 if (background_color) {
                                     Element e = element;
-                                    while (e != null && !bg)
+                                    while (e != null && bg == null)
                                         if (e.hasAttr("x-background"))
-                                            bg = true;
+                                            bg = parseWebColor(e.attr("x-background"));
                                         else
                                             e = e.parent();
                                 }
 
-                                // Background color set:
-                                //   keep text color as-is
-                                if (!bg) {
+                                if (!view && dark &&
+                                        color != null && (bg == null || bg == Color.TRANSPARENT)) {
                                     // Special case:
-                                    //   external draft / dark background / dark font
-                                    if (color != null && !view && dark) {
-                                        float lum = (float) ColorUtils.calculateLuminance(color);
-                                        if (lum < 0.1f)
-                                            color = null;
-                                    }
+                                    //   external draft / dark background / very dark/light font
+                                    double lum = ColorUtils.calculateLuminance(color);
+                                    if (lum < MIN_LUMINANCE_DARK || lum > 1 - MIN_LUMINANCE_DARK)
+                                        color = null;
+                                }
 
+                                if (bg == null) {
                                     if (color != null && view)
                                         color = adjustColor(dark, textColorPrimary, color);
+                                } else if (bg == Color.TRANSPARENT) {
+                                    // Background color was suppressed because "no color"
+                                    if (color != null) {
+                                        double lum = ColorUtils.calculateLuminance(color);
+                                        if (dark ? lum < MIN_LUMINANCE : lum > 1 - MIN_LUMINANCE)
+                                            color = textColorPrimary;
+                                    }
                                 }
 
                                 if (color != null)
                                     element.attr("x-color", "true");
                             } else /* background */ {
                                 if (color != null && !hasColor(color))
-                                    continue;
+                                    color = Color.TRANSPARENT;
 
                                 if (color != null)
-                                    element.attr("x-background", "true");
+                                    element.attr("x-background", encodeWebColor(color));
 
-                                if (dark) {
+                                if (color != null && dark) {
                                     boolean fg = false;
                                     if (text_color) {
                                         fg = (parseColor(kv.get("color")) != null);
@@ -645,12 +687,15 @@ public class HtmlHelper {
                                     }
 
                                     // Dark theme, background color with no text color:
-                                    //   force text color
-                                    if (!fg)
+                                    //   force (inverse) text color
+                                    if (!fg) {
+                                        double lum = (color == Color.TRANSPARENT ? 0 : ColorUtils.calculateLuminance(color));
+                                        int c = (lum < 0.5 ? textColorPrimary : textColorPrimaryInverse);
                                         sb.append("color")
                                                 .append(':')
-                                                .append(encodeWebColor(textColorPrimaryInverse))
+                                                .append(encodeWebColor(c))
                                                 .append(";");
+                                    }
                                 }
                             }
 
@@ -745,7 +790,7 @@ public class HtmlHelper {
                                     element.attr("x-inline", "true");
                             }
                             break;
-
+/*
                         case "height":
                         case "width":
                             //case "font-size":
@@ -760,7 +805,7 @@ public class HtmlHelper {
                                 }
                             }
                             break;
-
+*/
                         case "margin":
                         case "padding":
                         case "margin-top":
@@ -891,7 +936,9 @@ public class HtmlHelper {
         // https://developer.mozilla.org/en-US/docs/Web/HTML/Element/q
         for (Element q : document.select("q")) {
             q.tagName("a");
-            q.attr("href", q.attr("cite"));
+            String cite = q.attr("cite");
+            if (!TextUtils.isEmpty(cite) && !cite.trim().startsWith("#"))
+                q.attr("href", cite);
             q.removeAttr("cite");
         }
 
@@ -1112,6 +1159,12 @@ public class HtmlHelper {
                 Log.i("Removing small image");
                 Integer width = Helper.parseInt(img.attr("width").trim());
                 Integer height = Helper.parseInt(img.attr("height").trim());
+                if (width != null && height != null) {
+                    if (width == 0 && height != 0)
+                        width = height;
+                    if (width != 0 && height == 0)
+                        height = width;
+                }
                 if ((width != null && width <= SMALL_IMAGE_SIZE) ||
                         (height != null && height <= SMALL_IMAGE_SIZE)) {
                     img.remove();
@@ -1130,7 +1183,9 @@ public class HtmlHelper {
                         while (p != null && !linked)
                             if ("a".equals(p.tagName())) {
                                 String href = p.attr("href");
-                                if (TextUtils.isEmpty(href) || href.equals("#"))
+                                if (TextUtils.isEmpty(href))
+                                    break;
+                                if (!TextUtils.isEmpty(p.text()))
                                     break;
                                 linked = true;
                             } else
@@ -1138,12 +1193,17 @@ public class HtmlHelper {
                         if (linked)
                             alt = context.getString(R.string.title_image_link);
                     }
-                    if (!TextUtils.isEmpty(alt))
-                        img.appendText("[" + alt + "]");
+                    if (!TextUtils.isEmpty(alt)) {
+                        Element span = document.createElement("span")
+                                .text("[" + alt + "]")
+                                .attr("x-font-size-abs", Integer.toString(textSizeSmall));
+                        img.appendChild(span);
+                    }
                 } else if (!TextUtils.isEmpty(alt)) {
-                    Element a = document.createElement("a");
-                    a.attr("href", tracking);
-                    a.text("[" + alt + "]");
+                    Element a = document.createElement("a")
+                            .attr("href", tracking)
+                            .text("[" + alt + "]")
+                            .attr("x-font-size-abs", Integer.toString(textSizeSmall));
                     img.appendChild(a);
                 }
 
@@ -1180,10 +1240,6 @@ public class HtmlHelper {
             }
         }
 
-        // Autolink
-        if (view)
-            autoLink(document);
-
         // Selective new lines
         for (Element div : document.select("div"))
             div.tagName("span");
@@ -1199,6 +1255,34 @@ public class HtmlHelper {
         }
 
         return document;
+    }
+
+    static void removeRelativeLinks(Document document) {
+        // https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+        Elements b = document.select("base");
+        String base = (b.size() > 0 ? b.get(0).attr("href") : null);
+        for (Element a : document.select("a")) {
+            String href = a.attr("href");
+
+            if (href.contains(" ")) {
+                href = href.replace(" ", "%20");
+                a.attr("href", href);
+            }
+
+            if (!TextUtils.isEmpty(base))
+                try {
+                    // https://developer.android.com/reference/java/net/URI
+                    href = URI.create(base).resolve(href).toString();
+                    a.attr("href", href);
+                } catch (Throwable ex) {
+                    Log.w(ex);
+                }
+
+            if (href.trim().startsWith("#")) {
+                a.tagName("span");
+                a.removeAttr("href");
+            }
+        }
     }
 
     static void autoLink(Document document) {
@@ -1289,6 +1373,19 @@ public class HtmlHelper {
             public void tail(Node node, int depth) {
             }
         }, document);
+    }
+
+    static void guessSchemes(Document document) {
+        for (Element a : document.select("a"))
+            try {
+                String href = a.attr("href");
+                if (TextUtils.isEmpty(href))
+                    continue;
+                Uri uri = UriHelper.guessScheme(Uri.parse(href));
+                a.attr("href", uri.toString());
+            } catch (Throwable ex) {
+                Log.e(ex);
+            }
     }
 
     static void normalizeNamespaces(Document parsed, boolean display_hidden) {
@@ -1675,7 +1772,7 @@ public class HtmlHelper {
     static String encodeWebColor(int color) {
         int alpha = Color.alpha(color);
         int rgb = 0xFFFFFF & color;
-        if (alpha == 0)
+        if (alpha == 255)
             return String.format("#%06X", rgb);
         else
             return String.format("#%06X%02X", rgb, alpha);
@@ -1870,7 +1967,13 @@ public class HtmlHelper {
             return false;
 
         try {
-            return (Integer.parseInt(width) * Integer.parseInt(height) <= TRACKING_PIXEL_SURFACE);
+            int w = Integer.parseInt(width);
+            int h = Integer.parseInt(height);
+            if (w == 0 && h != 0)
+                w = h;
+            if (w != 0 && h == 0)
+                h = w;
+            return (w * h <= TRACKING_PIXEL_SURFACE);
         } catch (NumberFormatException ignored) {
             return false;
         }
@@ -1922,9 +2025,13 @@ public class HtmlHelper {
         // https://drafts.csswg.org/css-device-adapt/#viewport-meta
         Elements meta = document.select("meta").select("[name=viewport]");
         // Note that the browser will recognize meta elements in the body too
-        if (overview) // fit width
+        if (overview) {
+            // fit width
             meta.remove();
-        else {
+            document.head().prependElement("meta")
+                    .attr("name", "viewport")
+                    .attr("content", "width=device-width");
+        } else {
             if (meta.size() == 1) {
                 String content = meta.attr("content");
                 String[] param = content.split("[;,]");
@@ -1958,6 +2065,26 @@ public class HtmlHelper {
 
         if (BuildConfig.DEBUG)
             Log.i(document.head().html());
+    }
+
+    static void overrideWidth(Document document) {
+        List<String> tags = new ArrayList<>();
+        for (Element e : document.select("*")) {
+            String tag = e.tagName();
+            if ("img".equals(tag))
+                continue;
+            if (tags.contains(tag))
+                continue;
+            tags.add(tag);
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("<style type=\"text/css\">");
+        for (String tag : tags)
+            sb.append(tag).append("{width: auto !important; min-width: 0 !important;max-width: 100% !important;}");
+        sb.append("</style>");
+
+        document.select("head").append(sb.toString());
     }
 
     static String getLanguage(Context context, String subject, String text) {
@@ -2021,7 +2148,7 @@ public class HtmlHelper {
         for (Element bq : d.select("blockquote"))
             bq.prependChild(new TextNode("> "));
 
-        return d.text();
+        return d.body().text();
     }
 
     static String getQuoteStyle(Element e) {
@@ -2031,17 +2158,36 @@ public class HtmlHelper {
 
     static String getQuoteStyle(CharSequence quoted, int start, int end) {
         try {
-            if (TextDirectionHeuristics.FIRSTSTRONG_LTR.isRtl(quoted, start, end))
+            int count = end - start;
+            if (TextDirectionHeuristics.FIRSTSTRONG_LTR.isRtl(quoted, start, count))
                 return "border-right:3px solid #ccc; padding-left:3px;";
         } catch (Throwable ex) {
-            Log.e(ex);
+            Log.e(new Throwable("getQuoteStyle " + start + "..." + end, ex));
         }
 
         return "border-left:3px solid #ccc; padding-left:3px;";
     }
 
     static boolean hasBorder(Element e) {
-        return "true".equals(e.attr("x-border"));
+        if ("true".equals(e.attr("x-border")))
+            return true;
+
+        String style = e.attr("style");
+        String[] params = style.split(";");
+        for (String param : params) {
+            int colon = param.indexOf(':');
+            if (colon < 0)
+                continue;
+            String key = param.substring(0, colon).trim().toLowerCase(Locale.ROOT);
+            String value = param.substring(colon + 1);
+            if ("border-left".equals(key) || "border-right".equals(key)) {
+                Float border = getFontSize(value.trim().split("\\s+")[0], 1.0f);
+                if (border != null && border > 0)
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     static void collapseQuotes(Document document) {
@@ -2095,7 +2241,7 @@ public class HtmlHelper {
     static String getText(Context context, String html) {
         Document d = sanitizeCompose(context, html, false);
 
-        truncate(d, MAX_FORMAT_TEXT_SIZE);
+        truncate(d, getMaxFormatTextSize(context));
 
         SpannableStringBuilder ssb = fromDocument(context, d, null, null);
 
@@ -2186,7 +2332,7 @@ public class HtmlHelper {
     }
 
     static Spanned highlightHeaders(Context context, String headers, boolean blocklist) {
-        SpannableStringBuilder ssb = new SpannableStringBuilder(headers);
+        SpannableStringBuilder ssb = new SpannableStringBuilderEx(headers);
         int textColorLink = Helper.resolveColor(context, android.R.attr.textColorLink);
 
         int index = 0;
@@ -2272,6 +2418,56 @@ public class HtmlHelper {
         }
 
         return ssb;
+    }
+
+    static Document highlightSearched(Context context, Document document, String searched) {
+        String find = searched.toLowerCase();
+        int color = Helper.resolveColor(context, R.attr.colorHighlight);
+
+        NodeTraversor.traverse(new NodeVisitor() {
+            @Override
+            public void head(Node node, int depth) {
+                if (node instanceof TextNode) {
+                    TextNode tnode = (TextNode) node;
+                    String text = tnode.getWholeText();
+
+                    int start = text.toLowerCase().indexOf(find);
+                    if (start < 0)
+                        return;
+
+                    int prev = 0;
+                    Element holder = document.createElement("span");
+
+                    while (start >= 0) {
+                        if (start > prev)
+                            holder.appendText(text.substring(prev, start));
+
+                        Element span = document.createElement("span");
+                        span.attr("style", mergeStyles(
+                                span.attr("style"),
+                                "font-size:larger; background-color:" + encodeWebColor(color)
+                        ));
+                        span.text(text.substring(start, start + find.length()));
+                        holder.appendChild(span);
+
+                        prev = start + find.length();
+                        start = text.toLowerCase().indexOf(find, prev);
+                    }
+
+                    if (prev < text.length())
+                        holder.appendText(text.substring(prev));
+
+                    tnode.before(holder);
+                    tnode.text("");
+                }
+            }
+
+            @Override
+            public void tail(Node node, int depth) {
+            }
+        }, document);
+
+        return document;
     }
 
     static void cleanup(Document d) {
@@ -2462,7 +2658,7 @@ public class HtmlHelper {
                 while (block.size() > 0) {
                     tnode = block.get(block.size() - 1);
                     text = tnode.getWholeText();
-                    if (endsWithSpace(text)) {
+                    if (endsWithSpace(text) && !"-- ".equals(text)) {
                         text = text.substring(0, text.length() - 1);
                         tnode.text(text);
                     }
@@ -2510,7 +2706,7 @@ public class HtmlHelper {
         }, document.body());
 
         // https://developer.android.com/guide/topics/text/spans
-        SpannableStringBuilder ssb = new SpannableStringBuilder();
+        SpannableStringBuilder ssb = new SpannableStringBuilderEx();
 
         NodeTraversor.traverse(new NodeVisitor() {
             private Element element;
@@ -2572,6 +2768,7 @@ public class HtmlHelper {
                             String value = param.substring(semi + 1);
                             switch (key) {
                                 case "color":
+                                case "background":
                                 case "background-color":
                                     if (!TextUtils.isEmpty(value))
                                         try {
@@ -2607,7 +2804,14 @@ public class HtmlHelper {
                                 case "text-align":
                                     // https://developer.mozilla.org/en-US/docs/Web/CSS/text-align
                                     Layout.Alignment alignment = null;
-                                    boolean rtl = TextDirectionHeuristics.FIRSTSTRONG_LTR.isRtl(ssb, start, ssb.length() - start);
+                                    boolean rtl;
+                                    try {
+                                        rtl = TextDirectionHeuristics.FIRSTSTRONG_LTR.isRtl(ssb, start, ssb.length() - start);
+                                    } catch (Throwable ex) {
+                                        // IllegalArgumentException
+                                        Log.e(ex);
+                                        rtl = false;
+                                    }
                                     switch (value) {
                                         case "left":
                                         case "start":
@@ -2632,11 +2836,17 @@ public class HtmlHelper {
                     }
 
                     // Apply calculated font size
-                    String xFontSize = element.attr("x-font-size-rel");
-                    if (!TextUtils.isEmpty(xFontSize)) {
-                        Float fsize = Float.parseFloat(xFontSize);
-                        if (fsize != 1.0f)
-                            setSpan(ssb, new RelativeSizeSpan(fsize), start, ssb.length());
+                    String xFontSizeAbs = element.attr("x-font-size-abs");
+                    if (TextUtils.isEmpty(xFontSizeAbs)) {
+                        String xFontSizeRel = element.attr("x-font-size-rel");
+                        if (!TextUtils.isEmpty(xFontSizeRel)) {
+                            float fsize = Float.parseFloat(xFontSizeRel);
+                            if (fsize != 1.0f)
+                                setSpan(ssb, new RelativeSizeSpan(fsize), start, ssb.length());
+                        }
+                    } else {
+                        int px = Integer.parseInt(xFontSizeAbs);
+                        setSpan(ssb, new AbsoluteSizeSpan(px), start, ssb.length());
                     }
 
                     // Apply element
@@ -2669,10 +2879,30 @@ public class HtmlHelper {
                                     else
                                         setSpan(ssb, new QuoteSpan(colorBlockquote, quoteStripe, quoteGap), start, ssb.length(), Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
                                 } else
-                                    setSpan(ssb, new IndentSpan(intentSize), start, ssb.length(), Spanned.SPAN_INCLUSIVE_INCLUSIVE);
+                                    setSpan(ssb, new IndentSpan(intentSize), start, ssb.length(), Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
                                 break;
                             case "br":
                                 ssb.append('\n');
+
+                                int l = ssb.length() - 1;
+                                List<Object> spans = new ArrayList<>();
+                                spans.addAll(Arrays.asList(ssb.getSpans(l, l, AbsoluteSizeSpan.class)));
+                                spans.addAll(Arrays.asList(ssb.getSpans(l, l, RelativeSizeSpan.class)));
+                                for (Object span : spans) {
+                                    int s = ssb.getSpanStart(span);
+                                    int e = ssb.getSpanEnd(span);
+                                    int f = ssb.getSpanFlags(span);
+                                    if (e == l) {
+                                        ssb.removeSpan(span);
+                                        if (span instanceof AbsoluteSizeSpan) {
+                                            int size = ((AbsoluteSizeSpan) span).getSize();
+                                            setSpan(ssb, new AbsoluteSizeSpan(size), s, e + 1, f);
+                                        } else if (span instanceof RelativeSizeSpan) {
+                                            float size = ((RelativeSizeSpan) span).getSizeChange();
+                                            setSpan(ssb, new RelativeSizeSpan(size), s, e + 1, f);
+                                        }
+                                    }
+                                }
                                 break;
                             case "body":
                                 // Do nothing
@@ -2761,8 +2991,9 @@ public class HtmlHelper {
                                 if (level > 0)
                                     level--;
 
-                                if (list == null || ("ul".equals(list.tagName()) &&
-                                        !(ltype != null && ltype.startsWith("decimal")))) {
+                                if (list == null ||
+                                        ("ul".equals(list.tagName()) &&
+                                                !NumberSpan.isSupportedType(ltype))) {
                                     // https://developer.mozilla.org/en-US/docs/Web/HTML/Element/ul
                                     Object ul;
                                     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P)
@@ -2785,7 +3016,7 @@ public class HtmlHelper {
                                         }
                                     }
 
-                                    setSpan(ssb, new NumberSpan(bulletIndent, bulletGap, colorAccent, textSize, level, index), start, ssb.length());
+                                    setSpan(ssb, new NumberSpan(bulletIndent, bulletGap, colorAccent, textSize, level, index, ltype), start, ssb.length());
                                 }
 
                                 break;
@@ -2953,6 +3184,7 @@ public class HtmlHelper {
                 .removeAttr("x-paragraph")
                 .removeAttr("x-font-size")
                 .removeAttr("x-font-size-rel")
+                .removeAttr("x-font-size-abs")
                 .removeAttr("x-line-before")
                 .removeAttr("x-line-after")
                 .removeAttr("x-align")
@@ -2960,7 +3192,8 @@ public class HtmlHelper {
                 .removeAttr("x-dashed")
                 .removeAttr("x-tracking")
                 .removeAttr("x-border")
-                .removeAttr("x-list-style");
+                .removeAttr("x-list-style")
+                .removeAttr("x-plain");
     }
 
     static Spanned fromHtml(@NonNull String html, Context context) {

@@ -169,6 +169,10 @@ public class ActivityBilling extends ActivityBase implements PurchasesUpdatedLis
 
     private static String getChallenge(Context context) throws NoSuchAlgorithmException {
         String android_id = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
+        if (android_id == null) {
+            Log.e("Android ID empty");
+            android_id = Long.toHexString(System.currentTimeMillis() / (24 * 3600 * 1000L));
+        }
         return Helper.sha256(android_id);
     }
 
@@ -276,9 +280,13 @@ public class ActivityBilling extends ActivityBase implements PurchasesUpdatedLis
 
     private void onPurchaseError(Intent intent) {
         String message = intent.getStringExtra("message");
-        Uri uri = Uri.parse(Helper.SUPPORT_URI);
+        boolean play = Helper.hasPlayStore(this);
+        Uri uri = Helper.getSupportUri(this);
         if (!TextUtils.isEmpty(message))
-            uri = uri.buildUpon().appendQueryParameter("message", "IAB: " + message).build();
+            uri = uri
+                    .buildUpon()
+                    .appendQueryParameter("message", "IAB: " + message + " Play: " + play)
+                    .build();
         Helper.view(this, uri, true);
     }
 
@@ -549,8 +557,6 @@ public class ActivityBilling extends ActivityBase implements PurchasesUpdatedLis
             message += " " + stage;
         }
 
-        if (BuildConfig.PLAY_STORE_RELEASE)
-            Log.e(message);
         EntityLog.log(this, message);
 
         if (result != null) {

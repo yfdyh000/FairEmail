@@ -228,7 +228,11 @@ public class AdapterOperation extends RecyclerView.Adapter<AdapterOperation.View
                             if (operation == null)
                                 return null;
 
-                            db.operation().deleteOperation(operation.id);
+                            if (db.operation().deleteOperation(operation.id) > 0)
+                                operation.cleanup(context, false);
+
+                            if (EntityOperation.SYNC.equals(operation.name))
+                                db.folder().setFolderSyncState(operation.folder, null);
 
                             db.folder().setFolderError(operation.folder, null);
                             if (operation.message != null)
@@ -264,6 +268,7 @@ public class AdapterOperation extends RecyclerView.Adapter<AdapterOperation.View
             public void onDestroyed() {
                 Log.d(AdapterOperation.this + " parent destroyed");
                 AdapterOperation.this.parentFragment = null;
+                owner.getLifecycle().removeObserver(this);
             }
         });
     }

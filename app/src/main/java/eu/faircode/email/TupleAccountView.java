@@ -31,7 +31,7 @@ import java.util.Objects;
         value = TupleAccountView.query
 )
 public class TupleAccountView {
-    static final String query = "SELECT id, pop, name, color, synchronize, notify, auto_seen, created FROM account";
+    static final String query = "SELECT id, pop, name, category, color, synchronize, notify, leave_deleted, auto_seen, created FROM account";
 
     @NonNull
     public Long id;
@@ -39,11 +39,14 @@ public class TupleAccountView {
     @ColumnInfo(name = "pop")
     public Integer protocol;
     public String name;
+    public String category;
     public Integer color;
     @NonNull
     public Boolean synchronize;
     @NonNull
     public Boolean notify = false;
+    @NonNull
+    public Boolean leave_deleted = false;
     @NonNull
     public Boolean auto_seen = true;
     public Long created;
@@ -58,6 +61,7 @@ public class TupleAccountView {
                     Objects.equals(this.color, other.color) &&
                     this.synchronize.equals(other.synchronize) &&
                     this.notify.equals(other.notify) &&
+                    this.leave_deleted.equals(other.leave_deleted) &&
                     this.auto_seen.equals(other.auto_seen) &&
                     Objects.equals(this.created, other.created));
         } else

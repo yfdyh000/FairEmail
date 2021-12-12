@@ -19,7 +19,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <ImageButton
+    <eu.faircode.email.FixedImageButton
         android:id="@+id/ibNext"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -45,6 +45,7 @@
         android:id="@+id/tvFavorite1"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
         android:ellipsize="start"
         android:padding="6dp"
         android:singleLine="true"
@@ -62,6 +63,7 @@
         android:id="@+id/tvFavorite2"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
         android:ellipsize="start"
         android:padding="6dp"
         android:singleLine="true"
@@ -79,6 +81,7 @@
         android:id="@+id/tvFavorite3"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
         android:ellipsize="start"
         android:padding="6dp"
         android:singleLine="true"
@@ -92,7 +95,7 @@
         app:layout_constraintStart_toEndOf="@id/tvFavorite2"
         app:layout_constraintTop_toBottomOf="@id/tvNoFolder" />
 
-    <ImageButton
+    <eu.faircode.email.FixedImageButton
         android:id="@+id/ibResetFavorites"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

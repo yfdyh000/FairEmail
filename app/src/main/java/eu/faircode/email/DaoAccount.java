@@ -72,10 +72,62 @@ public interface DaoAccount {
             " LEFT JOIN folder AS sent ON sent.account = account.id AND sent.type = '" + EntityFolder.SENT + "'" +
             " WHERE :all OR account.synchronize" +
             " GROUP BY account.id" +
-            " ORDER BY CASE WHEN :all THEN 0 ELSE account.`order` END" +
-            ", CASE WHEN :all THEN 0 ELSE account.`primary` END DESC" +
+            " ORDER BY account.`order`" +
+            ", account.`primary` DESC" +
+            ", account.category COLLATE NOCASE" +
             ", account.name COLLATE NOCASE")
     LiveData<List<TupleAccountEx>> liveAccountsEx(boolean all);
+
+    @Query("SELECT account.*" +
+            ", NULL AS folderId, NULL AS folderSeparator" +
+            ", NULL AS folderType, -1 AS folderOrder" +
+            ", NULL AS folderName, NULL AS folderDisplay, NULL AS folderColor" +
+            ", 0 AS folderSync, NULL AS folderState, NULL AS folderSyncState" +
+            ", 0 AS executing" +
+            ", 0 AS messages" +
+            ", (SELECT COUNT(DISTINCT" +
+            "   CASE WHEN NOT message.hash IS NULL THEN message.hash" +
+            "   WHEN NOT message.msgid IS NULL THEN message.msgid" +
+            "   ELSE message.id END)" +
+            "    FROM message" +
+            "    JOIN folder ON folder.id = message.folder" +
+            "    WHERE message.account = account.id" +
+            "    AND folder.type <> '" + EntityFolder.ARCHIVE + "'" +
+            "    AND folder.type <> '" + EntityFolder.TRASH + "'" +
+            "    AND folder.type <> '" + EntityFolder.JUNK + "'" +
+            "    AND folder.type <> '" + EntityFolder.DRAFTS + "'" +
+            "    AND folder.type <> '" + EntityFolder.OUTBOX + "'" +
+            "    AND NOT ui_seen" +
+            "    AND NOT ui_hide) AS unseen" +
+            " FROM account" +
+            " WHERE account.synchronize" +
+
+            " UNION " +
+
+            " SELECT account.*" +
+            ", folder.id AS folderId, folder.separator AS folderSeparator" +
+            ", folder.type AS folderType, folder.`order` AS folderOrder" +
+            ", folder.name AS folderName, folder.display AS folderDisplay, folder.color AS folderColor" +
+            ", folder.synchronize AS folderSync, folder.state AS foldeState, folder.sync_state AS folderSyncState" +
+            ", (SELECT COUNT(operation.id) FROM operation" +
+            "   WHERE operation.folder = folder.id" +
+            "   AND state = 'executing') AS executing" +
+            ", (SELECT COUNT(message.id) FROM message" +
+            "   WHERE message.folder = folder.id" +
+            "   AND NOT ui_hide) AS messages" +
+            ", (SELECT COUNT(DISTINCT" +
+            "   CASE WHEN NOT message.hash IS NULL THEN message.hash" +
+            "   WHEN NOT message.msgid IS NULL THEN message.msgid" +
+            "   ELSE message.id END)" +
+            "    FROM message" +
+            "    WHERE message.folder = folder.id" +
+            "    AND NOT ui_seen" +
+            "    AND NOT ui_hide) AS unseen" +
+            " FROM account" +
+            " JOIN folder ON folder.account = account.id" +
+            " WHERE account.synchronize" +
+            " AND folder.navigation")
+    LiveData<List<TupleAccountFolder>> liveAccountFolder();
 
     @Query("SELECT account.*" +
             ", SUM(folder.synchronize) AS folders" +
@@ -90,13 +142,16 @@ public interface DaoAccount {
     @Query("SELECT * FROM account WHERE id = :id")
     EntityAccount getAccount(long id);
 
+    @Query("SELECT * FROM account WHERE uuid = :uuid")
+    EntityAccount getAccountByUUID(String uuid);
+
     @Query("SELECT * FROM account WHERE name = :name")
     EntityAccount getAccount(String name);
 
     @Query("SELECT * FROM account" +
             " WHERE user = :user" +
             " AND auth_type = :auth_type")
-    EntityAccount getAccount(String user, int auth_type);
+    List<EntityAccount> getAccounts(String user, int auth_type);
 
     @Query("SELECT * FROM account WHERE `primary`")
     EntityAccount getPrimaryAccount();
@@ -125,9 +180,6 @@ public interface DaoAccount {
     @Update
     void updateAccount(EntityAccount account);
 
-    @Query("UPDATE account SET separator = :separator WHERE id = :id AND NOT (separator IS :separator)")
-    int setFolderSeparator(long id, Character separator);
-
     @Query("UPDATE account SET synchronize = :synchronize WHERE id = :id AND NOT (synchronize IS :synchronize)")
     int setAccountSynchronize(long id, boolean synchronize);
 
@@ -137,6 +189,9 @@ public interface DaoAccount {
     @Query("UPDATE account SET `primary` = :primary WHERE id = :id AND NOT (`primary` IS :primary)")
     int setAccountPrimary(long id, boolean primary);
 
+    @Query("UPDATE account SET notify = :notify WHERE id = :id AND NOT (notify IS :notify)")
+    int setAccountNotify(long id, boolean notify);
+
     @Query("UPDATE account SET thread = :thread WHERE id = :id AND NOT (thread IS :thread)")
     int setAccountThread(long id, Long thread);
 
@@ -145,6 +200,9 @@ public interface DaoAccount {
 
     @Query("UPDATE account SET state = :state WHERE id = :id AND NOT (state IS :state)")
     int setAccountState(long id, String state);
+
+    @Query("UPDATE account SET name = :name WHERE id = :id AND NOT (name IS :name)")
+    int setAccountName(long id, String name);
 
     @Query("UPDATE account SET password = :password WHERE id = :id AND NOT (password IS :password)")
     int setAccountPassword(long id, String password);
@@ -186,10 +244,14 @@ public interface DaoAccount {
     int setAccountMaxSize(long id, Long max_size);
 
     @Query("UPDATE account" +
-            " SET capability_idle = :idle, capability_utf8 = :utf8" +
+            " SET capabilities = :capabilities" +
+            ", capability_idle = :idle" +
+            ", capability_utf8 = :utf8" +
             " WHERE id = :id" +
-            " AND NOT (capability_idle IS :idle AND capability_utf8 IS :utf8)")
-    int setAccountCapabilities(long id, Boolean idle, Boolean utf8);
+            " AND NOT (capabilities IS :capabilities" +
+            "  AND capability_idle IS :idle" +
+            "  AND capability_utf8 IS :utf8)")
+    int setAccountCapabilities(long id, String capabilities, Boolean idle, Boolean utf8);
 
     @Query("UPDATE account SET warning = :warning WHERE id = :id AND NOT (warning IS :warning)")
     int setAccountWarning(long id, String warning);

@@ -2,9 +2,9 @@
 
 # Wsparcie FairEmail
 
-W razie jakichkolwiek pytań, sprawdź najpierw poniższy FAQ. [At the bottom](#user-content-get-support), you can find out how to ask other questions, request features, and report bugs.
+W razie jakichkolwiek pytań, sprawdź najpierw poniższy FAQ. [Poniżej](#user-content-get-support) dowiesz się jak zadawać pytania innego typu, proponować nowe funkcje i zgłaszać blędy.
 
-Wenn Sie eine Frage haben, überprüfen Sie bitte zuerst die nachstehenden häufig gestellten Fragen (FAQ). [Ganz unten erfahren Sie](#user-content-get-support), wie Sie weitere Fragen stellen, Funktionen anfordern und Fehler melden können.
+Jeśli masz pytania, sprawdź najpierw najczęściej zadawane pytania (FAQ) poniżej. Na dole możesz dowiedzieć się, jak zadać więcej pytań, poprosić o funkcje i zgłosić błędy.
 
 ## Spis treści
 
@@ -664,7 +664,7 @@ Signed-only or encrypted-only messages are not a good idea, please see here abou
 
 Signed-only messages are supported, encrypted-only messages are not supported.
 
-Common errors:
+Częste błędy:
 
 * *No key*: there is no PGP key available for one of the listed email addresses
 * *Missing key for encryption*: there is probably a key selected in FairEmail that does not exist in the OpenKeychain app anymore. Resetting the key (see above) will probably fix this problem.

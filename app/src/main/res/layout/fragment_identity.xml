@@ -419,8 +419,7 @@
             android:layout_height="wrap_content"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tvPassword"
-            app:passwordToggleEnabled="true">
+            app:layout_constraintTop_toBottomOf="@id/tvPassword">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:layout_width="match_parent"
@@ -432,16 +431,6 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <eu.faircode.email.FixedTextView
-            android:id="@+id/tvCharacters"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/title_setup_password_chars"
-            android:textAppearance="@style/TextAppearance.AppCompat.Small"
-            android:textColor="?attr/colorWarning"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tilPassword" />
-
-        <eu.faircode.email.FixedTextView
             android:id="@+id/tvCaseSensitiveHint"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -450,7 +439,7 @@
             android:textAppearance="@style/TextAppearance.AppCompat.Small"
             android:textStyle="italic"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tvCharacters" />
+            app:layout_constraintTop_toBottomOf="@id/tilPassword" />
 
         <eu.faircode.email.FixedTextView
             android:id="@+id/tvPasswordStorage"
@@ -630,7 +619,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvSenderExtra" />
 
-        <ImageButton
+        <eu.faircode.email.FixedImageButton
             android:id="@+id/ibSenderExtra"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -771,19 +760,31 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/etInternal" />
 
+        <eu.faircode.email.FixedTextView
+            android:id="@+id/tvE2Encryption"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/title_advanced_e2e_encryption"
+            android:textAppearance="@style/TextAppearance.AppCompat.Small"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvInternalHint" />
+
         <CheckBox
             android:id="@+id/cbSignDefault"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
             android:layout_marginTop="12dp"
             android:text="@string/title_advanced_sign_default"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tvInternalHint" />
+            app:layout_constraintTop_toBottomOf="@id/tvE2Encryption" />
 
         <CheckBox
             android:id="@+id/cbEncryptDefault"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
             android:layout_marginTop="12dp"
             android:text="@string/title_advanced_encrypt_default"
             app:layout_constraintStart_toStartOf="parent"
@@ -834,7 +835,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:drawableEnd="@drawable/twotone_save_24"
+            android:drawableEnd="@drawable/twotone_save_alt_24"
             android:drawablePadding="6dp"
             android:tag="disable"
             android:text="@string/title_save"
@@ -961,7 +962,7 @@
                 cbSenderExtra,cbSenderExtraName,tvSenderExtra,etSenderExtra,ibSenderExtra,tvSenderExtraHint,
                 tvReplyTo,etReplyTo,tvCc,etCc,tvCcHint,tvBcc,etBcc,tvBccHint,
                 tvInternal,etInternal,tvInternalHint,
-                cbSignDefault,cbEncryptDefault,
+                tvE2Encryption,cbSignDefault,cbEncryptDefault,
                 cbUnicode,tvUnicodeHint,tvMaxSize,etMaxSize" />
 
         <androidx.constraintlayout.widget.Group

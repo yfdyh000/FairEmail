@@ -25,6 +25,8 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -34,13 +36,24 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.constraintlayout.widget.Group;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentTransaction;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.PreferenceManager;
+
+import org.json.JSONObject;
+
+import java.util.List;
+import java.util.Locale;
+
+import javax.mail.Address;
+import javax.mail.internet.InternetAddress;
 
 public class FragmentDialogJunk extends FragmentDialogBase {
     @NonNull
@@ -63,12 +76,14 @@ public class FragmentDialogJunk extends FragmentDialogBase {
         final CheckBox cbBlockDomain = view.findViewById(R.id.cbBlockDomain);
         final ImageButton ibMore = view.findViewById(R.id.ibMore);
         final TextView tvMore = view.findViewById(R.id.tvMore);
-        final Button btnEditRules = view.findViewById(R.id.btnEditRules);
         final CheckBox cbJunkFilter = view.findViewById(R.id.cbJunkFilter);
         final ImageButton ibInfoFilter = view.findViewById(R.id.ibInfoFilter);
         final CheckBox cbBlocklist = view.findViewById(R.id.cbBlocklist);
         final TextView tvBlocklist = view.findViewById(R.id.tvBlocklist);
         final ImageButton ibInfoBlocklist = view.findViewById(R.id.ibInfoBlocklist);
+        final Button btnClear = view.findViewById(R.id.btnClear);
+        final ImageButton ibRules = view.findViewById(R.id.ibRules);
+        final ImageButton ibManage = view.findViewById(R.id.ibManage);
         final Group grpInJunk = view.findViewById(R.id.grpInJunk);
         final Group grpMore = view.findViewById(R.id.grpMore);
 
@@ -88,7 +103,7 @@ public class FragmentDialogJunk extends FragmentDialogBase {
         cbBlockSender.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                cbBlockDomain.setEnabled(isChecked);
+                cbBlockDomain.setEnabled(isChecked && ActivityBilling.isPro(context));
             }
         });
 
@@ -107,54 +122,6 @@ public class FragmentDialogJunk extends FragmentDialogBase {
 
         ibMore.setOnClickListener(onMore);
         tvMore.setOnClickListener(onMore);
-
-        btnEditRules.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (inJunk) {
-                    new SimpleTask<EntityFolder>() {
-                        @Override
-                        protected EntityFolder onExecute(Context context, Bundle args) throws Throwable {
-                            long account = args.getLong("account");
-
-                            DB db = DB.getInstance(context);
-                            EntityFolder inbox = db.folder().getFolderByType(account, EntityFolder.INBOX);
-
-                            if (inbox == null)
-                                throw new IllegalArgumentException(context.getString(R.string.title_no_inbox));
-
-                            return inbox;
-                        }
-
-                        @Override
-                        protected void onExecuted(Bundle args, EntityFolder inbox) {
-                            LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(context);
-                            lbm.sendBroadcast(
-                                    new Intent(ActivityView.ACTION_EDIT_RULES)
-                                            .putExtra("account", account)
-                                            .putExtra("protocol", protocol)
-                                            .putExtra("folder", inbox.id)
-                                            .putExtra("type", inbox.type));
-                            dismiss();
-                        }
-
-                        @Override
-                        protected void onException(Bundle args, Throwable ex) {
-                            Log.unexpectedError(getParentFragmentManager(), ex);
-                        }
-                    }.execute(FragmentDialogJunk.this, args, "junk:rules");
-                } else {
-                    LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(context);
-                    lbm.sendBroadcast(
-                            new Intent(ActivityView.ACTION_EDIT_RULES)
-                                    .putExtra("account", account)
-                                    .putExtra("protocol", protocol)
-                                    .putExtra("folder", folder)
-                                    .putExtra("type", type));
-                    dismiss();
-                }
-            }
-        });
 
         cbJunkFilter.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
@@ -237,12 +204,146 @@ public class FragmentDialogJunk extends FragmentDialogBase {
             }
         });
 
+        btnClear.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                new AlertDialog.Builder(v.getContext())
+                        .setIcon(R.drawable.twotone_warning_24)
+                        .setTitle(R.string.title_junk_clear)
+                        .setMessage(R.string.title_junk_clear_hint)
+                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                Bundle args = new Bundle();
+                                args.putLong("folder", folder);
+
+                                new SimpleTask<Void>() {
+                                    @Override
+                                    protected Void onExecute(Context context, Bundle args) throws Throwable {
+                                        long fid = args.getLong("folder");
+
+                                        DB db = DB.getInstance(context);
+                                        EntityFolder folder = db.folder().getFolder(fid);
+                                        if (folder == null)
+                                            return null;
+
+                                        EntityFolder junk = db.folder().getFolderByType(folder.account, EntityFolder.JUNK);
+                                        if (junk == null)
+                                            return null;
+
+                                        List<EntityRule> rules = db.rule().getRules(fid);
+                                        if (rules == null)
+                                            return null;
+
+                                        for (EntityRule rule : rules) {
+                                            JSONObject jaction = new JSONObject(rule.action);
+                                            int type = jaction.optInt("type", -1);
+                                            long target = jaction.optLong("target", -1);
+                                            if (type == EntityRule.TYPE_MOVE && target == junk.id) {
+                                                EntityLog.log(context, "Deleting junk rule=" + rule.id);
+                                                db.rule().deleteRule(rule.id);
+                                            }
+                                        }
+
+                                        int count = db.contact().deleteContact(account, EntityContact.TYPE_JUNK);
+                                        EntityLog.log(context, "Deleted junk contacts=" + count);
+
+                                        return null;
+                                    }
+
+                                    @Override
+                                    protected void onExecuted(Bundle args, Void data) {
+                                        ToastEx.makeText(getContext(), R.string.title_completed, Toast.LENGTH_LONG).show();
+                                    }
+
+                                    @Override
+                                    protected void onException(Bundle args, Throwable ex) {
+                                        Log.unexpectedError(getParentFragmentManager(), ex);
+                                    }
+                                }.execute(FragmentDialogJunk.this, args, "junk:clear");
+                            }
+                        })
+                        .setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                // Do nothing
+                            }
+                        })
+                        .show();
+            }
+        });
+
+        ibRules.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(v.getContext());
+                lbm.sendBroadcast(
+                        new Intent(ActivityView.ACTION_EDIT_RULES)
+                                .putExtra("account", account)
+                                .putExtra("protocol", protocol)
+                                .putExtra("folder", folder)
+                                .putExtra("type", type));
+
+                dismiss();
+            }
+        });
+
+        ibManage.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Bundle args = new Bundle();
+                args.putBoolean("junk", true);
+
+                FragmentContacts fragment = new FragmentContacts();
+                fragment.setArguments(args);
+
+                FragmentTransaction fragmentTransaction = getParentFragmentManager().beginTransaction();
+                fragmentTransaction.replace(R.id.content_frame, fragment).addToBackStack("contacts");
+                fragmentTransaction.commit();
+
+                dismiss();
+            }
+        });
+
+        String domain = null;
+        try {
+            boolean common = false;
+            Address[] froms = MessageHelper.parseAddresses(context, from);
+            String email = (froms.length == 0 ? null : ((InternetAddress) froms[0]).getAddress());
+            int at = (email == null ? -1 : email.indexOf('@'));
+            domain = (at > 0 ? email.substring(at + 1).toLowerCase(Locale.ROOT) : null);
+
+            if (domain != null) {
+                List<String> domains = EmailProvider.getDomainNames(context);
+                for (String d : domains)
+                    if (domain.matches(d)) {
+                        common = true;
+                        break;
+                    }
+            }
+
+            if (common) {
+                int dp6 = Helper.dp2pixels(context, 6);
+                int colorWarning = Helper.resolveColor(context, R.attr.colorWarning);
+                cbBlockDomain.setTextColor(colorWarning);
+                cbBlockDomain.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, R.drawable.twotone_warning_24, 0);
+                cbBlockDomain.setCompoundDrawablePadding(dp6);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                    cbBlockDomain.setCompoundDrawableTintList(ColorStateList.valueOf(colorWarning));
+            }
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
+
         // Initialize
         tvMessage.setText(inJunk
                 ? getString(R.string.title_folder_junk)
                 : getString(R.string.title_ask_spam_who, from));
-        cbBlockSender.setEnabled(canBlock && ActivityBilling.isPro(context));
+        cbBlockSender.setEnabled(canBlock);
         cbBlockDomain.setEnabled(false);
+        cbBlockSender.setChecked(canBlock);
+        cbBlockDomain.setText(getString(R.string.title_block_sender_domain, domain));
+        cbBlockDomain.setVisibility(domain == null ? View.GONE : View.VISIBLE);
         ibMore.setImageLevel(1);
         cbBlocklist.setChecked(check_blocklist && use_blocklist);
         tvBlocklist.setText(TextUtils.join(", ", DnsBlockList.getNamesEnabled(context)));
@@ -256,7 +357,7 @@ public class FragmentDialogJunk extends FragmentDialogBase {
             }
 
             @Override
-            protected Boolean onExecute(Context context, Bundle args) throws Throwable {
+            protected Boolean onExecute(Context context, Bundle args) {
                 long aid = args.getLong("account");
                 long fid = args.getLong("folder");
 

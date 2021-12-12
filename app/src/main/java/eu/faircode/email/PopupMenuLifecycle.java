@@ -42,17 +42,24 @@ import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.OnLifecycleEvent;
 
-public class PopupMenuLifecycle extends PopupMenu implements LifecycleObserver {
+public class PopupMenuLifecycle extends PopupMenu {
 
     public PopupMenuLifecycle(@NonNull Context context, LifecycleOwner owner, @NonNull View anchor) {
         super(new ContextThemeWrapper(context, R.style.popupMenuStyle), anchor);
         Log.i("Instantiate " + this);
 
-        owner.getLifecycle().addObserver(this);
+        owner.getLifecycle().addObserver(new LifecycleObserver() {
+            @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+            public void onDestroy() {
+                Log.i("Destroy " + this);
+                PopupMenuLifecycle.this.dismiss();
+                owner.getLifecycle().removeObserver(this);
+            }
+        });
     }
 
     public void insertIcons(Context context) {
-        insertIcons(new ContextThemeWrapper(context, R.style.popupMenuStyle), getMenu());
+        insertIcons(new ContextThemeWrapper(context, R.style.popupMenuStyle), getMenu(), false);
     }
 
     @Override
@@ -88,24 +95,18 @@ public class PopupMenuLifecycle extends PopupMenu implements LifecycleObserver {
         });
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-    public void onDestroy() {
-        Log.i("Destroy " + this);
-        this.dismiss();
-    }
-
-    static void insertIcons(Context context, Menu menu) {
+    static void insertIcons(Context context, Menu menu, boolean submenu) {
         for (int i = 0; i < menu.size(); i++) {
             MenuItem item = menu.getItem(i);
             CharSequence title = item.getTitle();
-            insertIcon(context, item);
+            insertIcon(context, item, submenu);
             if (item.hasSubMenu()) {
                 SubMenu sub = item.getSubMenu();
                 boolean has = false;
                 for (int j = 0; j < sub.size(); j++)
                     if (sub.getItem(j).getIcon() != null) {
                         has = true;
-                        insertIcons(context, sub);
+                        insertIcons(context, sub, true);
                         break;
                     }
                 if (has)
@@ -114,30 +115,29 @@ public class PopupMenuLifecycle extends PopupMenu implements LifecycleObserver {
         }
     }
 
-    private static void insertIcon(Context context, MenuItem menuItem) {
-        if (menuItem.getItemId() == R.id.menu_zoom)
-            return;
+    static void insertIcon(Context context, MenuItem menuItem, boolean submenu) {
         Drawable icon = menuItem.getIcon();
 
         if (icon == null)
             icon = new ColorDrawable(Color.TRANSPARENT);
         else {
+            icon = icon.getConstantState().newDrawable().mutate();
             int color = Helper.resolveColor(context, R.attr.colorAccent);
             icon.setTint(color);
-            if (!menuItem.isEnabled()) {
-                icon.mutate();
+            if (!menuItem.isEnabled())
                 icon.setAlpha(Math.round(Helper.LOW_LIGHT * 255));
-            }
         }
 
         int iconSize = context.getResources().getDimensionPixelSize(R.dimen.menu_item_icon_size);
         icon.setBounds(0, 0, iconSize, iconSize);
         ImageSpan imageSpan = new CenteredImageSpan(icon);
 
-        SpannableStringBuilder ssb = new SpannableStringBuilder(menuItem.getTitle());
+        SpannableStringBuilder ssb = new SpannableStringBuilderEx(menuItem.getTitle());
         ssb.insert(0, "\uFFFC\u2002"); // object replacement character, en space
         ssb.setSpan(imageSpan, 0, 1, 0);
         menuItem.setTitle(ssb);
-        menuItem.setIcon(null);
+        if (submenu)
+            menuItem.setIcon(null);
+        menuItem.setTitleCondensed("");
     }
 }

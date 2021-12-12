@@ -37,19 +37,21 @@ internal class ConfigInternal(var apiKey: String) : CallbackAware, MetadataAware
     var maxPersistedSessions: Int = DEFAULT_MAX_PERSISTED_SESSIONS
     var context: String? = null
 
-    var redactedKeys: Set<String> = metadataState.metadata.redactedKeys
+    var redactedKeys: Set<String>
+        get() = metadataState.metadata.redactedKeys
         set(value) {
             metadataState.metadata.redactedKeys = value
-            field = value
         }
 
     var discardClasses: Set<String> = emptySet()
     var enabledReleaseStages: Set<String>? = null
-    var enabledBreadcrumbTypes: Set<BreadcrumbType>? = BreadcrumbType.values().toSet()
+    var enabledBreadcrumbTypes: Set<BreadcrumbType>? = null
     var projectPackages: Set<String> = emptySet()
     var persistenceDirectory: File? = null
 
-    protected val plugins = mutableSetOf<Plugin>()
+    val notifier: Notifier = Notifier()
+
+    protected val plugins = HashSet<Plugin>()
 
     override fun addOnError(onError: OnErrorCallback) = callbackState.addOnError(onError)
     override fun removeOnError(onError: OnErrorCallback) = callbackState.removeOnError(onError)
@@ -79,7 +81,7 @@ internal class ConfigInternal(var apiKey: String) : CallbackAware, MetadataAware
     }
 
     companion object {
-        private const val DEFAULT_MAX_BREADCRUMBS = 25
+        private const val DEFAULT_MAX_BREADCRUMBS = 50
         private const val DEFAULT_MAX_PERSISTED_SESSIONS = 128
         private const val DEFAULT_MAX_PERSISTED_EVENTS = 32
         private const val DEFAULT_LAUNCH_CRASH_THRESHOLD_MS: Long = 5000

@@ -6,55 +6,55 @@
 
 Якщо у вас є запитання, спершу ознайомтесь із найпоширенішими запитаннями. [ Нижче ви можете знайти ](#user-content-get-support), як можна задавати подальші запитання, запитувати функції та повідомляти про помилки.
 
-## Перелік
+## Каталог
 
-* [Авторизація облікових записів](#user-content-authorizing-accounts)
-* [Як ...?](#user-content-howto)
-* [Найпоширеніші складнощі](#user-content-known-problems)
-* [Заплановані можливості](#user-content-planned-features)
-* [Найпопулярніші функції](#user-content-frequently-requested-features)
-* [Найбільш поширенні питання](#user-content-frequently-asked-questions)
-* [Отримати підтримку](#user-content-get-support)
+* [Авторизація/Активація облікових записів](#user-content-authorizing-accounts)
+* [Яким чином...?](#user-content-howto)
+* [Популярні труднощі](#user-content-known-problems)
+* [Запрограмовані можливості](#user-content-planned-features)
+* [Часто використовувані функції](#user-content-frequently-requested-features)
+* [Найбільш поширені питання](#user-content-frequently-asked-questions)
+* [Звернутися до підтримки](#user-content-get-support)
 
-<h2><a name="authorizing-accounts"></a>Авторизація облікового акаунту</h2>
+<h2><a name="authorizing-accounts"></a>Авторизація облікового запису</h2>
 
-У більшості випадків, майстер швидкого налаштування зможе автоматично визначити правильну конфігурацію.
+Переважно, майстер швидкого налаштування здатний автоматично визначити правильні параметри.
 
-Якщо швидкі налаштування не вдалось виконати, Вам потрібно буде вручну створити обліковий запис (для отримання електронної пошти) та посвідчення особи (для надсилання електронної пошти). Для цього Вам знадобляться адреси серверів IMAP, SMTP та номери портів, слід використовувати порти SSL/TLS або STARTTLS також потрібне Ваше ім’я користувача (зазвичай, але не завжди, це Ваша електронна адреса) та Ваш пароль.
+Якщо майстру не вдалося швидко виконати налаштування, Вам доведеться  вручну створити обліковий запис (щоб отримати електронну пошту) та підтвердження  особи (щоб надіслати електронну пошту). Для цього Вам необхідні  адреси серверів IMAP, SMTP та номери портів, де використовуються або порти SSL/TLS або STARTTLS, а  також  Ваше ім’я користувача (переважно, але не завжди, це Ваша електронна адреса) та Ваш пароль.
 
-Пошук *IMAP* і ім'я постачальника переважно достатньо для пошуку потрібної документації.
+Пошук *IMAP* і ім'я постачальника зазвичай вистачає  для того, щоб знайти  відповідну  документацію.
 
-У деяких випадках вам потрібно буде ввімкнути зовнішній доступ до свого облікового запису та/або використовувати спеціальний (додаток) пароль, наприклад, коли увімкнено двофакторну автентифікацію.
+У певних випадках вам буде необхідно активувати  зовнішній доступ до Вашого облікового запису та/або використовувати спеціальний (додатковий) пароль, наприклад, при увімкненій  двосторонній  автентифікації.
 
-Для авторизації:
+Для  здійснення авторизації:
 
-* Gmail / G набори, дивіться [питання 6](#user-content-faq6)
-* Outlook / Live / Hotmail, дивіться[питання14](#user-content-faq14)
-* Офіс 365, дивіться [питання 14](#user-content-faq156)
-* Microsoft Exchange, див. [питання 8](#user-content-faq8)
-* Yahoo, AOL and Sky, див.[питання 88](#user-content-faq88)
-* Apple iCloud, див. [питання 148](#user-content-faq148)
-* Free.fr, див. [питання 157](#user-content-faq157)
+* Gmail / G набір, дивіться запитання 6
+* Outlook / Live / Hotmail, дивіться[запитання14](#user-content-faq14)
+* Office 365, дивіться [запитання 14](#user-content-faq156)
+* Microsoft Exchange, див. [запитання 8](#user-content-faq8)
+* Yahoo, AOL and Sky, див.[запитання 88](#user-content-faq88)
+* Apple iCloud, див. [запитання 148](#user-content-faq148)
+* Free.fr, див. [запитання 157](#user-content-faq157)
 
-Будь ласка, перегляньте [ тут ](#user-content-faq22), щоб отримати поширені повідомлення про помилки та способи їх усунення.
+Будь ласка, перегляньте [ тут ](#user-content-faq22), щоб ознайомитись з  поширеними помилковими повідомленнями  та шляхами їх вирішення.
 
-Пов'язані запитання:
+Приналежні запитання:
 
-* [Чи підтримується OAuth?](#user-content-faq111)
-* [Чому ActiveSync не підтримується?](#user-content-faq133)
+* [Чи OAuth підтримується?](#user-content-faq111)
+* [Чому  не підтримується ActiveSync?](#user-content-faq133)
 
 <a name="howto">
 
-## Як ...?
+## Яким чином...?
 
-* Змінити ім'я облікового запису: Налаштування, Головне, розгорніть: Налаштування вручну ..., виберіть Облікові записи, торкніться облікового запису
-* Змінення цілі проведення пальцем вліво/вправо: Налаштування, Поведінка, Установити дії на свайп
-* Змінити пароль: Налаштування, Головне, розгорніть: Налаштування вручну ..., виберіть Облікові записи, торкніться облікового запису, змініть пароль
-* Установити підпис: Налаштування, Головне, розгорніть: Налаштування вручну ..., Особисті дані, торкніться облікового запису, Редагувати підпис.
-* Додайте адреси CC та BCC: торкніться значка людей у кінці теми
-* Перехід до наступного / попереднього повідомлення про архівування / видалення: у налаштуваннях поведінки вимкніть * Автоматично закривати бесіди * та виберіть * Перейти до наступної / попередньої бесіди * для * При закритті бесіди</li>
-* Додайте папку до уніфікованої папки "Вхідні": натисніть і утримуйте папку у списку папок і поставте галочку * Показати в уніфікованій папці "Вхідні" *
-* Додайте папку в меню навігації: натисніть і утримуйте папку у списку папок і поставте галочку * Показати в меню навігації *
+* Змінити ім'я облікового запису: Налаштування, натисніть на Налаштування вручну, натисніть Облікові записи, натисніть на обліковий запис
+* Зміна напряму проведення пальцем вліво/вправо: Налаштування, натисніть Поведінка, Установити пересування
+* Змінити пароль: Налаштування, натисніть Налаштування вручну, натисніть Облікові записи, натисніть на обліковий запис, змініть пароль
+* Установити підпис: Налаштування, натисніть Налаштування вручну, натисніть Особисті дані, натисніть на дані, оберіть Редагувати підпис.
+* Додайте адреси CC та BCC: натисніть на позначку людей у кінці теми
+* Перейдіть до наступного / попереднього повідомлення про архівування / видалення: у налаштуваннях поведінки деактивуйте* Автоматично закривати чати * та виберіть * Перейти до наступного / попереднього чату * для * коли закриваєте чат*
+* Додайте папку до єдиної скриньки "Вхідні": натисніть та утримуйте папку у списку і поставте галочку * натисніть Показати в єдиній скринці "Вхідні" *
+* Додайте папку в меню навігації: натисніть та утримуйте папку у списку папок і поставте галочку у * Показати в меню навігації *
 * Завантажити більше повідомлень: довге натискання на теку в списку тек, оберіть *Отримати більше повідомлень*
 * Видалити повідомлення оминаючи смітник: довго натисніть значок смітника
 * Видалення облікового запису/особистих даних: Налаштування, Головне, розгорніть: Налаштування вручну ..., облікові записи/особисті дані, торкніться облікового запису, натисніть на іконку "смітника" у правому верхньому кутку
@@ -62,92 +62,92 @@
 * Скасувати надсилання: перемістити повідомлення пальцем ліворуч або праворуч
 * Зберігайте надіслані повідомлення у папці "Вхідні": [ див. Цей FAQ ](#user-content-faq142)
 * Змінити системні теки: Налаштування, Головне, розгорніть: Налаштування вручну ..., виберіть Облікові записи, торкніться облікового запису, гортайте до низу
-* Експорт/імпорт налаштувань: Налаштування, меню навігації (зверху, ліворуч)</ul>
+* Експорт/імпорт налаштувань: Налаштування, меню навігації (зверху, ліворуч)
 
 <h2><a name="known-problems"></a>Відома проблема</h2>
 
-* ~~A [bug in Android 5.1 and 6](https://issuetracker.google.com/issues/37054851) causes apps to sometimes show a wrong time format. Toggling the Android setting *Use 24-hour format* might temporarily solve the issue. A workaround was added.~~
-* ~~A [bug in Google Drive](https://issuetracker.google.com/issues/126362828) causes files exported to Google Drive to be empty. Google has fixed this.~~
-* ~~A [bug in AndroidX](https://issuetracker.google.com/issues/78495471) causes FairEmail to occasionally crash on long pressing or swiping. Google has fixed this.~~
-* ~~A [bug in AndroidX ROOM](https://issuetracker.google.com/issues/138441698) causes sometimes a crash with "*... Exception while computing database live data ... Couldn't read row ...*". A workaround was added.~~
-* A [bug in Android](https://issuetracker.google.com/issues/119872129) causes FairEmail to crash with "*... Bad notification posted ...*" on some devices once after updating FairEmail and tapping on a notification.
-* A [bug in Android](https://issuetracker.google.com/issues/62427912) sometimes causes a crash with "*... ActivityRecord not found for ...*" after updating FairEmail. Reinstalling ([source](https://stackoverflow.com/questions/46309428/android-activitythread-reportsizeconfigurations-causes-app-to-freeze-with-black)) might fix the problem.
-* A [bug in Android](https://issuetracker.google.com/issues/37018931) sometimes causes a crash with *... InputChannel is not initialized ...* on some devices.
-* ~~A [bug in LineageOS](https://review.lineageos.org/c/LineageOS/android_frameworks_base/+/265273) sometimes causes a crash with *... java.lang.ArrayIndexOutOfBoundsException: length=...; index=... ...*.~~
-* A bug in Nova Launcher on Android 5.x causes FairEmail to crash with a *java.lang.StackOverflowError* when Nova Launcher has access to the accessibility service.
-* ~~The folder selector sometimes shows no folders for yet unknown reasons. This seems to be fixed.~~
-* ~~A [bug in AndroidX](https://issuetracker.google.com/issues/64729576) makes it hard to grap the fast scroller. A workaround was added.~~
-* ~~Encryption with YubiKey results into an infinite loop. This seems to be caused by a [bug in OpenKeychain](https://github.com/open-keychain/open-keychain/issues/2507).~~
-* Scrolling to an internally linked location in original messages does not work. This can't be fixed because the original message view is contained in a scrolling view.
-* A preview of a message text doesn't (always) appear on Samsung watches because [setLocalOnly](https://developer.android.com/reference/androidx/core/app/NotificationCompat.Builder.html#setLocalOnly(boolean)) seem to be ignored. Message preview texts are known to be displayed correctly on Pebble 2, Fitbit Charge 3, Mi band 3, and Xiaomi Amazfit BIP wearables. See also [this FAQ](#user-content-faq126).
-* A [bug in Android 6.0](https://issuetracker.google.com/issues/37068143) causes a crash with *... Invalid offset: ... Valid range is ...* when text is selected and tapping outside of the selected text. This bug has been fixed in Android 6.0.1.
-* Internal (anchor) links will not work because original messages are shown in an embedded WebView in a scrolling view (the conversation list). This is an Android limitation which cannot be fixed or worked around.
-* Language detection [is not working anymore](https://issuetracker.google.com/issues/173337263) on Pixel devices with (upgraded to?) Android 11
-* A [bug in OpenKeychain](https://github.com/open-keychain/open-keychain/issues/2688) causes invalid PGP signatures when using a hardware token.
+* ~~~Помилка [в Android 5.1 і 6](https://issuetracker.google.com/issues/37054851) змушує додатки іноді показувати неправильний формат часу. Перемикання Android налаштувань на *Використовувати 24-годинний формат* може тимчасово вирішити цю проблему. Було додано певну роботу.~~
+* ~~Помилка [в Диску Google](https://issuetracker.google.com/issues/126362828) спонукає експортовані файли до Google Диска бути пустими. Google виправив це.~~
+* ~ ~~A [помилка в AndroidX](https://issuetracker.google.com/issues/78495471) приводить до завершення роботи FairEmail при довгому натисканні або гортанні пальцем. Google виправив це.~~
+* ~~~Ця [помилка в AndroidX ROOM](https://issuetracker.google.com/issues/138441698) викликає завершення роботи з "*... Виключення при обчисленні баз даних в реальному часі ... Не вдалося прочитати рядок ...*". Було додано певну роботу.~~
+* ~~~Ця [помилка в Android](https://issuetracker.google.com/issues/119872129) викликає завершення роботи FairEmail з "*... Опубліковане невірне сповіщення ...*" на деяких пристроях при оновленні FairEmail та натисканні на сповіщення.
+* Помилка [в Android](https://issuetracker.google.com/issues/62427912) іноді призводить до аварії з "*... Активність запису не знайдено...*після оновлення FairEmail. Повторне встановлення ([джерело](https://stackoverflow.com/questions/46309428/android-activitythread-reportsizeconfigurations-causes-app-to-freeze-with-black)) може вирішити проблему.
+* Помилка [в Android](https://issuetracker.google.com/issues/37018931) іноді викликає помилку з *... Вхідний канал не ініціалізовано...* на деяких пристроях.
+* [ помилки в LineageOS](https://review.lineageos.org/c/LineageOS/android_frameworks_base/+/265273)інколи спричиняють поломки з*... java.lang.ArrayIndexOutOfBoundsException: length=...; index=... ...*.~~
+* Помилка в Nova Launcher на Android 5.x викликає аварійне завершення роботи FairEmail з *java.lang.cravOverflowError*, коли Nova Launcher має доступ до служби додаткових можливостей.
+* Вибір папки інколи не показує папок з невідомих причин. Здається, це виправлено.~~
+* ~~~ [помилка в AndroidX](https://issuetracker.google.com/issues/64729576) ускладнює використання швидкого прокручування. Робота була додана
+* ~~Шифрування з YubiKey результати до нескінченного циклу. Здається, це спричинено [ помилкою в OpenKeychain<](https://github.com/open-keychain/open-keychain/issues/2507)
+* Прокручуваня внутрішньо зв'язаного розташування в оригінальних повідомленнях не працює. Це не може бути виправленим, тому що вигляд оригінального повідомлення подається у вигляді прокручанння.
+* Попередній перегляд тексту повідомлення не (завжди) з'являється на годинниках Samsung, тому що [встановлено тільки місцево ](https://developer.android.com/reference/androidx/core/app/NotificationCompat.Builder.html#setLocalOnly(boolean)) схоже, ігнорується. Попередній перегляд текстів повідомлення вважаються правильно відображуваними на Pebble 2, Fitbit Charge 3, Mi band 3, і Xiaomi Amazfit BIP носимих пристроях. Дивись також[ цю FAQ](#user-content-faq126).
+* [Помилка в Android 6.0](https://issuetracker.google.com/issues/37068143) спричиняє поломку з*... Недійсне зрушення... Дійсний діапазон є *коли текст вибрано і натиснено за межі виділеного тексту. Цю помилку було виправлено в Android 6.0.1.
+* Внутрішні (якірні) посилання не будуть працювати, оскільки оригінальні повідомлення відображаються в вбудованому WebView в режимі прокрутки (список розмови). Це обмеження Android, на яке не можна виправити або опрацювати.
+* Мова виявлення [ більше не працює](https://issuetracker.google.com/issues/173337263) на пристроях Pixel з (покращених до?) Android 11
+* Помилка [в OpenKeychain](https://github.com/open-keychain/open-keychain/issues/2688) викликає невірні PGP підписи при використанні апаратного токену.
 
 <h2><a name="planned-features"></a>Заплановані можливості</h2>
 
-* ~~Synchronize on demand (manual)~~
-* ~~Semi-automatic encryption~~
-* ~~Copy message~~
+* ~~Синхронізація за вимогою (вручну)~~
+* ~~Напівавтоматичне шифрування~~
+* ~~Копіювання повідомлення~~
 * ~~Кольорові зірки~~
-* ~~Notification settings per folder~~
-* ~~Select local images for signatures~~ (this will not be added because it requires image file management and because images are not shown by default in most email clients anyway)
-* ~~Show messages matched by a rule~~
-* ~~[ManageSieve](https://tools.ietf.org/html/rfc5804)~~ (there are no maintained Java libraries with a suitable license and without dependencies and besides that, FairEmail has its own filter rules)
-* ~~Search for messages with/without attachments~~ (this cannot be added because IMAP doesn't support searching for attachments)
-* ~~Search for a folder~~ (filtering a hierarchical folder list is problematic)
-* ~~Search suggestions~~
-* ~~[Autocrypt Setup Message](https://autocrypt.org/autocrypt-spec-1.0.0.pdf) (section 4.4)~~ (IMO it is not a good idea to let an email client handle sensitive encryption keys for an exceptional use case while OpenKeychain can export keys too)
+* Налаштування сповіщень через папку
+* виберіть локальні зображення для підписів ( це не буде додано, тому що це вимагає зображення файлу керування і тому що зображення не показується за замовчуванням в більшості поштових клієнтів)
+* ~~Показати повідомлення, що відповідають критеріям~~
+* ~~[ManageSieve](https://tools.ietf.org/html/rfc5804)~~ (немає підтримуваних бібліотек Java з відповідною ліцензією і без залежностей і, крім цього, FairEmail має власні правила фільтрів)
+* ~~Пошук повідомлення з/без вкладення~~ (неможливо додати, оскільки IMAP не підтримує пошук із вкладеними файлами)
+* ~~Пошук папок~~ (проблема при ієрархічному фільтруванні папок)
+* ~~Пошукові пропозиції~~
+* ~~[Autocrypt Setup Message](https://autocrypt.org/autocrypt-spec-1.0.0.pdf) (розділ 4.4)~~ (Як на мене, це не гарна ідея, дозволити поштовому клієнту оперувати з секретними ключами шифрування, як для винятку, використовуйте OpenKeychain, який також може експортувати ключі)
 * ~~Спільні уніфіковані теки~~
-* ~~New per account message notification schedules~~ (implemented by adding a time condition to rules so messages can be snoozed during selected periods)
-* ~~Copy accounts and identities~~
+* ~~Відкладене сповіщення про отримання нового повідомлення~~ (реалізовано за допомогою додавання налаштувань часу, сповіщення про отримані повідомлення будуть відключені протягом обраного часу)
+* Копіюй облікові записи і особисті дані
 * ~~Pinch zoom~~ (not reliably possible in a scrolling list; the full message view can be zoomed instead)
-* ~~More compact folder view~~
-* ~~Compose lists and tables~~ (this requires a rich text editor, see [this FAQ](#user-content-faq99))
-* ~~Pinch zoom text size~~
+* ~~Більш компактний вигляд папок~~
+* ~~Створення списків і таблиць~~ (вимагає ширшого текстового редактору, дивитися [ ЧаПи](#user-content-faq99))
+* ~~Збільшення розміру шрифту~~
 * ~~відображення GIF~~
-* ~~Themes~~ (a grey light and dark theme were added because this is what most people seems to want)
+* ~~Теми~~ (додано світло-сіру і темну тему, тому що, здається, це те, що більшість людей хоче)
 * ~~Any day time condition~~ (any day doesn't really fit into the from/to date/time condition)
 * ~~Надіслати як вкладення~~
 * ~~Віджет для вибраного облікового запису~~
 * ~~Нагадування вкласти файли ~~
 * ~~Виберіть домени, щоб показати зображення для~~ (це буде занадто складно для використання)
 * ~~Об'єднані повідомлення з зірочкою~~ (тут вже є спеціальний пошук для цього)
-* ~~Move notification action~~
+* ~~Дії зі сповіщеннями~~
 * ~~Підтримка S/MIME ~~
 * ~~Пошук налаштувань~~
 
-Anything on this list is in random order and *might* be added in the near future.
+Все у цьому списку є у довільному порядку і *можливо буде додано * найближчим часом.
 
-<h2><a name="frequently-requested-features"></a>Frequently requested features</h2>
+<h2><a name="frequently-requested-features"></a>Часто запитувані функції</h2>
 
-The design is based on many discussions and if you like you can discuss about it [in this forum](https://forum.xda-developers.com/android/apps-games/source-email-t3824168) too. The goal of the design is to be minimalistic (no unnecessary menus, buttons, etc) and non distracting (no fancy colors, animations, etc). All displayed things should be useful in one or another way and should be carefully positioned for easy usage. Fonts, sizes, colors, etc should be material design whenever possible.
+Дизайн заснований на багатьох обговореннях, і, якщо вам подобається, ви можете обговорити це[у цьому форумі теж](https://forum.xda-developers.com/android/apps-games/source-email-t3824168). Мета дизайну - бути мінімалістичним (немає непотрібних меню, кнопок, тощо) і без відволікання ( без химерних кольорів, анімацій, тощо). Усе відображене повинно бути корисним і продумано розташованим для легшого застосунку користувачем. Шрифти, розміри, кольори та ін. повинно всюди вписуватися у дизайн.
 
-<h2><a name="frequently-asked-questions"></a>Frequently Asked Questions</h2>
+<h2><a name="frequently-asked-questions"></a>Запитання й відповіді (FAQ)</h2>
 
-* [(1) Which permissions are needed and why?](#user-content-faq1)
+* [(1) Які дозволи необхідні і чому?](#user-content-faq1)
 * [(2) Why is there a permanent notification shown?](#user-content-faq2)
 * [(3) What are operations and why are they pending?](#user-content-faq3)
 * [(4) How can I use an invalid security certificate / empty password / plain text connection?](#user-content-faq4)
-* [(5) How can I customize the message view?](#user-content-faq5)
-* [(6) How can I login to Gmail / G suite?](#user-content-faq6)
-* [(7) Why are sent messages not appearing (directly) in the sent folder?](#user-content-faq7)
+* [(5) Як я можу налаштувати вигляд повідомлення?](#user-content-faq5)
+* [(6) Як увійти до мого Gmail / G suite акаунту?](#user-content-faq6)
+* [(7) Чому відправлені повідомлення не відображається (безпосередньо) у папці надіслані?](#user-content-faq7)
 * [(8) Can I use a Microsoft Exchange account?](#user-content-faq8)
 * [(9) What are identities / how do I add an alias?](#user-content-faq9)
-* [~~(11) Why is POP not supported?~~](#user-content-faq11)
+* [~~(11) Чому POP не підтримується?~~](#user-content-faq11)
 * [~~(10) What does 'UIDPLUS not supported' mean?~~](#user-content-faq10)
 * [(12) How does encryption/decryption work?](#user-content-faq12)
 * [(13) How does search on device/server work?](#user-content-faq13)
 * [(14) How can I set up an Outlook / Live / Hotmail account?](#user-content-faq14)
 * [(15) Why does the message text keep loading?](#user-content-faq15)
-* [(16) Why are messages not being synchronized?](#user-content-faq16)
-* [~~(17) Why does manual synchronize not work?~~](#user-content-faq17)
-* [(18) Why is the message preview not always shown?](#user-content-faq18)
+* [(16) Чому повідомлення не синхронізуються?](#user-content-faq16)
+* [~~(17) Чому ручне синхронізування не працює?~~](#user-content-faq17)
+* [(18) Чому попередній перегляд відображається не завжди?](#user-content-faq18)
 * [(19) Why are the pro features so expensive?](#user-content-faq19)
-* [(20) Can I get a refund?](#user-content-faq20)
+* [(20) Чи можу я отримати повернення коштів?](#user-content-faq20)
 * [(21) How do I enable the notification light?](#user-content-faq21)
-* [(22) What does account/folder error ... mean?](#user-content-faq22)
+* [(22) Що означає помилка облікового запису/папки?](#user-content-faq22)
 * [(23) Чому я отримую попередження.. ?](#user-content-faq23)
 * [(24) Що являє собою перегляд повідомлень на сервері?](#user-content-faq24)
 * [(25) Чому я не можу вибрати/відкрити/зберегти зображення, вкладення чи файл?](#user-content-faq25)
@@ -158,147 +158,147 @@ The design is based on many discussions and if you like you can discuss about it
 * [(30) Як можна використовувати швидкі налаштування?](#user-content-faq30)
 * [(31) Як можна використовувати швидкі налаштування?](#user-content-faq31)
 * [(32) Як я можу перевірити, чи є читання електронної пошти дійсно безпечне?](#user-content-faq32)
-* [(33) Why are edited sender addresses not working?](#user-content-faq33)
-* [(34) How are identities matched?](#user-content-faq34)
-* [(35) Why should I be careful with viewing images, attachments, the original message, and opening links?](#user-content-faq35)
+* [Чому редаговані адреси відправника не працюють?](#user-content-faq33)
+* [Як співпадають особисті дані?](#user-content-faq34)
+* [Чому я повинен бути обережним з переглядом зображень, вкладень, оригінальних повідомлень, і відкриті посилань?](#user-content-faq35)
 * [(36) How are settings files encrypted?](#user-content-faq36)
-* [(37) How are passwords stored?](#user-content-faq37)
-* [(39) How can I reduce the battery usage of FairEmail?](#user-content-faq39)
-* [(40) How can I reduce the data usage of FairEmail?](#user-content-faq40)
-* [(41) How can I fix the error 'Handshake failed' ?](#user-content-faq41)
-* [(42) Can you add a new provider to the list of providers?](#user-content-faq42)
-* [(43) Can you show the original ... ?](#user-content-faq43)
-* [(44) Can you show contact photos / identicons in the sent folder?](#user-content-faq44)
-* [(45) How can I fix 'This key is not available. Щоб використовувати це, ви повинні імпортувати його як один із власних користувачів!' ?](#user-content-faq45)
+* [(37) Як зберігаються паролі?](#user-content-faq37)
+* [Як я можу зменшити використання батареї FairEmail?](#user-content-faq39)
+* [(40) Як я можу зменшити використання даних FairEmail?](#user-content-faq40)
+* [Як я можу виправити помилку "рукостискання не вдалося"?](#user-content-faq41)
+* [(42) Чи можете ви додати нового постачальника до списку постачальників?](#user-content-faq42)
+* [(43) Чи не могли б ви показати оригінал ... ?](#user-content-faq43)
+* [(44) Можете показати фотографії контактів / особисті дані в надісланій папці?](#user-content-faq44)
+* [(45) Як мені виправити "Цей ключ недоступний. Щоб використовувати це, ви повинні імпортувати його як один із власних користувачів!' ?](#user-content-faq45)
 * [(46) Чому список повідомлень постійно оновлюється?](#user-content-faq46)
 * [(47) Як мені вирішити помилку 'Немає основного облікового запису або немає теки для чернетки' ?](#user-content-faq47)
-* [~~(48) How do I solve the error 'No primary account or no archive folder' ?~~](#user-content-faq48)
+* [~~(48) Як вирішити помилку 'Немає основного облікового запису або немає папки архіву' ?~~](#user-content-faq48)
 * [(49) How do I fix 'An outdated app sent a file path instead of a file stream' ?](#user-content-faq49)
-* [(50) Can you add an option to synchronize all messages?](#user-content-faq50)
-* [(51) How are folders sorted?](#user-content-faq51)
-* [(52) Why does it take some time to reconnect to an account?](#user-content-faq52)
+* [(50) Ви можете додати опцію для синхронізації всіх повідомлень?](#user-content-faq50)
+* [(51) Як папки сортовані?](#user-content-faq51)
+* [(52) Чому потрібно деякий час, щоб перепід'єднатися до акаунту?](#user-content-faq52)
 * [(53) Can you stick the message action bar to the top/bottom?](#user-content-faq53)
 * [~~(54) How do I use a namespace prefix?~~](#user-content-faq54)
-* [(55) How can I mark all messages as read / move or delete all messages?](#user-content-faq55)
-* [(56) Can you add support for JMAP?](#user-content-faq56)
-* [(57) Can I use HTML in signatures?](#user-content-faq57)
-* [(58) What does an open/closed email icon mean?](#user-content-faq58)
-* [(59) Can original messages be opened in the browser?](#user-content-faq59)
-* [(60) Did you known ...?](#user-content-faq60)
-* [(61) Why are some messages shown dimmed?](#user-content-faq61)
-* [(62) Which authentication methods are supported?](#user-content-faq62)
-* [(63) How are images resized for displaying on screens?](#user-content-faq63)
-* [~~(64) Can you add custom actions for swipe left/right?~~](#user-content-faq64)
-* [(65) Why are some attachments shown dimmed?](#user-content-faq65)
-* [(66) Is FairEmail available in the Google Play Family Library?](#user-content-faq66)
-* [(67) How can I snooze conversations?](#user-content-faq67)
+* [(55) Як я можу позначити всі повідомлення як прочитати/перемістити або видалити всі повідомлення?](#user-content-faq55)
+* [(56) Чи можете ви додати підтримку для JMAP?](#user-content-faq56)
+* [(57) Чи можу я використовувати HTML у підписах?](#user-content-faq57)
+* [(58) Що означає відкритий/закритий значок електронної пошти?](#user-content-faq58)
+* [(59) Чи можуть оригінальні повідомлення відкриватися у браузері?](#user-content-faq59)
+* [Ви знали...?](#user-content-faq60)
+* [Чому деякі фото затемнені?](#user-content-faq61)
+* [(62) Які методи автентифікації підтримуються?](#user-content-faq62)
+* [(63) Як зображення змінили розмір для відображення на екранах?](#user-content-faq63)
+* [~~(64) Чи можете ви додати функцію налаштування прогортування на вибір, вправо/вліво?~~](#user-content-faq64)
+* [(65) Чому деякі вкладення показують затемнення?](#user-content-faq65)
+* [(66) Чи FairEmail є доступним у сімейній бібліотеці Google Play?](#user-content-faq66)
+* [(67) Як я можу відкласти розмови?](#user-content-faq67)
 * [~~(68) Why can Adobe Acrobat reader not open PDF attachments / Microsoft apps not open attached documents?~~](#user-content-faq68)
-* [(69) Can you add auto scroll up on new message?](#user-content-faq69)
-* [(70) When will messages be auto expanded?](#user-content-faq70)
-* [(71) How do I use filter rules?](#user-content-faq71)
-* [(72) What are primary accounts/identities?](#user-content-faq72)
+* [(69) Ви можете додати автоматичне прокручування у новому повідомленні?](#user-content-faq69)
+* [(70) Коли будуть розширюватися повідомлення?](#user-content-faq70)
+* [(71) Як я використовую правила фільтрів?](#user-content-faq71)
+* [(72) Які основні акаунти/особисті дані?](#user-content-faq72)
 * [(73) Is moving messages across accounts safe/efficient?](#user-content-faq73)
-* [(74) Why do I see duplicate messages?](#user-content-faq74)
-* [(75) Can you make an iOS, Windows, Linux, etc version?](#user-content-faq75)
+* [(74) Чому я бачу повторювані повідомлення?](#user-content-faq74)
+* [(75) Ви можете створити iOS, Windows, Linux, тощо версію?](#user-content-faq75)
 * [(76) What does 'Clear local messages' do?](#user-content-faq76)
-* [(77) Why are messages sometimes shown with a small delay?](#user-content-faq77)
-* [(78) How do I use schedules?](#user-content-faq78)
+* [(77) Чому повідомлення іноді показуються з невеликою затримкою?](#user-content-faq77)
+* [(78) Як мені використовувати розклади?](#user-content-faq78)
 * [(79) How do I use synchronize on demand (manual)?](#user-content-faq79)
 * [~~(80) How do I fix the error 'Unable to load BODYSTRUCTURE'?~~](#user-content-faq80)
 * [~~(81) Can you make the background of the original message dark in the dark theme?~~](#user-content-faq81)
-* [(82) What is a tracking image?](#user-content-faq82)
-* [(84) What are local contacts for?](#user-content-faq84)
-* [(85) Why is an identity not available?](#user-content-faq85)
+* [(82) Що таке зображення для відстеження?](#user-content-faq82)
+* [Для чого місцеві контакти?](#user-content-faq84)
+* [Чому особисті дані недоступні?](#user-content-faq85)
 * [~~(86) What are 'extra privacy features'?~~](#user-content-faq86)
-* [(87) What does 'invalid credentials' mean?](#user-content-faq87)
-* [(88) How can I use a Yahoo, AOL or Sky account?](#user-content-faq88)
+* [(87) Що означає "невірні дані"?](#user-content-faq87)
+* [(88) Як я можу використовувати Yahoo, AOL або Sky аккаунт?](#user-content-faq88)
 * [(89) How can I send plain text only messages?](#user-content-faq89)
-* [(90) Why are some texts linked while not being a link?](#user-content-faq90)
-* [~~(91) Can you add periodical synchronization to save battery power?~~](#user-content-faq91)
+* [(90) Чому деякі тексти були прив'язані, коли не були посиланням?](#user-content-faq90)
+* [~~(91) Ви можете додати періодичну синхронізацію, щоб зберегти заряд акумулятора?~~](#user-content-faq91)
 * [(92) Can you add spam filtering, verification of the DKIM signature and SPF authorization?](#user-content-faq92)
 * [(93) Can you allow installation/data storage on external storage media (sdcard)?](#user-content-faq93)
 * [(94) What does the red/orange stripe at the end of the header mean?](#user-content-faq94)
-* [(95) Why are not all apps shown when selecting an attachment or image?](#user-content-faq95)
-* [(96) Where can I find the IMAP and SMTP settings?](#user-content-faq96)
-* [(97) What is 'cleanup' ?](#user-content-faq97)
-* [(98) Why can I still pick contacts after revoking contacts permissions?](#user-content-faq98)
+* [(95) Чому не всі програми відображаються при виборі прикріплення або зображення?](#user-content-faq95)
+* [(96) Де я можу знайти налаштування IMAP та SMTP?](#user-content-faq96)
+* [(97) Що є "очисткою"?](#user-content-faq97)
+* [(98) Чому я досі можу вибирати контакти після скасування дозволу контактів?](#user-content-faq98)
 * [(99) Can you add a rich text or markdown editor?](#user-content-faq99)
-* [(100) How can I synchronize Gmail categories?](#user-content-faq100)
-* [(101) What does the blue/orange dot at the bottom of the conversations mean?](#user-content-faq101)
-* [(102) How can I enable auto rotation of images?](#user-content-faq102)
-* [(103) How can I record audio?](#user-content-faq158)
-* [(104) What do I need to know about error reporting?](#user-content-faq104)
+* [(100) Як я можу синхронізувати категорії Gmail?](#user-content-faq100)
+* [(101) Що означає блакитна/оранжева крапка внизу розмови?](#user-content-faq101)
+* [(102) Як я можу увімкнути автоматичне обертання зображень?](#user-content-faq102)
+* [(103) Як я можу записати звук?](#user-content-faq158)
+* [(104) Що мені потрібно знати про звіт помилки?](#user-content-faq104)
 * [(105) How does the roam-like-at-home option work?](#user-content-faq105)
 * [(106) Which launchers can show a badge count with the number of unread messages?](#user-content-faq106)
-* [(107) How do I use colored stars?](#user-content-faq107)
-* [~~(108) Can you add permanently delete messages from any folder?~~](#user-content-faq108)
+* [(107) Як використовувати кольорові зірки?](#user-content-faq107)
+* [~~(108) Чи можете ви додавати остаточне видалення повідомлення з будь-якої теки?~~](#user-content-faq108)
 * [~~(109) Why is 'select account' available in official versions only?~~](#user-content-faq109)
 * [(110) Why are (some) messages empty and/or attachments corrupted?](#user-content-faq110)
 * [(111) Is OAuth supported?](#user-content-faq111)
 * [(112) Which email provider do you recommend?](#user-content-faq112)
 * [(113) How does biometric authentication work?](#user-content-faq113)
 * [(114) Can you add an import for the settings of other email apps?](#user-content-faq114)
-* [(115) Can you add email address chips?](#user-content-faq115)
-* [~~(116) How can I show images in messages from trusted senders by default?~~](#user-content-faq116)
-* [(117) Can you help me restore my purchase?](#user-content-faq117)
+* [(115) Ви можете додати списки адрес електронної пошти?](#user-content-faq115)
+* [~~(116) Як я можу показувати зображення в повідомленнях від довірених відправників за замовчуванням?~~](#user-content-faq116)
+* [(117) Можеш допомогти мені відновити мою покупку?](#user-content-faq117)
 * [(118) What does 'Remove tracking parameters' exactly?](#user-content-faq118)
 * [~~(119) Can you add colors to the unified inbox widget?~~](#user-content-faq119)
-* [(120) Why are new message notifications not removed on opening the app?](#user-content-faq120)
-* [(121) How are messages grouped into a conversation?](#user-content-faq121)
-* [~~(122) Why is the recipient name/email address show with a warning color?~~](#user-content-faq122)
-* [(123) What will happen when FairEmail cannot connect to an email server?](#user-content-faq123)
+* [(120) Чому нові сповіщення повідомлень не видаляються при відкритті програми?](#user-content-faq120)
+* [(121) Як повідомлення згруповано в розмову?](#user-content-faq121)
+* [~~(122) Чому ім'я одержувача/адреса електронної пошти відображається попереджувальним кольором?~~](#user-content-faq122)
+* [(123) Що станеться, коли FairEmail не може підключитися до сервера електронної пошти?](#user-content-faq123)
 * [(124) Why do I get 'Message too large or too complex to display'?](#user-content-faq124)
 * [(125) What are the current experimental features?](#user-content-faq125)
 * [(126) Can message previews be sent to my wearable?](#user-content-faq126)
 * [(127) How can I fix 'Syntactically invalid HELO argument(s)'?](#user-content-faq127)
 * [(128) How can I reset asked questions, for example to show images?](#user-content-faq128)
-* [(129) Are ProtonMail, Tutanota supported?](#user-content-faq129)
-* [(130) What does message error ... mean?](#user-content-faq130)
-* [(131) Can you change the direction for swiping to previous/next message?](#user-content-faq131)
-* [(132) Why are new message notifications silent?](#user-content-faq132)
-* [(133) Why is ActiveSync not supported?](#user-content-faq133)
-* [(134) Can you add deleting local messages?](#user-content-faq134)
-* [(135) Why are trashed messages and drafts shown in conversations?](#user-content-faq135)
-* [(136) How can I delete an account/identity/folder?](#user-content-faq136)
-* [(137) How can I reset 'Don't ask again'?](#user-content-faq137)
-* [(138) Can you add calendar/contact/tasks/notes management?](#user-content-faq138)
-* [(139) How do I fix 'User is authenticated but not connected'?](#user-content-faq139)
-* [(140) Why does the message text contain strange characters?](#user-content-faq140)
+* [(129) Чи підтримуються ProtonMail, Tutanota?](#user-content-faq129)
+* [Що означає повідомлення про помилку?](#user-content-faq130)
+* [(131) Чи можете ви змінити напрямок проведення пальцем на попереднє/наступне повідомлення?](#user-content-faq131)
+* [Чому нові сповіщення повідомлень без звуку?](#user-content-faq132)
+* [(Чому ActiveSync не підтримується?](#user-content-faq133)
+* [(134) Ви можете додати видалені локальні повідомлення?](#user-content-faq134)
+* [(135) Чому видалені повідомлення та чернетки відображаються у бесідах?](#user-content-faq135)
+* [(136) Як я можу видалити обліковий запис/особисті дані/папку?](#user-content-faq136)
+* [(137) Як я можу скинути "Не питати знову"?](#user-content-faq137)
+* [(138) Чи можете ви додати календар/контакт/завдання/керування нотатками?](#user-content-faq138)
+* [(139) Як вирішити 'Користувач проходить автентифікацію, але не підключений'?](#user-content-faq139)
+* [(140) Чому повідомлення містить дивні символи?](#user-content-faq140)
 * [(141) How can I fix 'A drafts folder is required to send messages'?](#user-content-faq141)
 * [(142) How can I store sent messages in the inbox?](#user-content-faq142)
 * [~~(143) Can you add a trash folder for POP3 accounts?~~](#user-content-faq143)
-* [(144) How can I record voice notes?](#user-content-faq144)
-* [(145) How can I set a notification sound for an account, folder or sender?](#user-content-faq145)
+* [(144) Як я можу записувати голосові нотатки?](#user-content-faq144)
+* [(145) Як я можу встановити звук сповіщень для облікового запису, папки або відправника?](#user-content-faq145)
 * [(146) How can I fix incorrect message times?](#user-content-faq146)
-* [(147) What should I know about third party versions?](#user-content-faq147)
-* [(148) How can I use an Apple iCloud account?](#user-content-faq148)
+* [(147) Що я повинен знати про тристоронні версії?](#user-content-faq147)
+* [(148) Як я можу використовувати обліковий запис Apple iCloud?](#user-content-faq148)
 * [(149) How does the unread message count widget work?](#user-content-faq149)
 * [(150) Can you add cancelling calendar invites?](#user-content-faq150)
 * [(151) Can you add backup/restore of messages?](#user-content-faq151)
-* [(152) How can I insert a contact group?](#user-content-faq152)
-* [(153) Why does permanently deleting Gmail message not work?](#user-content-faq153)
+* [(152) Як я можу вставити групу контактів?](#user-content-faq152)
+* [(153) Чому не вдається остаточно видалити повідомлення Gmail?](#user-content-faq153)
 * [~~(154) Can you add favicons as contact photos?~~](#user-content-faq154)
 * [(155) What is a winmail.dat file?](#user-content-faq155)
-* [(156) How can I set up an Office 365 account?](#user-content-faq156)
-* [(157) How can I set up an Free.fr account?](#user-content-faq157)
-* [(158) Which camera / audio recorder do you recommend?](#user-content-faq158)
+* [Як я можу налаштувати обліковий запис Office 365?](#user-content-faq156)
+* [Як я можу налаштувати обліковий запис Free.fr?](#user-content-faq157)
+* [Яку камеру/аудіо ви рекомендуєте?](#user-content-faq158)
 * [(159) What are Disconnect's tracker protection lists?](#user-content-faq159)
-* [(160) Can you add permanent deletion of messages without confirmation?](#user-content-faq160)
+* [(160) Чи можна додати постійне видалення повідомлень без підтвердження?](#user-content-faq160)
 * [(161) Can you add a setting to change the primary and accent color?](#user-content-faq161)
 * [(162) Is IMAP NOTIFY supported?](#user-content-faq162)
-* [(163) What is message classification?](#user-content-faq163)
-* [(164) Can you add customizable themes?](#user-content-faq164)
-* [(165) Чи підтримується Android авто?](#user-content-faq165)
+* [Що таке класифікація повідомлень?](#user-content-faq163)
+* [(164) Ви можете додати налаштовані теми?](#user-content-faq164)
+* [(165) Чи підтримується Android Auto?](#user-content-faq165)
 * [(166) Can I snooze a message across multiple devices?](#user-content-faq166)
 
-[I have another question.](#user-content-support)
+[У мене є ще одне питання.](#user-content-support)
 
 <a name="faq1"></a>
-**(1) Which permissions are needed and why?**
+**(1) Які дозволи необхідні і чому?**
 
-The following Android permissions are needed:
+Необхідні наступні дозволи для Android:
 
-* *have full network access* (INTERNET): to send and receive email
+* *мати повний доступ до мережі* (INTERNET): щоб відправити та отримати електронну пошту
 * *view network connections* (ACCESS_NETWORK_STATE): to monitor internet connectivity changes
 * *run at startup* (RECEIVE_BOOT_COMPLETED): to start monitoring on device start
 * *foreground service* (FOREGROUND_SERVICE): to run a foreground service on Android 9 Pie and later, see also the next question
@@ -312,7 +312,7 @@ The following Android permissions are needed:
 * Android 5.1 Lollipop and before: *use accounts on the device* (USE_CREDENTIALS): to select an account when using the Gmail quick setup (not requested on later Android versions)
 * Android 5.1 Lollipop and before: *Read profile* (READ_PROFILE): to read your name when using the Gmail quick setup (not requested on later Android versions)
 
-[Optional permissions](https://developer.android.com/training/permissions/requesting) are supported on Android 6 Marshmallow and later only. On earlier Android versions you will be asked to grant the optional permissions on installing FairEmail.
+[додаткові дозволи](https://developer.android.com/training/permissions/requesting) підтримуються на Android 6 Marshmallow і пізніше. На попередніх версіях Android користувач повинен буде надати дозвіл на встановлення FairEmail.
 
 The following permissions are needed to show the count of unread messages as a badge (see also [this FAQ](#user-content-faq106)):
 
@@ -333,31 +333,31 @@ The following permissions are needed to show the count of unread messages as a b
 * *me.everything.badger.permission.BADGE_COUNT_READ*
 * *me.everything.badger.permission.BADGE_COUNT_WRITE*
 
-FairEmail will keep a list of addresses you receive messages from and send messages to and will use this list for contact suggestions when no contacts permissions is granted to FairEmail. This means you can use FairEmail without the Android contacts provider (address book). Note that you can still pick contacts without granting contacts permissions to FairEmail, only suggesting contacts won't work without contacts permissions.
+FairEmail зберігатиме список адрес з яких ви уже отримували або надсилали повідомлення і пропонуватиме їх коли ви не надали дозволу для використання контактів. Це означає, що ви можете використовувати FairEmail без ваших збережених контактів на Android (контактний книзі). Зверніть увагу, що ви все ще можете обрати контакти без надавання дозволу FairEmail, але в такому разі ви не отримаєте запропонованих контактів, оскільки не давали згоди на їх використання.
 
 <br />
 
 <a name="faq2"></a>
-**(2) Why is there a permanent notification shown?**
+Чому показуються постійні сповіщення
 
 A low priority permanent status bar notification with the number of accounts being monitored and the number of operations pending (see the next question) is shown to prevent Android from killing the service that takes care of continuous receiving email. This was [already necessary](https://developer.android.com/reference/android/app/Service.html#startForeground(int,%20android.app.Notification)), but with the introduction of [doze mode](https://developer.android.com/training/monitoring-device-state/doze-standby) in Android 6 Marshmallow this is more than ever necessary. Doze mode will stop all apps when the screen is off for some time, unless the app did start a foreground service, which requires showing a status bar notification.
 
 Most, if not all, other email apps don't show a notification with the "side effect" that new messages are often not or late being reported and that messages are not or late being sent.
 
-Android shows icons of high priority status bar notifications first and will hide the icon of FairEmail's notification if there is no space to show icons anymore. In practice this means that the status bar notification doesn't take space in the status bar, unless there is space available.
+Android shows icons of high priority status bar notifications first and will hide the icon of FairEmail's notification if there is no space to show icons anymore. На практиці це означає, що сповіщення в рядку стану не займають місця в рядку стану, якщо немає вільного місця.
 
 The status bar notification can be disabled via the notification settings of FairEmail:
 
 * Android 8 Oreo and later: tap the *Receive channel* button and disable the channel via the Android settings (this won't disable new message notifications)
 * Android 7 Nougat and before: enabled *Use background service to synchronize messages*, but be sure to read the remark below the setting
 
-You can switch to periodically synchronization of messages in the receive settings to remove the notification, but be aware that this might use more battery power. See [here](#user-content-faq39) for more details about battery usage.
+You can switch to periodically synchronization of messages in the receive settings to remove the notification, but be aware that this might use more battery power. Перегляньте [](#user-content-faq39) щоб дізнатися більше про використання акумулятора.
 
-Android 8 Oreo might also show a status bar notification with the text *Apps are running in the background*. Please see [here](https://www.reddit.com/r/Android/comments/7vw7l4/psa_turn_off_background_apps_notification/) about how you can disable this notification.
+Android 8 Oreo might also show a status bar notification with the text *Apps are running in the background*. Будь ласка, перегляньте [тут](https://www.reddit.com/r/Android/comments/7vw7l4/psa_turn_off_background_apps_notification/) про те, як вимкнути це повідомлення.
 
 Some people suggested to use [Firebase Cloud Messaging](https://firebase.google.com/docs/cloud-messaging/) (FCM) instead of an Android service with a status bar notification, but this would require email providers to send FCM messages or a central server where all messages are collected sending FCM messages. The first is not going to happen and the last would have significant privacy implications.
 
-If you came here by clicking on the notification, you should know that the next click will open the unified inbox.
+Якщо ви прийшли сюди, натиснувши на повідомлення, ви маєте знати, що наступний клік відкриє поштову скриньку.
 
 <br />
 
@@ -366,50 +366,50 @@ If you came here by clicking on the notification, you should know that the next 
 
 The low priority status bar notification shows the number of pending operations, which can be:
 
-* *add*: add message to remote folder
+* *додати*: додати повідомлення до віддаленої папки
 * *move*: move message to another remote folder
-* *copy*: copy message to another remote folder
+* *копіювати*: копіювати повідомлення в іншу віддалену папку
 * *fetch*: fetch changed (pushed) message
-* *delete*: delete message from remote folder
+* *видалити *: видалити повідомлення з віддаленої папки
 * *seen*: mark message as read/unread in remote folder
 * *answered*: mark message as answered in remote folder
 * *flag*: add/remove star in remote folder
 * *keyword*: add/remove IMAP flag in remote folder
 * *label*: set/reset Gmail label in remote folder
-* *headers*: download message headers
-* *raw*: download raw message
-* *body*: download message text
-* *attachment*: download attachment
+* *заголовки*завантажити заголовки повідомлень
+* *необроблений*завантажити необроблене повідомлення
+* *основний*завантажити текст повідомлення
+* *вкладення*завантажити вкладення
 * *sync*: synchronize local and remote messages
-* *subscribe*: subscribe to remote folder
-* *purge*: delete all messages from remote folder
-* *send*: send message
-* *exists*: check if message exists
-* *rule*: execute rule on body text
-* *expunge*: permanently delete messages
+* *підписати*підписати до видаленої папки
+* *очистка*видалити всі повідомлення з видаленої папки
+* *надіслати*надіслати повідомлення
+* *існує*перевірити якщо повідомлення існує
+* *правило*виконувати правило на основній частині тексту
+* *вилучити*остаточно видалити повідомлення
 
-Operations are processed only when there is a connection to the email server or when manually synchronizing. See also [this FAQ](#user-content-faq16).
+Operations are processed only when there is a connection to the email server or when manually synchronizing. Дивись також[ цю FAQ](#user-content-faq16).
 
 <br />
 
 <a name="faq4"></a>
-**(4) How can I use an invalid security certificate / empty password / plain text connection?**
+**як я можу використовувати невірний сертифікат безпеки/пустий пароль/ звичайне текстове з'єднання?**
 
-*... Untrusted ... not in certificate ...*
+*... Ненадійний... не в сертифікаті...*
 <br />
-*... Invalid security certificate (Can't verify identity of server) ...*
+*... Неправильний сертифікат безпеки (неможливо перевірити особисті дані сервера) ...*
 
-This can be caused by using an incorrect host name, so first double check the host name in the advanced identity/account settings (tap Manual setup). Please see the documentation of the email provider about the right host name.
+Це може бути спричинено використанням неправильного ім'я хоста, тому спочатку перевірте ім'я хоста в додаткових даних чи у налаштуваннях облікового запису (натисніть "налаштувати вручну). Будь ласка, перегляньте документацію поштового провайдера про правильне хост ім'я.
 
 You should try to fix this by contacting your provider or by getting a valid security certificate because invalid security certificates are insecure and allow [man-in-the-middle attacks](https://en.wikipedia.org/wiki/Man-in-the-middle_attack). If money is an obstacle, you can get free security certificates from [Let’s Encrypt](https://letsencrypt.org).
 
-The quick, but unsafe solution (not advised), is to enable *Insecure connections* in the advanced identity settings (navigation menu, tap *Settings*, tap *Manual setup*, tap *Identities*, tap the identity, tap *Advanced*).
+Швидке, але небезпечне рішення (не рекомендовано), це дозволити *Незахищене з'єднання* в додаткових налаштуваннях особистих даних (навігаційне меню, натисніть *Налаштування*, натисніть *Ручне настроювання*, натисніть *особисті дані*, натисніть на особу, натисніть *Додаткові*).
 
-Alternatively, you can accept the fingerprint of invalid server certificates like this:
+Крім того, ви можете прийняти відбиток некоректного сертифікату сервера наступним чином:
 
-1. Make sure you are using a trusted internet connection (no public Wi-Fi networks, etc)
-1. Go to the setup screen via the navigation menu (swipe from the left side inwards)
-1. Tap Manual setup, tap Accounts/Identities and tap the faulty account and identity
+1. Переконайтеся, що ви використовуєте надійне підключення до Інтернету (не громадські Wi-Fi мережі тощо)
+1. Перейти до налаштувань через навігаційне меню (прогорнувши зліва до середини)
+1. Натисніть в ручному налаштуванні, натисніть Облікові записи/Особисті дані та виберіть на ньому несправний обліковий запис і особисті дані
 1. Перевірити/зберегти обліковий запис та особисті дані
 1. Tick the checkbox below the error message and save again
 
@@ -433,11 +433,11 @@ You can pin the certificate too, see above.
 
 <br />
 
-*Empty password*
+*Порожній пароль*
 
 Your username is likely easily guessed, so this is pretty insecure, unless the SMTP server is available via a restricted local network or a VPN only.
 
-*Plain text connection*
+*Звичайне текстове з'єднання*
 
 Your username and password and all messages will be sent and received unencrypted, which is **very insecure** because a [man-in-the-middle attack](https://en.wikipedia.org/wiki/Man-in-the-middle_attack) is very simple on an unencrypted connection.
 
@@ -446,43 +446,43 @@ If you still want to use an invalid security certificate, an empty password or a
 <br />
 
 <a name="faq5"></a>
-**(5) How can I customize the message view?**
+**(5) Як я можу налаштувати перегляд повідомлення?**
 
 In the three dot overflow menu you can enable or disable or select:
 
-* *text size*: for three different font sizes
+* *розмір тексту*для три різних розмірів шрифта
 * *compact view*: for more condensed message items and a smaller message text font
 
 In the display section of the settings you can enable or disable for example:
 
 * *Unified inbox*: to disable the unified inbox and to list the folders selected for the unified inbox instead
 * *Tabular style*: to show a linear list instead of cards
-* *Group by date*: show date header above messages with the same date
+* *групувати за датою*показати дату заголовка вище повідомлень з тією ж датою
 * *Conversation threading*: to disable conversation threading and to show individual messages instead
-* *Conversation action bar*: to disable the bottom navigation bar
-* *Highlight color*: to select a color for the sender of unread messages
-* *Show contact photos*: to hide contact photos
-* *Show names and email addresses*: to show names or to show names and email addresses
+* *панель дій розмови*вимкнути кнопку панелі навігації
+* *виділений колір*вибрати колір для відправника непрочитаних повідомлень
+* *Показати фотографії контактів*: приховати фото контактів
+* *Показати імена та адреси електронної пошти*: показати імена та адреси електронної пошти
 * *Show subject italic*: to show the message subject as normal text
-* *Show stars*: to hide stars (favorites)
-* *Show message preview*: to show 1-4 lines of the message text
-* *Show address details by default*: to expand the addresses section by default
-* *Automatically show original message for known contacts*: to automatically show original messages for contacts on your device, please read [this FAQ](#user-content-faq35)
-* *Automatically show images for known contacts*: to automatically show images for contacts on your device, please read [this FAQ](#user-content-faq35)
+* *Показати зірки*: приховати зірочки (обране)
+* *Показувати попередній перегляд повідомлення*: показати 1-4 рядки тексту повідомлення
+* *показати деталі адреги за замовчуванням* розгорнути розділ адрес за замовчуванням
+* *Автоматично показувати оригінальне повідомлення для відомих контактів*: показувати оригінальні повідомлення для контактів на пристрої, будь ласка, прочитайте [це FAQ](#user-content-faq35)
+* *Автоматично показувати оригінальне повідомлення для відомих контактів*: показувати оригінальні повідомлення для контактів на пристрої, будь ласка, прочитайте [це FAQ](#user-content-faq35)
 
-Note that messages can be previewed only when the message text was downloaded. Larger message texts are not downloaded by default on metered (generally mobile) networks. You can change this in the connection settings.
+Зверніть увагу, що повідомлення можуть бути переглянуті тільки тоді, коли було завантажено текст. Larger message texts are not downloaded by default on metered (generally mobile) networks. Ви можете змінити це в налаштуваннях підключення.
 
 Деякі питають:
 
 * показати тему жирним шрифтом, але жирний шрифт вже використовується для виділення непрочитаних повідомлень
-* to move the star to the left, but it is much easier to operate the star on the right side
+* зміщення зірки ліворуч, але набагато легше керувати зіркою з правого боку
 
 <br />
 
 <a name="faq6"></a>
-**(6) How can I login to Gmail / G suite?**
+**(6) Як я можу увійти в Gmail / G підходить?**
 
-If you use the Play store or GitHub version of FairEmail, you can use the quick setup wizard to easily setup a Gmail account and identity. Gmail швидкий майстер встановлення не доступний для сторонніх збірок, таких як збірка F-Droid, тому що Google затвердив використання OAuth лише для офіційних збірок.
+Якщо ви використовуєте Play Store або GitHub версію FairEmail, Ви можете використовувати майстер швидких налаштувань, щоб легко налаштувати обліковий запис Gmail і особисті дані. Gmail швидкий майстер встановлення не доступний для сторонніх збірок, таких як збірка F-Droid, тому що Google затвердив використання OAuth лише для офіційних збірок.
 
 Якщо ви не хочете використовувати або не можете використовувати обліковий запис на пристрої Google, наприклад на останніх пристроях Huawei, Ви можете активувати доступ до "менш безпечних додатків" і використовувати пароль облікового запису (не рекомендовано) або ввімкнути двофакторну аутентифікацію і використовувати конкретний пароль програми. Для використання пароля вам потрібно буде налаштувати обліковий запис та самоідентифікацію через ручне налаштування замість майстра швидкого налаштування.
 
@@ -531,15 +531,15 @@ If you use the Play store or GitHub version of FairEmail, you can use the quick 
 <br />
 
 <a name="faq7"></a>
-**(7) Why are sent messages not appearing (directly) in the sent folder?**
+**(7) Чому надіслані повідомлення не відображаються (безпосередньо) у папці надіслані?**
 
-Sent messages are normally moved from the outbox to the sent folder as soon as your provider adds sent messages to the sent folder. This requires a sent folder to be selected in the account settings and the sent folder to be set to synchronizing.
+Надіслані повідомлення зазвичай переміщаються із папки вихідні до папки надіслані одразу після того як ваш провайдер відправив його. Це вимагає щоб папка надіслані була обрана у налаштуваннях облікового запису і тоді тека надіслані буде синхронізована автоматично.
 
-Some providers do not keep track of sent messages or the used SMTP server might not be related to the provider. In these cases FairEmail, will automatically add sent messages to the sent folder on synchronizing the sent folder, which will happen after a message have been sent. Note that this will result in extra internet traffic.
+Деякі провайдери не відслідковують надіслані повідомлення чи використаний SMTP сервер не пов'язаний із провайдером. У таких випадках FairEmail буде автоматично додавати надіслані повідомлення до теки надіслані, що зазвичай відбувається уже після того як повідомлення було надіслано. Зверніть увагу, що це призведе до використання додаткового трафіку в Інтернеті.
 
-~~If this doesn't happen, your provider might not keep track of sent messages or you might be using an SMTP server not related to the provider.~~ ~~In these cases you can enable the advanced identity setting *Store sent messages* to let FairEmail add sent messages to the sent folder right after sending a message.~~ ~~Note that enabling this setting might result in duplicate messages if your provider adds sent messages to the sent folder too.~~ ~~Also beware that enabling this setting will result in extra data usage, especially when when sending messages with large attachments.~~
+~~Якщо цього не відбувається, ваш провайдер може не продовжувати відслідковувати надіслані повідомлення чи ви не використовуєте SMTP сервер не пов'язаний із вашим провайдером.~~ ~~У цьому випадку ви можете ввімкнути розширені власні налаштування *Зберігати надіслані повідомлення* щоб дозволити FairEmail додавати надіслані повідомлення до самої теки надіслані повідомленні одразу після їх надсилання.~~ ~~Зверніть увагу, що дозвіл у налаштуваннях може вплинути на те, що повідомлення буде продубльовано, якщо провайдер додасть відправлені повідомлення до теки надіслані також.~~ ~~Також майте на увазі, що ввімкнення цих налаштувань вплинуть на використання додаткового інтернет трафіку, особливо коли повідомлення надіслано із великим вкладенням.~~
 
-~~If sent messages in the outbox are not found in the sent folder on a full synchronize, they will be moved from the outbox to the sent folder too.~~ ~~A full synchronize happens when reconnecting to the server or when synchronizing periodically or manually.~~ ~~You'll likely want to enable the advanced setting *Store sent messages* instead to move messages to the sent folder sooner.~~
+~~Якщо повідомлення у папці вихідні не знайдені у теці надіслані при повній синхронізації, вони будуть переміщені із папки вихідні до папки надіслані також.~~ ~~При повній синхронізації інколи стається роз'єднання із сервером чи коли синхронізується періодами або вручну.~~ ~~Ви скоріш за все захочете ввімкнути розширені налаштування *Зберігати надіслані повідомлення* замість того щоб відправляти їх до папки надіслані повідомлення.~~
 
 <br />
 
@@ -571,7 +571,7 @@ Some providers allow you to have multiple aliases. You can configure these by se
 
 Note that you can copy an identity by long pressing it.
 
-Alternatively, you can enable *Allow editing sender address* in the advanced settings of an existing identity to edit the username when composing a new message, if your provider allows this.
+Ви також можете активувати функцію Allow editing sender address (Дозволити редагування адреси відправника) у розширених налаштуваннях наявного облікового запису, що дозволить редагувати ім'я користувача при створенні нового повідомлення, якщо провайдер дозволяє таку функцію.
 
 FairEmail will automatically update the passwords of related identities when you update the password of the associated account or a related identity.
 
@@ -736,26 +736,26 @@ S/MIME sign/encrypt is a pro feature, but all other PGP and S/MIME operations ar
 <br />
 
 <a name="faq13"></a>
-**(13) How does search on device/server work?**
+**(13) Як працює пошук на пристрої/сервері?**
 
-You can start searching for messages on sender (from), recipient (to, cc, bcc), subject, keywords or message text by using the magnify glass in the action bar of a folder. You can also search from any app by selecting *Search email* in the copy/paste popup menu.
+Ви можете почати шукати надіслані повідомлення за відправником (від кого), отримувачем (кому), темою, ключовими словами чи уривкам із повідомлень використовуючи лупу із панелі керування у папці. Також, ви можете здійснювати пошук із будь-якої програми, обравши *Пошук по електронній пошті* в контекстному меню.
 
-Searching in the unified inbox will search in all folders of all accounts, searching in the folder list will search in the associated account only and searching in a folder will search in that folder only.
+Пошук у єдиній поштовій скриньці дозволяє шукати у всіх теках всіх облікових записів, пошук в переліку папок здійснюється лише в пов'язаному аккаунті і пошук в уже в самій папці буде здійснено лише в цій папці.
 
-Messages will be searched for on the device first. There will be an action button with a search again icon at the bottom to continue searching on the server. You can select in which folder to continue the search.
+Найперше, пошук повідомлень здійснюватиметься на самому пристрої. Також, піктограма пошуку знову буде доступною в низу для продовження пошуку уже по серверу. Ви можете обрати у якій теці продовжувати пошук.
 
-The IMAP protocol doesn't support searching in more than one folder at the same time. Searching on the server is an expensive operation, therefore it is not possible to select multiple folders.
+IMAP протокол не підтримує пошук у декількох папках одночасно. Пошук по серверу є дорогою операцією, отож неможливо обрати декілька папок для пошуку у них.
 
-Searching local messages is case insensitive and on partial text. The message text of local messages will not be searched if the message text was not downloaded yet. Searching on the server might be case sensitive or case insensitive and might be on partial text or whole words, depending on the provider.
+Searching local messages is case insensitive and on partial text. Локальні текстові повідомлення не буде знайдено, якшо текст повідомлення ще не було завантажено. Searching on the server might be case sensitive or case insensitive and might be on partial text or whole words, depending on the provider.
 
-Some servers cannot handle searching in the message text when there are a large number of messages. For this case there is an option to disable searching in the message text.
+Деякі сервери не здатні обробити пошук по текстових повідомленнях, коли там є велика кількість повідомлень. У такому випадку доступна опція вимкнути пошук по тексту повідомлень.
 
 It is possible to use Gmail search operators by prefixing a search command with *raw:*. If you configured just one Gmail account, you can start a raw search directly on the server by searching from the unified inbox. If you configured multiple Gmail accounts, you'll first need to navigate to the folder list or the archive (all messages) folder of the Gmail account you want to search in. Please [see here](https://support.google.com/mail/answer/7190) for the possible search operators. For example:
 
 `
 raw:larger:10M`
 
-Searching through a large number of messages on the device is not very fast because of two limitations:
+Пошук серед великої кількості повідомлень на пристрої відбувається повільно через два обмеження:
 
 * [sqlite](https://www.sqlite.org/), the database engine of Android has a record size limit, preventing message texts from being stored in the database
 * Android apps get only limited memory to work with, even if the device has plenty memory available

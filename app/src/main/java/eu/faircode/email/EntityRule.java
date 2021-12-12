@@ -19,6 +19,8 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static androidx.room.ForeignKey.CASCADE;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -49,8 +51,8 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -59,13 +61,10 @@ import java.util.regex.Pattern;
 
 import javax.mail.Address;
 import javax.mail.Header;
-import javax.mail.Message;
 import javax.mail.MessagingException;
 import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.InternetHeaders;
-
-import static androidx.room.ForeignKey.CASCADE;
 
 @Entity(
         tableName = EntityRule.TABLE_NAME,
@@ -125,7 +124,28 @@ public class EntityRule {
 
     private static ExecutorService executor = Helper.getBackgroundExecutor(1, "rule");
 
-    boolean matches(Context context, EntityMessage message, Message imessage) throws MessagingException {
+    static boolean needsHeaders(List<EntityRule> rules) {
+        return needs(rules, "header");
+    }
+
+    static boolean needsBody(List<EntityRule> rules) {
+        return needs(rules, "body");
+    }
+
+    private static boolean needs(List<EntityRule> rules, String what) {
+        for (EntityRule rule : rules)
+            try {
+                JSONObject jcondition = new JSONObject(rule.condition);
+                if (jcondition.has(what))
+                    return true;
+            } catch (Throwable ex) {
+                Log.e(ex);
+            }
+
+        return false;
+    }
+
+    boolean matches(Context context, EntityMessage message, List<Header> headers, String html) throws MessagingException {
         try {
             JSONObject jcondition = new JSONObject(condition);
 
@@ -164,7 +184,7 @@ public class EntityRule {
                             }
                         } else {
                             String formatted = ((personal == null ? "" : personal + " ") + "<" + email + ">");
-                            if (matches(context, value, formatted, regex)) {
+                            if (matches(context, message, value, formatted, regex)) {
                                 matches = true;
                                 break;
                             }
@@ -191,7 +211,7 @@ public class EntityRule {
                     InternetAddress ia = (InternetAddress) recipient;
                     String personal = ia.getPersonal();
                     String formatted = ((personal == null ? "" : personal + " ") + "<" + ia.getAddress() + ">");
-                    if (matches(context, value, formatted, regex)) {
+                    if (matches(context, message, value, formatted, regex)) {
                         matches = true;
                         break;
                     }
@@ -206,7 +226,7 @@ public class EntityRule {
                 String value = jsubject.getString("value");
                 boolean regex = jsubject.getBoolean("regex");
 
-                if (!matches(context, value, message.subject, regex))
+                if (!matches(context, message, value, message.subject, regex))
                     return false;
             }
 
@@ -239,24 +259,93 @@ public class EntityRule {
                 String value = jheader.getString("value");
                 boolean regex = jheader.getBoolean("regex");
 
-                boolean matches = false;
-                Enumeration<Header> headers;
-                if (imessage != null)
-                    headers = imessage.getAllHeaders();
-                else if (message.headers != null) {
-                    ByteArrayInputStream bis = new ByteArrayInputStream(message.headers.getBytes());
-                    headers = new InternetHeaders(bis).getAllHeaders();
-                } else
-                    throw new IllegalArgumentException(context.getString(R.string.title_rule_no_headers));
-                while (headers.hasMoreElements()) {
-                    Header header = headers.nextElement();
-                    String formatted = header.getName() + ": " + header.getValue();
-                    if (matches(context, value, formatted, regex)) {
-                        matches = true;
-                        break;
+                if (!regex &&
+                        value != null &&
+                        value.startsWith("$") &&
+                        value.endsWith("$")) {
+                    String keyword = value.substring(1, value.length() - 1);
+
+                    if ("$dkim".equals(keyword)) {
+                        if (!Boolean.TRUE.equals(message.dkim))
+                            return false;
+                    } else if ("$spf".equals(keyword)) {
+                        if (!Boolean.TRUE.equals(message.spf))
+                            return false;
+                    } else if ("$dmarc".equals(keyword)) {
+                        if (!Boolean.TRUE.equals(message.dmarc))
+                            return false;
+                    } else if ("$mx".equals(keyword)) {
+                        if (!Boolean.TRUE.equals(message.mx))
+                            return false;
+                    } else if ("$blocklist".equals(keyword)) {
+                        if (!Boolean.FALSE.equals(message.blocklist))
+                            return false;
+                    } else if ("$replydomain".equals(keyword)) {
+                        if (!Boolean.TRUE.equals(message.reply_domain))
+                            return false;
+                    } else {
+                        List<String> keywords = new ArrayList<>();
+                        keywords.addAll(Arrays.asList(message.keywords));
+
+                        if (message.ui_seen)
+                            keywords.add("$seen");
+                        if (message.ui_answered)
+                            keywords.add("$answered");
+                        if (message.ui_flagged)
+                            keywords.add("$flagged");
+                        if (message.ui_deleted)
+                            keywords.add("$deleted");
+                        if (message.infrastructure != null)
+                            keywords.add('$' + message.infrastructure);
+
+                        if (!keywords.contains(keyword))
+                            return false;
+                    }
+                } else {
+                    if (headers == null) {
+                        if (message.headers == null)
+                            throw new IllegalArgumentException(context.getString(R.string.title_rule_no_headers));
+
+                        ByteArrayInputStream bis = new ByteArrayInputStream(message.headers.getBytes());
+                        headers = Collections.list(new InternetHeaders(bis).getAllHeaders());
+                    }
+
+                    boolean matches = false;
+                    for (Header header : headers) {
+                        String formatted = header.getName() + ": " + header.getValue();
+                        if (matches(context, message, value, formatted, regex)) {
+                            matches = true;
+                            break;
+                        }
+                    }
+                    if (!matches)
+                        return false;
+                }
+            }
+
+            // Body
+            JSONObject jbody = jcondition.optJSONObject("body");
+            if (jbody != null) {
+                String value = jbody.getString("value");
+                boolean regex = jbody.getBoolean("regex");
+
+                if (!regex)
+                    value = value.replaceAll("\\s+", " ");
+
+                if (html == null && message.content) {
+                    File file = message.getFile(context);
+                    try {
+                        html = Helper.readText(file);
+                    } catch (IOException ex) {
+                        Log.e(ex);
                     }
                 }
-                if (!matches)
+
+                if (html == null)
+                    throw new IllegalArgumentException(context.getString(R.string.title_rule_no_body));
+
+                String text = HtmlHelper.getFullText(html);
+                if (!matches(context, message, value, text, regex))
                     return false;
             }
 
@@ -292,6 +381,7 @@ public class EntityRule {
                     jsubject == null &&
                     !jcondition.optBoolean("attachments") &&
                     jheader == null &&
+                    jbody == null &&
                     jdate == null &&
                     jschedule == null)
                 return false;
@@ -303,7 +393,7 @@ public class EntityRule {
         return true;
     }
 
-    private boolean matches(Context context, String needle, String haystack, boolean regex) {
+    private boolean matches(Context context, EntityMessage message, String needle, String haystack, boolean regex) {
         boolean matched = false;
         if (needle != null && haystack != null)
             if (regex) {
@@ -313,8 +403,9 @@ public class EntityRule {
                 matched = haystack.toLowerCase().contains(needle.trim().toLowerCase());
 
         if (matched)
-            EntityLog.log(context, "Rule=" + name + ":" + order + " matched " +
-                    " needle=" + needle + " haystack=" + haystack + " regex=" + regex);
+            EntityLog.log(context, EntityLog.Type.Rules, message,
+                    "Rule=" + name + ":" + order + " matched " +
+                            " needle=" + needle + " haystack=" + haystack + " regex=" + regex);
         else
             Log.i("Rule=" + name + ":" + order + " matched=" + matched +
                     " needle=" + needle + " haystack=" + haystack + " regex=" + regex);
@@ -392,7 +483,7 @@ public class EntityRule {
             case TYPE_IMPORTANCE:
                 return;
             case TYPE_KEYWORD:
-                String keyword = jargs.getString("keyword");
+                String keyword = jargs.optString("keyword");
                 if (TextUtils.isEmpty(keyword))
                     throw new IllegalArgumentException(context.getString(R.string.title_rule_keyword_missing));
                 return;
@@ -501,10 +592,13 @@ public class EntityRule {
 
     private boolean onActionAnswer(Context context, EntityMessage message, JSONObject jargs) {
         DB db = DB.getInstance(context);
+        String to = jargs.optString("to");
         boolean attachments = jargs.optBoolean("attachments");
 
-        if (message.auto_submitted != null && message.auto_submitted) {
-            EntityLog.log(context, "Auto submitted rule=" + name);
+        if (TextUtils.isEmpty(to) &&
+                message.auto_submitted != null && message.auto_submitted) {
+            EntityLog.log(context, EntityLog.Type.Rules, message,
+                    "Auto submitted rule=" + name);
             return false;
         }
 
@@ -590,9 +684,10 @@ public class EntityRule {
         for (EntityMessage threaded : messages)
             if (!threaded.id.equals(message.id) &&
                     MessageHelper.equal(threaded.from, from)) {
-                EntityLog.log(context, "Answer loop" +
-                        " name=" + answer.name +
-                        " from=" + MessageHelper.formatAddresses(from));
+                EntityLog.log(context, EntityLog.Type.Rules, message,
+                        "Answer loop" +
+                                " name=" + answer.name +
+                                " from=" + MessageHelper.formatAddresses(from));
                 return;
             }
 
@@ -637,7 +732,7 @@ public class EntityRule {
 
         reply.id = db.message().insertMessage(reply);
 
-        String body = answer.getText(message.from);
+        String body = answer.getHtml(message.from);
         Document msg = JsoupEx.parse(body);
 
         Element div = msg.createElement("div");
@@ -695,7 +790,8 @@ public class EntityRule {
         automation.putExtra(EXTRA_RECEIVED, DTF.format(message.received));
 
         List<String> extras = Log.getExtras(automation.getExtras());
-        EntityLog.log(context, "Sending " + automation + " " + TextUtils.join(" ", extras));
+        EntityLog.log(context, EntityLog.Type.Rules, message,
+                "Sending " + automation + " " + TextUtils.join(" ", extras));
         context.sendBroadcast(automation);
 
         return true;
@@ -731,7 +827,8 @@ public class EntityRule {
         TelephonyManager tm = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
         int callState = tm.getCallState();
         if (callState != TelephonyManager.CALL_STATE_IDLE) {
-            EntityLog.log(context, "Call state=" + callState + " rule=" + rule.name);
+            EntityLog.log(context, EntityLog.Type.Rules, message,
+                    "Call state=" + callState + " rule=" + rule.name);
             return;
         }
 
@@ -851,7 +948,7 @@ public class EntityRule {
         return cal;
     }
 
-    static EntityRule blockSender(Context context, EntityMessage message, EntityFolder junk, boolean block_domain, List<String> whitelist) throws JSONException {
+    static EntityRule blockSender(Context context, EntityMessage message, EntityFolder junk, boolean block_domain) throws JSONException {
         if (message.from == null || message.from.length == 0)
             return null;
 
@@ -866,17 +963,8 @@ public class EntityRule {
         if (block_domain) {
             int at = sender.indexOf('@');
             if (at > 0) {
-                boolean whitelisted = false;
-                String domain = UriHelper.getParentDomain(sender.substring(at + 1));
-                for (String d : whitelist)
-                    if (domain.matches(d)) {
-                        whitelisted = true;
-                        break;
-                    }
-                if (!whitelisted) {
-                    regex = true;
-                    sender = ".*@.*" + domain + ".*";
-                }
+                regex = true;
+                sender = ".*@.*" + sender.substring(at + 1) + ".*";
             }
         }
 

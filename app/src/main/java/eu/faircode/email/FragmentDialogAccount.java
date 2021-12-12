@@ -24,10 +24,15 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Settings;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -40,6 +45,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static android.app.Activity.RESULT_OK;
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_GMAIL;
 
 public class FragmentDialogAccount extends FragmentDialogBase {
     @NonNull
@@ -49,6 +55,7 @@ public class FragmentDialogAccount extends FragmentDialogBase {
 
         final View dview = LayoutInflater.from(context).inflate(R.layout.dialog_review_account, null);
         final TextView tvName = dview.findViewById(R.id.tvName);
+        final ImageButton ibEditName = dview.findViewById(R.id.ibEditName);
         final TextView tvInbox = dview.findViewById(R.id.tvInbox);
         final TextView tvDrafts = dview.findViewById(R.id.tvDrafts);
         final TextView tvSent = dview.findViewById(R.id.tvSent);
@@ -59,6 +66,7 @@ public class FragmentDialogAccount extends FragmentDialogBase {
         final TextView tvLeft = dview.findViewById(R.id.tvLeft);
         final TextView tvRight = dview.findViewById(R.id.tvRight);
         final Button btnAccount = dview.findViewById(R.id.btnAccount);
+        final Button btnGmail = dview.findViewById(R.id.btnGmail);
 
         final Drawable check = context.getDrawable(R.drawable.twotone_check_24);
         final Drawable close = context.getDrawable(R.drawable.twotone_close_24);
@@ -74,13 +82,57 @@ public class FragmentDialogAccount extends FragmentDialogBase {
         tvArchive.setCompoundDrawablesRelative(null, null, null, null);
 
         tvName.setText(null);
+        ibEditName.setEnabled(false);
         tvLeft.setText(null);
         tvRight.setText(null);
 
         tvSentWarning.setVisibility(View.GONE);
+        btnGmail.setVisibility(View.GONE);
 
         Bundle args = getArguments();
         final long account = args.getLong("account");
+
+        ibEditName.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                View e = LayoutInflater.from(context).inflate(R.layout.dialog_edit_name, null);
+                EditText etName = e.findViewById(R.id.etName);
+                etName.setText(tvName.getText());
+
+                new AlertDialog.Builder(context)
+                        .setView(e)
+                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                String name = etName.getText().toString();
+                                if (TextUtils.isEmpty(name))
+                                    return;
+
+                                args.putString("name", name);
+
+                                new SimpleTask<Void>() {
+                                    @Override
+                                    protected Void onExecute(Context context, Bundle args) throws Throwable {
+                                        long id = args.getLong("account");
+                                        String name = args.getString("name");
+
+                                        DB db = DB.getInstance(context);
+                                        db.account().setAccountName(id, name);
+
+                                        return null;
+                                    }
+
+                                    @Override
+                                    protected void onException(Bundle args, Throwable ex) {
+                                        // Ignored
+                                    }
+                                }.execute(FragmentDialogAccount.this, args, "account:name");
+                            }
+                        })
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+            }
+        });
 
         btnAccount.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -94,12 +146,27 @@ public class FragmentDialogAccount extends FragmentDialogBase {
             }
         });
 
+        Intent gmail = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        gmail.setData(Uri.parse("package:com.google.android.gm"));
+        boolean hasGmail = (gmail.resolveActivity(context.getPackageManager()) != null);
+
+        btnGmail.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                v.getContext().startActivity(gmail);
+            }
+        });
+
         DB db = DB.getInstance(context);
 
         db.account().liveAccount(account).observe(this, new Observer<EntityAccount>() {
             @Override
             public void onChanged(EntityAccount account) {
                 tvName.setText(account.name);
+                ibEditName.setEnabled(true);
+                btnGmail.setVisibility(
+                        hasGmail && account.auth_type == AUTH_TYPE_GMAIL
+                                ? View.VISIBLE : View.GONE);
             }
         });
 

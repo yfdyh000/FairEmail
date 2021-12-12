@@ -19,6 +19,8 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static androidx.room.ForeignKey.CASCADE;
+
 import android.content.Context;
 import android.text.TextUtils;
 
@@ -46,8 +48,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-import static androidx.room.ForeignKey.CASCADE;
-
 @Entity(
         tableName = EntityFolder.TABLE_NAME,
         foreignKeys = {
@@ -71,6 +71,8 @@ public class EntityFolder extends EntityOrder implements Serializable {
     public Long parent;
     public Long uidv; // UIDValidity
     public Long modseq;
+    public String namespace;
+    public Character separator;
     @NonNull
     public String name;
     @NonNull
@@ -100,6 +102,7 @@ public class EntityFolder extends EntityOrder implements Serializable {
     public Integer keep_days;
     @NonNull
     public Boolean auto_delete = false;
+    public Boolean auto_add; // sent messages
     public String display;
     public Integer color;
     @NonNull
@@ -131,11 +134,13 @@ public class EntityFolder extends EntityOrder implements Serializable {
     @NonNull
     public Boolean read_only = false;
     @NonNull
-    public Boolean selectable = true;
+    public Boolean selectable = true; // Cannot contain messages
     @NonNull
-    public Boolean inferiors = true;
+    public Boolean inferiors = true; // Cannot have child folders
     public String error;
     public Long last_sync;
+    public Long last_sync_foreground;
+    public Integer last_sync_count; // POP3
 
     static final String INBOX = "Inbox";
     static final String OUTBOX = "Outbox";
@@ -184,11 +189,13 @@ public class EntityFolder extends EntityOrder implements Serializable {
 
     private static Map<String, TypeScore> GUESS_FOLDER_TYPE = new HashMap<String, TypeScore>() {{
         // Contains:
-        put("all", new TypeScore(EntityFolder.ARCHIVE, 100));
+        //put("all", new TypeScore(EntityFolder.ARCHIVE, 50));
+        //put("Tous", new TypeScore(EntityFolder.ARCHIVE, 50));
         put("Archiv", new TypeScore(EntityFolder.ARCHIVE, 100)); // German
         put("archive", new TypeScore(EntityFolder.ARCHIVE, 100));
         put("archief", new TypeScore(EntityFolder.ARCHIVE, 100)); // Dutch
         put("Архив", new TypeScore(EntityFolder.ARCHIVE, 100));
+        put("Wszystkie", new TypeScore(EntityFolder.ARCHIVE, 100)); // Polish
 
         put("draft", new TypeScore(EntityFolder.DRAFTS, 100));
         put("concept", new TypeScore(EntityFolder.DRAFTS, 100));
@@ -196,20 +203,28 @@ public class EntityFolder extends EntityOrder implements Serializable {
         put("brouillon", new TypeScore(EntityFolder.DRAFTS, 100));
         put("Черновики", new TypeScore(EntityFolder.DRAFTS, 100));
         put("Bozze", new TypeScore(EntityFolder.DRAFTS, 100));
+        put("Szkice lokalne", new TypeScore(EntityFolder.DRAFTS, 100)); // Polish
 
         put("trash", new TypeScore(EntityFolder.TRASH, 100));
+        put("Deleted", new TypeScore(EntityFolder.TRASH, 100));
+        //put("Bin", new TypeScore(EntityFolder.TRASH, 50));
         put("Papierkorb", new TypeScore(EntityFolder.TRASH, 100));
         put("corbeille", new TypeScore(EntityFolder.TRASH, 100));
         put("Корзина", new TypeScore(EntityFolder.TRASH, 100));
+        put("Удаленные", new TypeScore(EntityFolder.TRASH, 50));
         put("Eliminata", new TypeScore(EntityFolder.TRASH, 100));
+        put("Kosz", new TypeScore(EntityFolder.TRASH, 100)); // Polish
+        put("supprimé", new TypeScore(EntityFolder.TRASH, 100));
 
         put("junk", new TypeScore(EntityFolder.JUNK, 100));
         put("spam", new TypeScore(EntityFolder.JUNK, 100));
+        put("bulk", new TypeScore(EntityFolder.JUNK, 100));
         put("pourriel", new TypeScore(EntityFolder.JUNK, 100));
         put("quarantaine", new TypeScore(EntityFolder.JUNK, 50));
         put("Спам", new TypeScore(EntityFolder.JUNK, 100));
         put("Cestino", new TypeScore(EntityFolder.JUNK, 100));
         put("Indesiderata", new TypeScore(EntityFolder.JUNK, 100));
+        put("indésirable", new TypeScore(EntityFolder.JUNK, 100));
 
         put("sent", new TypeScore(EntityFolder.SENT, 100));
         put("Gesendet", new TypeScore(EntityFolder.SENT, 100));
@@ -323,6 +338,11 @@ public class EntityFolder extends EntityOrder implements Serializable {
         return jargs;
     }
 
+    static boolean isSyncForced(String args) throws JSONException {
+        JSONArray jargs = new JSONArray(args);
+        return jargs.optBoolean(5, false);
+    }
+
     static int getIcon(String type) {
         if (EntityFolder.INBOX.equals(type))
             return R.drawable.twotone_inbox_24;
@@ -337,7 +357,7 @@ public class EntityFolder extends EntityOrder implements Serializable {
         if (EntityFolder.TRASH.equals(type))
             return R.drawable.twotone_delete_24;
         if (EntityFolder.JUNK.equals(type))
-            return R.drawable.twotone_report_problem_24;
+            return R.drawable.twotone_report_24;
         if (EntityFolder.SYSTEM.equals(type))
             return R.drawable.twotone_folder_special_24;
         return R.drawable.twotone_folder_24;
@@ -432,7 +452,7 @@ public class EntityFolder extends EntityOrder implements Serializable {
         }
     }
 
-    static void guessTypes(List<EntityFolder> folders, final Character separator) {
+    static void guessTypes(List<EntityFolder> folders) {
         List<String> types = new ArrayList<>();
         Map<String, List<FolderScore>> typeFolderScore = new HashMap<>();
 
@@ -456,18 +476,17 @@ public class EntityFolder extends EntityOrder implements Serializable {
                 Collections.sort(candidates, new Comparator<FolderScore>() {
                     @Override
                     public int compare(FolderScore fs1, FolderScore fs2) {
+                        int r = Boolean.compare(fs1.folder.read_only, fs2.folder.read_only);
+                        if (r != 0)
+                            return r;
+
                         int s = Integer.compare(fs1.score, fs2.score);
                         if (s == 0) {
-                            if (separator == null)
-                                return Integer.compare(
-                                        fs1.folder.name.length(),
-                                        fs2.folder.name.length());
-                            else {
-                                String sep = Pattern.quote(String.valueOf(separator));
-                                return Integer.compare(
-                                        fs1.folder.name.split(sep).length,
-                                        fs2.folder.name.split(sep).length);
-                            }
+                            int len1 = (fs1.folder.separator == null ? 1
+                                    : fs1.folder.name.split(Pattern.quote(String.valueOf(fs1.folder.separator))).length);
+                            int len2 = (fs2.folder.separator == null ? 1
+                                    : fs2.folder.name.split(Pattern.quote(String.valueOf(fs2.folder.separator))).length);
+                            return Integer.compare(len1, len2);
                         } else
                             return s;
                     }
@@ -481,7 +500,7 @@ public class EntityFolder extends EntityOrder implements Serializable {
         }
     }
 
-    String getParentName(Character separator) {
+    String getParentName() {
         if (separator == null)
             return null;
         else {
@@ -518,6 +537,8 @@ public class EntityFolder extends EntityOrder implements Serializable {
                     Objects.equals(this.account, other.account) &&
                     Objects.equals(this.parent, other.parent) &&
                     Objects.equals(this.uidv, other.uidv) &&
+                    Objects.equals(this.namespace, other.namespace) &&
+                    Objects.equals(this.separator, other.separator) &&
                     this.name.equals(other.name) &&
                     this.type.equals(other.type) &&
                     this.level.equals(other.level) &&
@@ -564,6 +585,9 @@ public class EntityFolder extends EntityOrder implements Serializable {
         JSONObject json = new JSONObject();
         json.put("id", id);
         json.put("order", order);
+        json.put("namespace", namespace);
+        if (separator != null)
+            json.put("separator", (int) separator);
         json.put("name", name);
         json.put("type", type);
         json.put("synchronize", synchronize);
@@ -592,6 +616,11 @@ public class EntityFolder extends EntityOrder implements Serializable {
 
         if (json.has("order"))
             folder.order = json.getInt("order");
+
+        if (json.has("namespace"))
+            folder.namespace = json.getString("namespace");
+        if (json.has("separator"))
+            folder.separator = (char) json.getInt("separator");
 
         folder.name = json.getString("name");
         folder.type = json.getString("type");

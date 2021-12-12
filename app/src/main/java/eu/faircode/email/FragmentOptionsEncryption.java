@@ -19,17 +19,25 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static android.app.Activity.RESULT_OK;
+
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.security.KeyChain;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.style.RelativeSizeSpan;
+import android.text.style.StyleSpan;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -43,11 +51,13 @@ import android.widget.CompoundButton;
 import android.widget.ImageButton;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.SwitchCompat;
+import androidx.cardview.widget.CardView;
 import androidx.lifecycle.Lifecycle;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.PreferenceManager;
@@ -56,9 +66,13 @@ import org.openintents.openpgp.IOpenPgpService2;
 import org.openintents.openpgp.util.OpenPgpApi;
 import org.openintents.openpgp.util.OpenPgpServiceConnection;
 
+import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.Principal;
+import java.security.Provider;
+import java.security.Security;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -80,20 +94,27 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
     private SwitchCompat swAutocryptMutual;
     private SwitchCompat swEncryptSubject;
 
+    private Spinner spSignAlgoSmime;
+    private Spinner spEncryptAlgoSmime;
     private SwitchCompat swCheckCertificate;
     private Button btnManageCertificates;
     private Button btnImportKey;
     private Button btnManageKeys;
     private Button btnCa;
+
+    private CardView cardDebug;
     private TextView tvKeySize;
+    private TextView tvProviders;
 
     private OpenPgpServiceConnection pgpService;
     private List<String> openPgpProvider = new ArrayList<>();
 
+    static final int REQUEST_IMPORT_CERTIFICATE = 1;
+
     private final static String[] RESET_OPTIONS = new String[]{
             "sign_default", "encrypt_default", "auto_decrypt", "auto_undecrypt",
             "openpgp_provider", "autocrypt", "autocrypt_mutual", "encrypt_subject",
-            "check_certificate"
+            "sign_algo_smime", "encrypt_algo_smime", "check_certificate"
     };
 
     @Override
@@ -119,12 +140,17 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
         swAutocryptMutual = view.findViewById(R.id.swAutocryptMutual);
         swEncryptSubject = view.findViewById(R.id.swEncryptSubject);
 
+        spSignAlgoSmime = view.findViewById(R.id.spSignAlgoSmime);
+        spEncryptAlgoSmime = view.findViewById(R.id.spEncryptAlgoSmime);
         swCheckCertificate = view.findViewById(R.id.swCheckCertificate);
         btnManageCertificates = view.findViewById(R.id.btnManageCertificates);
         btnImportKey = view.findViewById(R.id.btnImportKey);
         btnManageKeys = view.findViewById(R.id.btnManageKeys);
         btnCa = view.findViewById(R.id.btnCa);
+
+        cardDebug = view.findViewById(R.id.cardDebug);
         tvKeySize = view.findViewById(R.id.tvKeySize);
+        tvProviders = view.findViewById(R.id.tvProviders);
 
         try {
             openPgpProvider.clear();
@@ -253,6 +279,32 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
 
         // S/MIME
 
+        spSignAlgoSmime.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int position, long id) {
+                String[] values = getResources().getStringArray(R.array.smimeSignAlgo);
+                prefs.edit().putString("sign_algo_smime", values[position]).apply();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                prefs.edit().remove("sign_algo_smime").apply();
+            }
+        });
+
+        spEncryptAlgoSmime.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int position, long id) {
+                String[] values = getResources().getStringArray(R.array.smimeEncryptAlgo);
+                prefs.edit().putString("encrypt_algo_smime", values[position]).apply();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                prefs.edit().remove("encrypt_algo_smime").apply();
+            }
+        });
+
         swCheckCertificate.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
@@ -270,11 +322,19 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
 
         final Intent importKey = KeyChain.createInstallIntent();
         btnImportKey.setEnabled(importKey.resolveActivity(pm) != null); // system whitelisted
-        btnImportKey.setVisibility(Build.VERSION.SDK_INT < Build.VERSION_CODES.R ? View.VISIBLE : View.GONE);
         btnImportKey.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startActivity(importKey);
+                // https://pki-tutorial.readthedocs.io/en/latest/mime.html
+                Context context = v.getContext();
+                PackageManager pm = context.getPackageManager();
+                Intent open = new Intent(Intent.ACTION_GET_CONTENT);
+                open.addCategory(Intent.CATEGORY_OPENABLE);
+                open.setType("*/*");
+                if (open.resolveActivity(pm) == null)  // system whitelisted
+                    ToastEx.makeText(context, R.string.title_no_saf, Toast.LENGTH_LONG).show();
+                else
+                    startActivityForResult(Helper.getChooser(context, open), REQUEST_IMPORT_CERTIFICATE);
             }
         });
 
@@ -318,6 +378,7 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
                     @Override
                     protected void onExecuted(Bundle args, List<String> issuers) {
                         new AlertDialog.Builder(getContext())
+                                .setIcon(R.drawable.twotone_info_24)
                                 .setTitle(R.string.title_advanced_ca)
                                 .setMessage(TextUtils.join("\r\n", issuers))
                                 .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
@@ -340,16 +401,78 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
         // Initialize
         FragmentDialogTheme.setBackground(getContext(), view, false);
 
+        boolean debug = prefs.getBoolean("debug", false);
+        cardDebug.setVisibility(debug || BuildConfig.DEBUG ? View.VISIBLE : View.GONE);
+
         try {
             int maxKeySize = javax.crypto.Cipher.getMaxAllowedKeyLength("AES");
-            tvKeySize.setText(getString(R.string.title_advanced_aes_key_size, maxKeySize));
+            tvKeySize.setText(getString(R.string.title_advanced_aes_key_size,
+                    Helper.humanReadableByteCount(maxKeySize, false)));
         } catch (NoSuchAlgorithmException ex) {
             tvKeySize.setText(Log.formatThrowable(ex));
         }
 
+        tvProviders.setText(null);
+
         PreferenceManager.getDefaultSharedPreferences(getContext()).registerOnSharedPreferenceChangeListener(this);
 
         return view;
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+        boolean debug = prefs.getBoolean("debug", false);
+
+        Bundle args = new Bundle();
+        args.putBoolean("debug", debug);
+
+        new SimpleTask<Spanned>() {
+            @Override
+            protected Spanned onExecute(Context context, Bundle args) {
+                boolean debug = args.getBoolean("debug");
+                SpannableStringBuilder ssb = new SpannableStringBuilderEx();
+
+                int dp24 = Helper.dp2pixels(context, 24);
+
+                Provider[] providers = Security.getProviders();
+                for (int p = 0; p < providers.length; p++) {
+                    Provider provider = providers[p];
+                    ssb.append(Integer.toString(p + 1)).append(' ')
+                            .append(provider.toString()).append('\n');
+                    String info = provider.getInfo();
+                    if (info != null) {
+                        int line = ssb.length();
+                        ssb.append(info).append('\n');
+                        ssb.setSpan(new IndentSpan(dp24), line, ssb.length(), 0);
+                        ssb.setSpan(new StyleSpan(Typeface.ITALIC), line, ssb.length(), 0);
+                    }
+                    if (debug) {
+                        int start = ssb.length();
+                        for (Enumeration<Object> e = provider.keys(); e.hasMoreElements(); ) {
+                            int line = ssb.length();
+                            ssb.append(e.nextElement().toString()).append('\n');
+                            ssb.setSpan(new IndentSpan(dp24), line, ssb.length(), 0);
+                        }
+                        ssb.setSpan(new RelativeSizeSpan(HtmlHelper.FONT_SMALL), start, ssb.length(), 0);
+                    }
+                }
+
+                return ssb;
+            }
+
+            @Override
+            protected void onExecuted(Bundle args, Spanned providers) {
+                tvProviders.setText(providers);
+            }
+
+            @Override
+            protected void onException(Bundle args, Throwable ex) {
+                tvProviders.setText(Log.formatThrowable(ex));
+            }
+        }.execute(this, args, "encryption:providers");
     }
 
     @Override
@@ -363,6 +486,61 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
         pgpService = null;
 
         super.onDestroyView();
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        try {
+            switch (requestCode) {
+                case REQUEST_IMPORT_CERTIFICATE:
+                    if (resultCode == RESULT_OK && data != null)
+                        handleImportCertificate(data);
+                    break;
+            }
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
+    }
+
+    private void handleImportCertificate(Intent data) {
+        Uri uri = data.getData();
+        if (uri != null) {
+            Bundle args = new Bundle();
+            args.putParcelable("uri", uri);
+
+            new SimpleTask<byte[]>() {
+                @Override
+                protected byte[] onExecute(Context context, Bundle args) throws Throwable {
+                    Uri uri = args.getParcelable("uri");
+                    Log.i("Import certificate uri=" + uri);
+
+                    if (uri == null)
+                        throw new FileNotFoundException();
+
+                    try (InputStream is = context.getContentResolver().openInputStream(uri)) {
+                        return Helper.readBytes(is);
+                    }
+                }
+
+                @Override
+                protected void onExecuted(Bundle args, byte[] data) {
+                    Intent intent = KeyChain.createInstallIntent();
+                    intent.putExtra(KeyChain.EXTRA_PKCS12, data);
+                    startActivity(intent);
+                }
+
+                @Override
+                protected void onException(Bundle args, Throwable ex) {
+                    boolean expected =
+                            (ex instanceof IllegalArgumentException ||
+                                    ex instanceof FileNotFoundException ||
+                                    ex instanceof SecurityException);
+                    Log.unexpectedError(getParentFragmentManager(), ex, !expected);
+                }
+            }.execute(this, args, "setup:cert");
+        }
     }
 
     @Override
@@ -409,6 +587,22 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
         swAutocryptMutual.setEnabled(swAutocrypt.isChecked());
         swEncryptSubject.setChecked(prefs.getBoolean("encrypt_subject", false));
 
+        String signAlgorithm = prefs.getString("sign_algo_smime", "SHA-256");
+        String[] smimeSignAlgo = getResources().getStringArray(R.array.smimeSignAlgo);
+        for (int pos = 0; pos < smimeSignAlgo.length; pos++)
+            if (smimeSignAlgo[pos].equals(signAlgorithm)) {
+                spSignAlgoSmime.setSelection(pos);
+                break;
+            }
+
+        String encryptAlgorithm = prefs.getString("encrypt_algo_smime", "AES-128");
+        String[] smimeEncryptAlgo = getResources().getStringArray(R.array.smimeEncryptAlgo);
+        for (int pos = 0; pos < smimeEncryptAlgo.length; pos++)
+            if (smimeEncryptAlgo[pos].equals(encryptAlgorithm)) {
+                spEncryptAlgoSmime.setSelection(pos);
+                break;
+            }
+
         swCheckCertificate.setChecked(prefs.getBoolean("check_certificate", true));
     }
 
@@ -422,11 +616,17 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
             pgpService = new OpenPgpServiceConnection(getContext(), pkg, new OpenPgpServiceConnection.OnBound() {
                 @Override
                 public void onBound(IOpenPgpService2 service) {
+                    if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                        return;
+
                     tvOpenPgpStatus.setText("Connected to " + pkg);
                 }
 
                 @Override
                 public void onError(Exception ex) {
+                    if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                        return;
+
                     if ("bindService() returned false!".equals(ex.getMessage()))
                         tvOpenPgpStatus.setText("Not connected");
                     else {

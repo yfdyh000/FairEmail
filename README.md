@@ -11,9 +11,9 @@
 
 # FairEmail
 
-![GitHub](https://img.shields.io/github/license/M66B/FairEmail.svg)
-![GitHub release](https://img.shields.io/github/release/M66B/FairEmail.svg)
-![GitHub commits since tagged version](https://img.shields.io/github/commits-since/M66B/FairEmail/0.1.svg)
+[![GitHub](https://img.shields.io/github/license/M66B/FairEmail.svg)](https://github.com/M66B/FairEmail/blob/master/LICENSE)
+[![GitHub release](https://img.shields.io/github/release/M66B/FairEmail.svg)](https://github.com/M66B/FairEmail/releases/latest)
+[![GitHub commits since tagged version](https://img.shields.io/github/commits-since/M66B/FairEmail/0.1.svg?logo=github)](https://github.com/M66B/FairEmail/commits/)
 
 *Fully featured, open source, privacy oriented email app for Android*
 
@@ -32,7 +32,7 @@ FairEmail might be for you if you value your privacy.
 * [Privacy oriented](https://github.com/M66B/FairEmail/blob/master/PRIVACY.md)
 * Unlimited accounts
 * Unlimited email addresses
-* Unified inbox
+* Unified inbox (optionally accounts or folders)
 * [Conversation threading](https://en.wikipedia.org/wiki/Conversation_threading)
 * Two way synchronization
 * Push notifications
@@ -40,7 +40,7 @@ FairEmail might be for you if you value your privacy.
 * Common text style options (size, color, lists, etc)
 * Battery friendly
 * Low data usage
-* Small (< 20 MB)
+* Small (~20 MB)
 * Material design (including dark/black theme)
 * Maintained and supported
 
@@ -72,7 +72,7 @@ This app starts a foreground service with a low priority status bar notification
 * Confirm opening links, images and attachments
 * No special permissions required
 * No advertisements
-* No analytics and no tracking ([error reporting](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq104) is opt-in)
+* No analytics and no tracking ([error reporting](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq104) via Bugsnag is opt-in)
 * No [Google backup](https://developer.android.com/guide/topics/data/backup)
 * No [Firebase Cloud Messaging](https://firebase.google.com/docs/cloud-messaging)
 * FairEmail is an original work, not a fork or a clone
@@ -99,8 +99,7 @@ All pro features are convenience or advanced features.
 * Add message to calendar
 * Filter rules ([instructions](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq71))
 * Automatic message classification ([instructions](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq163))
-* Search indexing, search on server ([instructions](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq13))
-* Keyword management
+* Search indexing ([instructions](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq13))
 * S/MIME sign/encrypt ([instructions](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq12))
 * Biometric/PIN authentication ([instructions](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq113))
 * Message list widget
@@ -119,9 +118,9 @@ Supported download locations:
 * [Play store](https://play.google.com/apps/testing/eu.faircode.email) (test)
 * [F-Droid](https://f-droid.org/en/packages/eu.faircode.email/) ([last build status](https://f-droid.org/wiki/page/eu.faircode.email/lastbuild)) (the F-Droid app can be downloaded [here](https://f-droid.org/))
 * ~~[AppGallery](https://wap3.hispace.hicloud.com/uowap/index.jsp#/detailApp/C101678151) (the AppGallery app can be downloaded [here](https://huaweimobileservices.com/appgallery/))~~
+* ~~[Amazon](https://www.amazon.com/gp/product/B0983R6MH2)~~ (the APK file repackaged by Amazon is incomplete! An issue report was never answered by Amazon.)
 
-All versions provide the same features, except that there is no Android Auto support in the Play store version.
-Please [see here](https://forum.xda-developers.com/showpost.php?p=83801249&postcount=16542) about why not.
+Please see [this FAQ](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq173) about the differences between the different releases.
 
 **Important**: after enrolling in the [Advanced Protection Program](https://landing.google.com/advancedprotection/)
 you cannot use third party email apps anymore, please see [this FAQ](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq22) for more information.
@@ -158,7 +157,9 @@ One line command to display certificate fingerprints:
 ```unzip -p fairemail.apk META-INF/CERT.RSA | keytool -printcert```
 
 I do not hand over the signing keys of my apps to Google.
-However, in the second half of 2021 [I am required](https://commonsware.com/blog/2020/09/23/uncomfortable-questions-app-signing.html) to hand over my signing keys to Google.
+Please see [this Google blog](https://android-developers.googleblog.com/2021/06/the-future-of-android-app-bundles-is.html)
+and [this article](https://commonsware.com/blog/2020/09/23/uncomfortable-questions-app-signing.html)
+for more information.
 
 ## Compatibility
 
@@ -210,7 +211,7 @@ See [here](https://github.com/M66B/FairEmail/blob/master/ATTRIBUTION.md) for a l
 
 Online translations are supported by:
 
-![Crowdin logo](/images/localization-at-white-rounded-bordered@1x.png)
+[![Crowdin logo](/images/localization-at-white-rounded-bordered@1x.png)](https://crowdin.com/project/open-source-email)
 
 Error reporting is sponsored by:
 

@@ -19,6 +19,11 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static android.accounts.AccountManager.newChooseAccountIntent;
+import static android.app.Activity.RESULT_OK;
+import static eu.faircode.email.GmailState.TYPE_GOOGLE;
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_GMAIL;
+
 import android.Manifest;
 import android.accounts.Account;
 import android.accounts.AccountManager;
@@ -34,6 +39,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.ContactsContract;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -49,18 +55,19 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.constraintlayout.widget.Group;
+import androidx.lifecycle.Lifecycle;
 
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static android.accounts.AccountManager.newChooseAccountIntent;
-import static android.app.Activity.RESULT_OK;
-import static eu.faircode.email.GmailState.TYPE_GOOGLE;
-import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_GMAIL;
+import java.util.concurrent.TimeUnit;
 
 public class FragmentGmail extends FragmentBase {
+    private String personal;
+    private String address;
+    private boolean update;
+
     private ViewGroup view;
     private ScrollView scroll;
 
@@ -80,7 +87,20 @@ public class FragmentGmail extends FragmentBase {
 
     private Group grpError;
 
+    private static final long GET_TOKEN_TIMEOUT = 20 * 1000L; // milliseconds
     private static final String PRIVACY_URI = "https://policies.google.com/privacy";
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        Bundle args = getArguments();
+        if (args != null) {
+            personal = args.getString("personal");
+            address = args.getString("address");
+            update = args.getBoolean("update");
+        }
+    }
 
     @Override
     @Nullable
@@ -139,6 +159,8 @@ public class FragmentGmail extends FragmentBase {
                     if (TextUtils.isEmpty(name))
                         throw new IllegalArgumentException(getString(R.string.title_no_name));
 
+                    etName.clearFocus();
+                    Helper.hideKeyboard(view);
 
                     Intent intent = newChooseAccountIntent(
                             null,
@@ -152,7 +174,7 @@ public class FragmentGmail extends FragmentBase {
                     PackageManager pm = getContext().getPackageManager();
                     if (intent.resolveActivity(pm) == null) { // system whitelisted
                         Log.e("newChooseAccountIntent unavailable");
-                        throw new IllegalArgumentException(getString(R.string.title_no_viewer, intent));
+                        Helper.reportNoViewer(getContext(), intent);
                     }
                     startActivityForResult(intent, ActivitySetup.REQUEST_CHOOSE_ACCOUNT);
                 } catch (Throwable ex) {
@@ -183,6 +205,8 @@ public class FragmentGmail extends FragmentBase {
         // Initialize
         Helper.setViewsEnabled(view, false);
         tvTitle.setText(getString(R.string.title_setup_oauth_rationale, "Gmail"));
+        etName.setText(personal);
+        cbUpdate.setChecked(update);
         pbSelect.setVisibility(View.GONE);
         grpError.setVisibility(View.GONE);
 
@@ -226,7 +250,8 @@ public class FragmentGmail extends FragmentBase {
         btnGrant.setEnabled(!granted);
         tvGranted.setVisibility(granted ? View.VISIBLE : View.GONE);
 
-        if (granted) {
+        boolean hasName = (etName.getText() != null && etName.getText().length() > 0);
+        if (granted && !hasName) {
             try (Cursor cursor = getContext().getContentResolver().query(
                     ContactsContract.Profile.CONTENT_URI,
                     new String[]{ContactsContract.Profile.DISPLAY_NAME}, null, null, null)) {
@@ -246,6 +271,8 @@ public class FragmentGmail extends FragmentBase {
         getMainHandler().post(new Runnable() {
             @Override
             public void run() {
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return;
                 etName.requestFocus();
             }
         });
@@ -254,16 +281,21 @@ public class FragmentGmail extends FragmentBase {
     private void onNoAccountSelected(int resultCode, Intent data) {
         AccountManager am = AccountManager.get(getContext());
         Account[] accounts = am.getAccountsByType(TYPE_GOOGLE);
-        if (accounts.length == 0) {
+        if (accounts.length == 0)
             Log.e("newChooseAccountIntent without result=" + resultCode + " data=" + data);
-            ToastEx.makeText(getContext(), R.string.title_no_account, Toast.LENGTH_LONG).show();
-        }
+
+        if (resultCode == RESULT_OK) {
+            tvError.setText(getString(R.string.title_no_account) + " (" + accounts.length + ")");
+            grpError.setVisibility(View.VISIBLE);
+        } else
+            ToastEx.makeText(getContext(), android.R.string.cancel, Toast.LENGTH_SHORT).show();
     }
 
     private void onAccountSelected(Intent data) {
         String name = data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
         String type = data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);
 
+        final Handler handler = getMainHandler();
         final String disabled = getString(R.string.title_setup_advanced_protection);
 
         boolean found = false;
@@ -282,19 +314,29 @@ public class FragmentGmail extends FragmentBase {
                             @Override
                             public void run(AccountManagerFuture<Bundle> future) {
                                 try {
-                                    Bundle bundle = future.getResult();
+                                    Bundle bundle = future.getResult(GET_TOKEN_TIMEOUT, TimeUnit.MILLISECONDS);
+                                    if (future.isCancelled())
+                                        throw new IllegalArgumentException("Android failed to return a token");
+
                                     String token = bundle.getString(AccountManager.KEY_AUTHTOKEN);
                                     if (token == null)
-                                        throw new IllegalArgumentException("no token");
+                                        throw new IllegalArgumentException("Android returned no token");
                                     Log.i("Got token name=" + account.name);
+
+                                    if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                                        return;
 
                                     onAuthorized(name, token);
                                 } catch (Throwable ex) {
+                                    // android.accounts.OperationCanceledException = ServiceDisabled?
                                     if (ex instanceof AuthenticatorException &&
                                             "ServiceDisabled".equals(ex.getMessage()))
                                         ex = new IllegalArgumentException(disabled, ex);
 
                                     Log.e(ex);
+
+                                    if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                                        return;
 
                                     tvError.setText(Log.formatThrowable(ex, false));
                                     grpError.setVisibility(View.VISIBLE);
@@ -302,13 +344,15 @@ public class FragmentGmail extends FragmentBase {
                                     getMainHandler().post(new Runnable() {
                                         @Override
                                         public void run() {
+                                            if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                                                return;
                                             scroll.smoothScrollTo(0, tvError.getBottom());
                                         }
                                     });
                                 }
                             }
                         },
-                        null);
+                        handler);
                 break;
             }
 
@@ -374,7 +418,9 @@ public class FragmentGmail extends FragmentBase {
                 int at = user.indexOf('@');
                 String username = user.substring(0, at);
 
-                EmailProvider provider = EmailProvider.fromDomain(context, "gmail.com", EmailProvider.Discover.ALL);
+                EmailProvider provider = EmailProvider
+                        .fromDomain(context, "gmail.com", EmailProvider.Discover.ALL)
+                        .get(0);
 
                 List<EntityFolder> folders;
 
@@ -406,13 +452,18 @@ public class FragmentGmail extends FragmentBase {
                     max_size = iservice.getMaxSize();
                 }
 
+                EntityAccount update = null;
                 DB db = DB.getInstance(context);
                 try {
                     db.beginTransaction();
 
-                    EntityAccount update = null;
-                    if (args.getBoolean("update"))
-                        update = db.account().getAccount(user, AUTH_TYPE_GMAIL);
+                    if (args.getBoolean("update")) {
+                        List<EntityAccount> accounts =
+                                db.account().getAccounts(user, AUTH_TYPE_GMAIL);
+                        if (accounts != null && accounts.size() == 1)
+                            update = accounts.get(0);
+                    }
+
                     if (update == null) {
                         EntityAccount primary = db.account().getPrimaryAccount();
 
@@ -482,8 +533,9 @@ public class FragmentGmail extends FragmentBase {
                         identity.id = db.identity().insertIdentity(identity);
                         EntityLog.log(context, "Gmail identity=" + identity.name + " email=" + identity.email);
                     } else {
-                        args.putLong("account", -1);
+                        args.putLong("account", update.id);
                         EntityLog.log(context, "Gmail update account=" + update.name);
+                        db.account().setAccountSynchronize(update.id, true);
                         db.account().setAccountPassword(update.id, password);
                         db.identity().setIdentityPassword(update.id, update.user, password, update.auth_type);
                     }
@@ -493,14 +545,20 @@ public class FragmentGmail extends FragmentBase {
                     db.endTransaction();
                 }
 
-                ServiceSynchronize.eval(context, "Gmail");
+                if (update == null)
+                    ServiceSynchronize.eval(context, "Gmail");
+                else {
+                    args.putBoolean("updated", true);
+                    ServiceSynchronize.reload(context, update.id, true, "Gmail");
+                }
 
                 return null;
             }
 
             @Override
             protected void onExecuted(Bundle args, Void data) {
-                if (args.getLong("account") < 0) {
+                boolean updated = args.getBoolean("updated");
+                if (updated) {
                     finish();
                     ToastEx.makeText(getContext(), R.string.title_setup_oauth_updated, Toast.LENGTH_LONG).show();
                 } else {
@@ -524,6 +582,8 @@ public class FragmentGmail extends FragmentBase {
                 getMainHandler().post(new Runnable() {
                     @Override
                     public void run() {
+                        if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                            return;
                         scroll.smoothScrollTo(0, tvError.getBottom());
                     }
                 });

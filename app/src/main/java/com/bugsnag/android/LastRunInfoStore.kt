@@ -1,5 +1,6 @@
 package com.bugsnag.android
 
+import com.bugsnag.android.internal.ImmutableConfig
 import java.io.File
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.withLock
@@ -15,7 +16,7 @@ private const val KEY_CRASHED_DURING_LAUNCH = "crashedDuringLaunch"
  */
 internal class LastRunInfoStore(config: ImmutableConfig) {
 
-    val file: File = File(config.persistenceDirectory, "last-run-info")
+    val file: File = File(config.persistenceDirectory.value, "last-run-info")
     private val logger: Logger = config.logger
     private val lock = ReentrantReadWriteLock()
 

@@ -34,6 +34,7 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.provider.ContactsContract;
 import android.text.TextUtils;
+import android.util.Pair;
 
 import androidx.annotation.NonNull;
 import androidx.preference.PreferenceManager;
@@ -48,6 +49,7 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -88,6 +90,7 @@ import javax.net.ssl.SSLSession;
 public class ContactInfo {
     private String email;
     private Bitmap bitmap;
+    private String type;
     private boolean verified;
     private String displayName;
     private Uri lookupUri;
@@ -96,7 +99,6 @@ public class ContactInfo {
 
     private static Map<String, Lookup> emailLookup = new ConcurrentHashMap<>();
     private static final Map<String, ContactInfo> emailContactInfo = new HashMap<>();
-    private static final Map<String, Gravatar> emailGravatar = new HashMap<>();
 
     private static final ExecutorService executorLookup =
             Helper.getBackgroundExecutor(1, "contact");
@@ -111,7 +113,6 @@ public class ContactInfo {
     private static final int FAVICON_READ_TIMEOUT = 10 * 1000; // milliseconds
     private static final int FAVICON_READ_BYTES = 4096;
     private static final long CACHE_CONTACT_DURATION = 2 * 60 * 1000L; // milliseconds
-    private static final long CACHE_GRAVATAR_DURATION = 2 * 60 * 60 * 1000L; // milliseconds
     private static final long CACHE_FAVICON_DURATION = 2 * 7 * 24 * 60 * 60 * 1000L; // milliseconds
 
     // https://css-tricks.com/prefetching-preloading-prebrowsing/
@@ -122,6 +123,10 @@ public class ContactInfo {
     ));
 
     private ContactInfo() {
+    }
+
+    String getType() {
+        return type;
     }
 
     boolean isVerified() {
@@ -188,10 +193,6 @@ public class ContactInfo {
             emailContactInfo.clear();
         }
 
-        synchronized (emailGravatar) {
-            emailGravatar.clear();
-        }
-
         if (!files)
             return;
 
@@ -212,21 +213,21 @@ public class ContactInfo {
     }
 
     @NonNull
-    static ContactInfo[] get(Context context, long account, String folderType, Address[] addresses) {
-        return get(context, account, folderType, addresses, false);
+    static ContactInfo[] get(Context context, long account, String folderType, String selector, Address[] addresses) {
+        return get(context, account, folderType, selector, addresses, false);
     }
 
-    static ContactInfo[] getCached(Context context, long account, String folderType, Address[] addresses) {
-        return get(context, account, folderType, addresses, true);
+    static ContactInfo[] getCached(Context context, long account, String folderType, String selector, Address[] addresses) {
+        return get(context, account, folderType, selector, addresses, true);
     }
 
-    private static ContactInfo[] get(Context context, long account, String folderType, Address[] addresses, boolean cacheOnly) {
+    private static ContactInfo[] get(Context context, long account, String folderType, String selector, Address[] addresses, boolean cacheOnly) {
         if (addresses == null || addresses.length == 0)
             return new ContactInfo[]{new ContactInfo()};
 
         ContactInfo[] result = new ContactInfo[addresses.length];
         for (int i = 0; i < addresses.length; i++) {
-            result[i] = _get(context, account, folderType, (InternetAddress) addresses[i], cacheOnly);
+            result[i] = _get(context, account, folderType, selector, (InternetAddress) addresses[i], cacheOnly);
             if (result[i] == null)
                 return null;
         }
@@ -234,7 +235,10 @@ public class ContactInfo {
         return result;
     }
 
-    private static ContactInfo _get(Context context, long account, String folderType, InternetAddress address, boolean cacheOnly) {
+    private static ContactInfo _get(
+            Context context,
+            long account, String folderType,
+            String selector, InternetAddress address, boolean cacheOnly) {
         String key = MessageHelper.formatAddresses(new Address[]{address});
         synchronized (emailContactInfo) {
             ContactInfo info = emailContactInfo.get(key);
@@ -250,8 +254,8 @@ public class ContactInfo {
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean avatars = prefs.getBoolean("avatars", true);
-        boolean gravatars = prefs.getBoolean("gravatars", false);
         boolean bimi = prefs.getBoolean("bimi", false);
+        boolean gravatars = prefs.getBoolean("gravatars", false);
         boolean favicons = prefs.getBoolean("favicons", false);
         boolean generated = prefs.getBoolean("generated_icons", true);
         boolean identicons = prefs.getBoolean("identicons", false);
@@ -285,6 +289,7 @@ public class ContactInfo {
                         try (InputStream is = ContactsContract.Contacts.openContactPhotoInputStream(
                                 resolver, lookupUri, false)) {
                             info.bitmap = BitmapFactory.decodeStream(is);
+                            info.type = "contact";
                         } catch (Throwable ex) {
                             Log.e(ex);
                         }
@@ -298,152 +303,104 @@ public class ContactInfo {
             }
         }
 
-        // Gravatar
-        if (info.bitmap == null && gravatars && canGravatars()) {
-            if (!TextUtils.isEmpty(info.email)) {
-                String gkey = info.email.toLowerCase(Locale.ROOT);
-                boolean lookup;
-                synchronized (emailGravatar) {
-                    Gravatar avatar = emailGravatar.get(gkey);
-                    lookup = (avatar == null || avatar.isExpired() || avatar.isAvailable());
-                }
-
-                if (lookup) {
-                    HttpURLConnection urlConnection = null;
-                    try {
-                        String hash = Helper.md5(gkey.getBytes());
-                        URL url = new URL(BuildConfig.GRAVATAR_URI + hash + "?d=404");
-                        Log.i("Gravatar key=" + gkey + " url=" + url);
-
-                        urlConnection = (HttpURLConnection) url.openConnection();
-                        urlConnection.setRequestMethod("GET");
-                        urlConnection.setDoOutput(false);
-                        urlConnection.setReadTimeout(GRAVATAR_TIMEOUT);
-                        urlConnection.setConnectTimeout(GRAVATAR_TIMEOUT);
-                        urlConnection.setRequestProperty("User-Agent", WebViewEx.getUserAgent(context));
-                        urlConnection.connect();
-
-                        int status = urlConnection.getResponseCode();
-                        if (status == HttpURLConnection.HTTP_OK) {
-                            info.bitmap = BitmapFactory.decodeStream(urlConnection.getInputStream());
-                            // Positive reply
-                            synchronized (emailGravatar) {
-                                emailGravatar.put(gkey, new Gravatar(true));
-                            }
-                        } else if (status == HttpURLConnection.HTTP_NOT_FOUND) {
-                            // Negative reply
-                            synchronized (emailGravatar) {
-                                emailGravatar.put(gkey, new Gravatar(false));
-                            }
-                        } else
-                            throw new IOException("HTTP status=" + status);
-
-                    } catch (Throwable ex) {
-                        Log.w(ex);
-                    } finally {
-                        if (urlConnection != null)
-                            urlConnection.disconnect();
-                    }
-                }
-            }
-        }
-
         // Favicon
-        if (info.bitmap == null && (bimi || favicons) &&
-                !EntityFolder.JUNK.equals(folderType)) {
-            String domain = UriHelper.getEmailDomain(info.email);
-
-            if (domain != null) {
+        if (info.bitmap == null &&
+                !EntityFolder.JUNK.equals(folderType) &&
+                (bimi || (gravatars && canGravatars()) || favicons)) {
+            String d = UriHelper.getEmailDomain(info.email);
+            if (d != null) {
                 // Prevent using Doodles
-                if ("google.com".equals(domain) ||
-                        "gmail.com".equals(domain) ||
-                        "googlemail.com".equals(domain))
-                    domain = "support.google.com";
+                if ("google.com".equals(d) ||
+                        "gmail.com".equals(d) ||
+                        "googlemail.com".equals(d))
+                    d = "support.google.com";
 
                 // https://yahoo.fr redirects unsafely to http://fr.yahoo.com/favicon.ico
-                String[] d = domain.split("\\.");
-                if (d.length > 1 && "yahoo".equals(d[d.length - 2]))
-                    domain = "yahoo.com";
+                String[] dparts = d.split("\\.");
+                if (dparts.length > 1 && "yahoo".equals(dparts[dparts.length - 2]))
+                    d = "yahoo.com";
+
+                final String domain = d.toLowerCase(Locale.ROOT);
+                final String email = info.email.toLowerCase(Locale.ROOT);
 
                 File dir = new File(context.getCacheDir(), "favicons");
                 if (!dir.exists())
                     dir.mkdir();
-                File file = new File(dir, domain);
 
                 try {
                     // check cache
-                    if (file.exists())
-                        if (file.length() == 0)
-                            Log.i("Favicon blacklisted domain=" + domain);
+                    File[] files = null;
+                    if (gravatars && canGravatars()) {
+                        File f = new File(dir, email + ".gravatar");
+                        if (f.exists())
+                            files = new File[]{f};
+                    }
+                    if (files == null)
+                        files = dir.listFiles(new FilenameFilter() {
+                            @Override
+                            public boolean accept(File file, String name) {
+                                return name.startsWith(domain);
+                            }
+                        });
+                    if (files != null && files.length == 1) {
+                        if (files[0].length() == 0)
+                            Log.i("Avatar blacklisted cache" + files[0].getName());
                         else {
-                            info.bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
-                            info.verified = new File(dir, domain + "-verified").exists();
+                            Log.i("Avatar from cache=" + files[0].getName());
+                            String ext = Helper.getExtension(files[0].getName());
+                            String[] data = (ext == null ? null : ext.split("_"));
+                            info.bitmap = BitmapFactory.decodeFile(files[0].getAbsolutePath());
+                            if (data != null) {
+                                info.type = (data.length > 0 ? data[0] : "unknown");
+                                info.verified = (data.length > 1 && "verified".equals(data[1]));
+                            }
                         }
-                    else {
+                    } else {
                         final int scaleToPixels = Helper.dp2pixels(context, FAVICON_ICON_SIZE);
 
                         List<Future<Favicon>> futures = new ArrayList<>();
 
-                        if (bimi) {
-                            final String txt = "default._bimi." + domain;
+                        if (bimi)
                             futures.add(executorFavicon.submit(new Callable<Favicon>() {
                                 @Override
                                 public Favicon call() throws Exception {
-                                    Log.i("BIMI fetch TXT=" + txt);
-                                    DnsHelper.DnsRecord[] bimi = DnsHelper.lookup(context, txt, "txt");
-                                    if (bimi.length == 0)
-                                        return null;
-                                    Log.i("BIMI got TXT=" + bimi[0].name);
-
-                                    Bitmap bitmap = null;
-                                    boolean verified = true;
-                                    String[] params = bimi[0].name.split(";");
-                                    for (String param : params) {
-                                        String[] kv = param.split("=");
-                                        if (kv.length != 2)
-                                            continue;
-
-                                        switch (kv[0].trim().toLowerCase()) {
-                                            case "v":
-                                                break;
-
-                                            case "l": {
-                                                String svg = kv[1].trim();
-                                                if (TextUtils.isEmpty(svg))
-                                                    continue;
-
-                                                URL url = new URL(svg);
-
-                                                Log.i("BIMI favicon " + url);
-                                                HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
-                                                connection.setRequestMethod("GET");
-                                                connection.setReadTimeout(FAVICON_READ_TIMEOUT);
-                                                connection.setConnectTimeout(FAVICON_CONNECT_TIMEOUT);
-                                                connection.setInstanceFollowRedirects(true);
-                                                connection.setRequestProperty("User-Agent", WebViewEx.getUserAgent(context));
-                                                connection.connect();
-
-                                                try {
-                                                    bitmap = ImageHelper.renderSvg(
-                                                            connection.getInputStream(),
-                                                            Color.WHITE, scaleToPixels);
-                                                } finally {
-                                                    connection.disconnect();
-                                                }
-
-                                                break;
-                                            }
-
-                                            case "a":
-                                                verified = true;
-                                                break;
-                                        }
-                                    }
-
-                                    return (bitmap == null ? null : new Favicon(bitmap, verified));
+                                    Pair<Bitmap, Boolean> bimi =
+                                            Bimi.get(context, domain, selector, scaleToPixels);
+                                    return (bimi == null ? null : new Favicon(bimi.first, "vmc", bimi.second));
                                 }
                             }));
-                        }
+
+                        if (gravatars && canGravatars())
+                            futures.add(executorFavicon.submit(new Callable<Favicon>() {
+                                @Override
+                                public Favicon call() throws Exception {
+                                    String hash = Helper.md5(email.getBytes());
+                                    URL url = new URL(BuildConfig.GRAVATAR_URI + hash + "?d=404");
+                                    Log.i("Gravatar key=" + email + " url=" + url);
+
+                                    HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+                                    urlConnection.setRequestMethod("GET");
+                                    urlConnection.setReadTimeout(GRAVATAR_TIMEOUT);
+                                    urlConnection.setConnectTimeout(GRAVATAR_TIMEOUT);
+                                    urlConnection.setRequestProperty("User-Agent", WebViewEx.getUserAgent(context));
+                                    urlConnection.connect();
+
+                                    try {
+                                        int status = urlConnection.getResponseCode();
+                                        if (status == HttpURLConnection.HTTP_OK) {
+                                            // Positive reply
+                                            Bitmap bitmap = BitmapFactory.decodeStream(urlConnection.getInputStream());
+                                            return (bitmap == null ? null : new Favicon(bitmap, "gravatar", false));
+                                        } else if (status == HttpURLConnection.HTTP_NOT_FOUND) {
+                                            // Negative reply
+                                            return null;
+                                        } else
+                                            throw new IOException("Error " + status + ": " + urlConnection.getResponseMessage());
+                                    } finally {
+                                        urlConnection.disconnect();
+                                    }
+                                }
+                            }));
 
                         if (favicons) {
                             String host = domain;
@@ -490,6 +447,7 @@ public class ContactInfo {
                                 Favicon favicon = future.get();
                                 if (favicon != null) {
                                     info.bitmap = favicon.bitmap;
+                                    info.type = favicon.type;
                                     info.verified = favicon.verified;
                                     break;
                                 }
@@ -500,26 +458,37 @@ public class ContactInfo {
                             }
 
                         if (info.bitmap == null)
-                            throw ex;
+                            if (ex == null)
+                                throw new FileNotFoundException();
+                            else
+                                throw ex;
 
                         // Add to cache
-                        try (OutputStream os = new BufferedOutputStream(new FileOutputStream(file))) {
+                        File output = new File(dir,
+                                ("gravatar".equals(info.type) ? email : domain) +
+                                        "." + info.type +
+                                        (info.verified ? "_verified" : ""));
+                        try (OutputStream os = new BufferedOutputStream(new FileOutputStream(output))) {
                             info.bitmap.compress(Bitmap.CompressFormat.PNG, 90, os);
                         }
-                        if (info.verified)
-                            new File(dir, domain + "-verified").createNewFile();
+                        Log.i("Avatar to cache=" + output.getName());
                     }
                 } catch (Throwable ex) {
                     if (isRecoverable(ex, context))
                         Log.i(ex);
                     else {
                         if (ex instanceof FileNotFoundException ||
-                                ex instanceof CertPathValidatorException)
+                                ex instanceof CertificateException ||
+                                ex instanceof CertPathValidatorException ||
+                                ex.getCause() instanceof CertPathValidatorException ||
+                                ex.getCause() instanceof CertificateException ||
+                                (ex instanceof SSLException &&
+                                        "Unable to parse TLS packet header".equals(ex.getMessage())))
                             Log.i(ex);
                         else
                             Log.e(ex);
                         try {
-                            file.createNewFile();
+                            new File(dir, domain).createNewFile();
                         } catch (IOException ex1) {
                             Log.e(ex1);
                         }
@@ -537,9 +506,12 @@ public class ContactInfo {
                     identicon = true;
                     info.bitmap = ImageHelper.generateIdenticon(
                             info.email, dp, 5, context);
-                } else
+                    info.type = "identicon";
+                } else {
                     info.bitmap = ImageHelper.generateLetterIcon(
                             info.email, address.getPersonal(), dp, context);
+                    info.type = "letter";
+                }
             }
         }
 
@@ -549,11 +521,14 @@ public class ContactInfo {
         if (info.displayName == null)
             info.displayName = address.getPersonal();
 
-        if (!info.known && !TextUtils.isEmpty(info.email)) {
-            DB db = DB.getInstance(context);
-            EntityContact contact = db.contact().getContact(account, EntityContact.TYPE_TO, info.email);
-            info.known = (contact != null);
-        }
+        if (!info.known && !TextUtils.isEmpty(info.email))
+            try {
+                DB db = DB.getInstance(context);
+                EntityContact contact = db.contact().getContact(account, EntityContact.TYPE_TO, info.email);
+                info.known = (contact != null);
+            } catch (Throwable ex) {
+                Log.e(ex);
+            }
 
         synchronized (emailContactInfo) {
             emailContactInfo.put(key, info);
@@ -628,12 +603,6 @@ public class ContactInfo {
                     m.setReadTimeout(FAVICON_READ_TIMEOUT);
                     m.setConnectTimeout(FAVICON_CONNECT_TIMEOUT);
                     m.setInstanceFollowRedirects(true);
-                    m.setHostnameVerifier(new HostnameVerifier() {
-                        @Override
-                        public boolean verify(String hostname, SSLSession session) {
-                            return true;
-                        }
-                    });
                     m.setRequestProperty("User-Agent", WebViewEx.getUserAgent(context));
                     m.connect();
 
@@ -748,14 +717,14 @@ public class ContactInfo {
         for (String size : sizes.split(" ")) {
             int min = Integer.MAX_VALUE;
             for (String p : size.trim().split("[x|X]")) {
-                if (TextUtils.isEmpty(p))
+                if (TextUtils.isEmpty(p) || "any".equalsIgnoreCase(p))
                     continue;
+
                 try {
                     int x = Integer.parseInt(p);
                     if (x < min)
                         min = x;
                 } catch (NumberFormatException ex) {
-                    // "any"
                     Log.w(ex);
                 }
             }
@@ -767,7 +736,7 @@ public class ContactInfo {
     }
 
     @NonNull
-    private static Favicon getFavicon(URL url, String type, int scaleToPixels, Context context) throws IOException {
+    private static Favicon getFavicon(URL url, String mimeType, int scaleToPixels, Context context) throws IOException {
         Log.i("GET favicon " + url);
 
         if (!"https".equals(url.getProtocol()))
@@ -790,14 +759,9 @@ public class ContactInfo {
         try {
             int status = connection.getResponseCode();
             if (status != HttpURLConnection.HTTP_OK)
-                throw new FileNotFoundException("Error " + status + ":" + connection.getResponseMessage());
+                throw new FileNotFoundException("Error " + status + ": " + connection.getResponseMessage());
 
-            if ("image/svg+xml".equals(type) || url.getPath().endsWith(".svg")) {
-                Bitmap bitmap = ImageHelper.renderSvg(connection.getInputStream(), Color.WHITE, scaleToPixels);
-                return new Favicon(bitmap);
-            }
-
-            Bitmap bitmap = ImageHelper.getScaledBitmap(connection.getInputStream(), url.toString(), scaleToPixels);
+            Bitmap bitmap = ImageHelper.getScaledBitmap(connection.getInputStream(), url.toString(), mimeType, scaleToPixels);
             if (bitmap == null)
                 throw new FileNotFoundException("decodeStream");
             else {
@@ -931,109 +895,6 @@ public class ContactInfo {
         return modified;
     }
 
-    static void update(
-            Context context, EntityAccount account, final EntityFolder folder, final EntityMessage message) {
-        long sync_time = (folder.sync_days == Integer.MAX_VALUE ? 0 : folder.sync_days) * 24 * 3600 * 1000L;
-        if (message.received < account.created - sync_time)
-            return;
-
-        if (EntityFolder.DRAFTS.equals(folder.type) ||
-                EntityFolder.ARCHIVE.equals(folder.type) ||
-                EntityFolder.TRASH.equals(folder.type) ||
-                EntityFolder.JUNK.equals(folder.type))
-            return;
-
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        boolean suggest_sent = prefs.getBoolean("suggest_sent", true);
-        boolean suggest_received = prefs.getBoolean("suggest_received", false);
-        if (!suggest_sent && !suggest_received)
-            return;
-
-        DB db = DB.getInstance(context);
-
-        int type = (folder.isOutgoing() ? EntityContact.TYPE_TO : EntityContact.TYPE_FROM);
-
-        // Check if from self
-        if (type == EntityContact.TYPE_FROM) {
-            if (message.from != null) {
-                List<EntityIdentity> identities = Core.getIdentities(folder.account, context);
-                if (identities != null) {
-                    for (Address sender : message.from) {
-                        for (EntityIdentity identity : identities)
-                            if (identity.similarAddress(sender)) {
-                                type = EntityContact.TYPE_TO;
-                                break;
-                            }
-                        if (type == EntityContact.TYPE_TO)
-                            break;
-                    }
-                }
-            }
-        }
-
-        if (type == EntityContact.TYPE_TO && !suggest_sent)
-            return;
-        if (type == EntityContact.TYPE_FROM && !suggest_received)
-            return;
-
-        List<Address> addresses = new ArrayList<>();
-        if (type == EntityContact.TYPE_FROM) {
-            if (message.reply == null || message.reply.length == 0) {
-                if (message.from != null)
-                    addresses.addAll(Arrays.asList(message.from));
-            } else
-                addresses.addAll(Arrays.asList(message.reply));
-        } else if (type == EntityContact.TYPE_TO) {
-            if (message.to != null)
-                addresses.addAll(Arrays.asList(message.to));
-            if (message.cc != null)
-                addresses.addAll(Arrays.asList(message.cc));
-        }
-
-        for (Address address : addresses) {
-            String email = ((InternetAddress) address).getAddress();
-            String name = ((InternetAddress) address).getPersonal();
-            Uri avatar = ContactInfo.getLookupUri(new Address[]{address});
-
-            if (TextUtils.isEmpty(email))
-                continue;
-            if (TextUtils.isEmpty(name))
-                name = null;
-
-            try {
-                db.beginTransaction();
-
-                EntityContact contact = db.contact().getContact(folder.account, type, email);
-                if (contact == null) {
-                    contact = new EntityContact();
-                    contact.account = folder.account;
-                    contact.type = type;
-                    contact.email = email;
-                    contact.name = name;
-                    contact.avatar = (avatar == null ? null : avatar.toString());
-                    contact.times_contacted = 1;
-                    contact.first_contacted = message.received;
-                    contact.last_contacted = message.received;
-                    contact.id = db.contact().insertContact(contact);
-                    Log.i("Inserted contact=" + contact + " type=" + type);
-                } else {
-                    if (contact.name == null && name != null)
-                        contact.name = name;
-                    contact.avatar = (avatar == null ? null : avatar.toString());
-                    contact.times_contacted++;
-                    contact.first_contacted = Math.min(contact.first_contacted, message.received);
-                    contact.last_contacted = message.received;
-                    db.contact().updateContact(contact);
-                    Log.i("Updated contact=" + contact + " type=" + type);
-                }
-
-                db.setTransactionSuccessful();
-            } finally {
-                db.endTransaction();
-            }
-        }
-    }
-
     private static Map<String, Lookup> getEmailLookup(Context context) {
         Map<String, Lookup> all = new ConcurrentHashMap<>();
 
@@ -1077,33 +938,17 @@ public class ContactInfo {
 
     private static class Favicon {
         private Bitmap bitmap;
+        private String type;
         private boolean verified;
 
         private Favicon(@NonNull Bitmap bitmap) {
-            this(bitmap, false);
+            this(bitmap, "favicon", false);
         }
 
-        private Favicon(@NonNull Bitmap bitmap, boolean verified) {
+        private Favicon(@NonNull Bitmap bitmap, String type, boolean verified) {
             this.bitmap = bitmap;
+            this.type = type;
             this.verified = verified;
-        }
-    }
-
-    private static class Gravatar {
-        private boolean available;
-        private long time;
-
-        Gravatar(boolean available) {
-            this.available = available;
-            this.time = new Date().getTime();
-        }
-
-        boolean isAvailable() {
-            return available;
-        }
-
-        boolean isExpired() {
-            return (new Date().getTime() - time > CACHE_GRAVATAR_DURATION);
         }
     }
 }

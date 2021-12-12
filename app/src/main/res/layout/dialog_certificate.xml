@@ -14,6 +14,8 @@
             android:id="@+id/tvCaption"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:drawableStart="@drawable/twotone_gesture_24"
+            android:drawablePadding="6dp"
             android:text="@string/title_signature_valid"
             android:textAppearance="@style/TextAppearance.AppCompat.Large"
             app:layout_constraintStart_toStartOf="parent"
@@ -100,7 +102,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvEmailInvalid" />
 
-        <ImageButton
+        <eu.faircode.email.FixedImageButton
             android:id="@+id/ibInfo"
             android:layout_width="24dp"
             android:layout_height="24dp"
@@ -162,5 +164,24 @@
             android:textColor="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvAfter" />
+
+        <eu.faircode.email.FixedTextView
+            android:id="@+id/tvAlgorithmTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/title_signature_algorithm"
+            android:textAppearance="@style/TextAppearance.AppCompat.Small"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvExpired" />
+
+        <eu.faircode.email.FixedTextView
+            android:id="@+id/tvAlgorithm"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SHA256withRSA"
+            android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvAlgorithmTitle" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 </eu.faircode.email.ScrollViewEx>

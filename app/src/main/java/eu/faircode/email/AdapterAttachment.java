@@ -275,7 +275,8 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
         }
 
         private void onShare(EntityAttachment attachment) {
-            Helper.share(context, attachment.getFile(context), attachment.getMimeType(), attachment.name);
+            String title = (attachment.name == null ? attachment.cid : attachment.name);
+            Helper.share(context, attachment.getFile(context), attachment.getMimeType(), title);
         }
 
         private void onDownload(EntityAttachment attachment) {
@@ -341,6 +342,7 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
             public void onDestroyed() {
                 Log.d(AdapterAttachment.this + " parent destroyed");
                 AdapterAttachment.this.parentFragment = null;
+                owner.getLifecycle().removeObserver(this);
             }
         });
     }

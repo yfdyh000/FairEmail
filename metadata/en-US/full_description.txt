@@ -1,6 +1,6 @@
 FairEmail is easy to set up and works with virtually all email providers, including Gmail, Outlook and Yahoo!
 
-<b>Note that OAuth was not approved for the F-Droid build. For this you'll need to use the Play store version or the GitHub release.</b>
+<b>Note that OAuth was not approved by Google, etc for the F-Droid build. For this you'll need to use the Play store version or the GitHub release.</b>
 
 FairEmail might be for you if you value your privacy.
 
@@ -15,7 +15,7 @@ FairEmail might be for you if you value your privacy.
 * Privacy oriented
 * Unlimited accounts
 * Unlimited email addresses
-* Unified inbox
+* Unified inbox (optionally accounts or folders)
 * Conversation threading
 * Two way synchronization
 * Push notifications
@@ -23,7 +23,7 @@ FairEmail might be for you if you value your privacy.
 * Common text style options (size, color, lists, etc)
 * Battery friendly
 * Low data usage
-* Small (< 20 MB)
+* Small (~20 MB)
 * Material design (including dark/black theme)
 * Maintained and supported
 
@@ -55,7 +55,7 @@ This app starts a foreground service with a low priority status bar notification
 * Confirm opening links, images and attachments
 * No special permissions required
 * No advertisements
-* No analytics and no tracking (error reporting is opt-in)
+* No analytics and no tracking (error reporting via Bugsnag is opt-in)
 * No Google backup
 * No Firebase Cloud Messaging
 * FairEmail is an original work, not a fork or a clone
@@ -82,8 +82,7 @@ All pro features are convenience or advanced features.
 * Add message to calendar
 * Filter rules
 * Automatic message classification
-* Search indexing, search on server
-* Keyword management
+* Search indexing
 * S/MIME sign/encrypt
 * Biometric/PIN authentication
 * Message list widget

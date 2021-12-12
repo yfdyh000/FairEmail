@@ -23,6 +23,7 @@ import android.app.Dialog;
 import android.app.TimePickerDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.format.DateFormat;
 import android.view.LayoutInflater;
@@ -64,6 +65,7 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
     private SwitchCompat swOptimize;
     private ImageButton ibOptimizeInfo;
     private Spinner spPollInterval;
+    private TextView tvPollBattery;
     private RecyclerView rvExempted;
     private SwitchCompat swSchedule;
     private TextView tvSchedulePro;
@@ -71,6 +73,9 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
     private TextView tvScheduleEnd;
     private CheckBox[] cbDay;
     private ImageButton ibSchedules;
+
+    private SwitchCompat swQuickSyncImap;
+    private SwitchCompat swQuickSyncPop;
     private SwitchCompat swNodate;
     private SwitchCompat swUnseen;
     private SwitchCompat swFlagged;
@@ -78,24 +83,30 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
     private SwitchCompat swSyncKept;
     private SwitchCompat swGmailThread;
     private SwitchCompat swSyncFolders;
+    private SwitchCompat swSyncFoldersPoll;
     private SwitchCompat swSyncSharedFolders;
     private SwitchCompat swSubscriptions;
+    private SwitchCompat swTuneKeepAlive;
+
     private SwitchCompat swCheckAuthentication;
     private SwitchCompat swCheckReply;
     private SwitchCompat swCheckMx;
     private SwitchCompat swCheckBlocklist;
     private SwitchCompat swUseBlocklist;
     private RecyclerView rvBlocklist;
-    private SwitchCompat swTuneKeepAlive;
+    private AdapterBlocklist badapter;
+
     private Group grpExempted;
 
     private AdapterAccountExempted adapter;
 
     private final static String[] RESET_OPTIONS = new String[]{
             "enabled", "poll_interval", "auto_optimize", "schedule", "schedule_start", "schedule_end",
+            "sync_quick_imap", "sync_quick_pop",
             "sync_nodate", "sync_unseen", "sync_flagged", "delete_unseen", "sync_kept", "gmail_thread_id",
-            "sync_folders", "sync_shared_folders", "subscriptions",
-            "check_authentication", "check_reply_domain", "check_mx", "check_blocklist", "use_blocklist", "tune_keep_alive"
+            "sync_folders", "sync_folders_poll", "sync_shared_folders", "subscriptions",
+            "check_authentication", "check_reply_domain", "check_mx", "check_blocklist", "use_blocklist",
+            "tune_keep_alive"
     };
 
     @Override
@@ -112,6 +123,7 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
         swOptimize = view.findViewById(R.id.swOptimize);
         ibOptimizeInfo = view.findViewById(R.id.ibOptimizeInfo);
         spPollInterval = view.findViewById(R.id.spPollInterval);
+        tvPollBattery = view.findViewById(R.id.tvPollBattery);
 
         swSchedule = view.findViewById(R.id.swSchedule);
         rvExempted = view.findViewById(R.id.rvExempted);
@@ -129,6 +141,8 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
         };
         ibSchedules = view.findViewById(R.id.ibSchedules);
 
+        swQuickSyncImap = view.findViewById(R.id.swQuickSyncImap);
+        swQuickSyncPop = view.findViewById(R.id.swQuickSyncPop);
         swNodate = view.findViewById(R.id.swNodate);
         swUnseen = view.findViewById(R.id.swUnseen);
         swFlagged = view.findViewById(R.id.swFlagged);
@@ -136,15 +150,18 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
         swSyncKept = view.findViewById(R.id.swSyncKept);
         swGmailThread = view.findViewById(R.id.swGmailThread);
         swSyncFolders = view.findViewById(R.id.swSyncFolders);
+        swSyncFoldersPoll = view.findViewById(R.id.swSyncFoldersPoll);
         swSyncSharedFolders = view.findViewById(R.id.swSyncSharedFolders);
         swSubscriptions = view.findViewById(R.id.swSubscriptions);
+        swTuneKeepAlive = view.findViewById(R.id.swTuneKeepAlive);
+
         swCheckAuthentication = view.findViewById(R.id.swCheckAuthentication);
         swCheckReply = view.findViewById(R.id.swCheckReply);
         swCheckMx = view.findViewById(R.id.swCheckMx);
         swCheckBlocklist = view.findViewById(R.id.swCheckBlocklist);
         swUseBlocklist = view.findViewById(R.id.swUseBlocklist);
         rvBlocklist = view.findViewById(R.id.rvBlocklist);
-        swTuneKeepAlive = view.findViewById(R.id.swTuneKeepAlive);
+
         grpExempted = view.findViewById(R.id.grpExempted);
 
         setOptions();
@@ -185,6 +202,7 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
                 if (value != current) {
                     adapterView.setTag(value);
                     prefs.edit().putInt("poll_interval", value).apply();
+                    tvPollBattery.setVisibility(value > 0 && value < 15 ? View.VISIBLE : View.GONE);
                     grpExempted.setVisibility(value == 0 ? View.GONE : View.VISIBLE);
                 }
             }
@@ -254,6 +272,20 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
             }
         });
 
+        swQuickSyncImap.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("sync_quick_imap", checked).apply();
+            }
+        });
+
+        swQuickSyncPop.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("sync_quick_pop", checked).apply();
+            }
+        });
+
         swNodate.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
@@ -300,7 +332,15 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("sync_folders", checked).apply();
+                swSyncFoldersPoll.setEnabled(checked);
                 swSyncSharedFolders.setEnabled(checked);
+            }
+        });
+
+        swSyncFoldersPoll.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("sync_folders_poll", checked).apply();
             }
         });
 
@@ -315,6 +355,13 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("subscriptions", checked).apply();
+            }
+        });
+
+        swTuneKeepAlive.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("tune_keep_alive", checked).apply();
             }
         });
 
@@ -344,6 +391,8 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("check_blocklist", checked).apply();
                 swUseBlocklist.setEnabled(checked);
+                if (badapter != null)
+                    badapter.enabledChanged();
             }
         });
 
@@ -356,15 +405,8 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
 
         rvBlocklist.setHasFixedSize(false);
         rvBlocklist.setLayoutManager(new LinearLayoutManager(getContext()));
-        AdapterBlocklist badapter = new AdapterBlocklist(getContext(), DnsBlockList.getListsAvailable());
+        badapter = new AdapterBlocklist(getContext(), DnsBlockList.getListsAvailable());
         rvBlocklist.setAdapter(badapter);
-
-        swTuneKeepAlive.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("tune_keep_alive", checked).apply();
-            }
-        });
 
         // Initialize
         FragmentDialogTheme.setBackground(getContext(), view, false);
@@ -424,7 +466,7 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
         swEnabled.setChecked(prefs.getBoolean("enabled", true));
         swOptimize.setChecked(prefs.getBoolean("auto_optimize", false));
 
-        int pollInterval = ServiceSynchronize.getPollInterval(getContext());
+        int pollInterval = prefs.getInt("poll_interval", 0);
         int[] pollIntervalValues = getResources().getIntArray(R.array.pollIntervalValues);
         for (int pos = 0; pos < pollIntervalValues.length; pos++)
             if (pollIntervalValues[pos] == pollInterval) {
@@ -433,6 +475,7 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
                 break;
             }
 
+        tvPollBattery.setVisibility(pollInterval > 0 && pollInterval < 15 ? View.VISIBLE : View.GONE);
         grpExempted.setVisibility(pollInterval == 0 ? View.GONE : View.VISIBLE);
 
         swSchedule.setChecked(prefs.getBoolean("schedule", false) && pro);
@@ -442,6 +485,8 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
         for (int i = 0; i < 7; i++)
             cbDay[i].setChecked(prefs.getBoolean("schedule_day" + i, true));
 
+        swQuickSyncImap.setChecked(prefs.getBoolean("sync_quick_imap", false));
+        swQuickSyncPop.setChecked(prefs.getBoolean("sync_quick_pop", true));
         swNodate.setChecked(prefs.getBoolean("sync_nodate", false));
         swUnseen.setChecked(prefs.getBoolean("sync_unseen", false));
         swFlagged.setChecked(prefs.getBoolean("sync_flagged", false));
@@ -449,16 +494,18 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
         swSyncKept.setChecked(prefs.getBoolean("sync_kept", true));
         swGmailThread.setChecked(prefs.getBoolean("gmail_thread_id", false));
         swSyncFolders.setChecked(prefs.getBoolean("sync_folders", true));
+        swSyncFoldersPoll.setChecked(prefs.getBoolean("sync_folders_poll", false));
+        swSyncFoldersPoll.setEnabled(swSyncFolders.isChecked());
         swSyncSharedFolders.setChecked(prefs.getBoolean("sync_shared_folders", false));
         swSyncSharedFolders.setEnabled(swSyncFolders.isChecked());
         swSubscriptions.setChecked(prefs.getBoolean("subscriptions", false));
+        swTuneKeepAlive.setChecked(prefs.getBoolean("tune_keep_alive", true));
         swCheckAuthentication.setChecked(prefs.getBoolean("check_authentication", true));
         swCheckReply.setChecked(prefs.getBoolean("check_reply_domain", true));
         swCheckMx.setChecked(prefs.getBoolean("check_mx", false));
         swCheckBlocklist.setChecked(prefs.getBoolean("check_blocklist", false));
         swUseBlocklist.setChecked(prefs.getBoolean("use_blocklist", false));
         swUseBlocklist.setEnabled(swCheckBlocklist.isChecked());
-        swTuneKeepAlive.setChecked(prefs.getBoolean("tune_keep_alive", true));
     }
 
     private String formatHour(Context context, int minutes) {
@@ -528,7 +575,8 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
             }
 
             private void bindTo(EntityAccount account) {
-                cbExempted.setEnabled(!account.ondemand && account.protocol == EntityAccount.TYPE_IMAP);
+                cbExempted.setEnabled(!Helper.isOptimizing12(context) &&
+                        !account.ondemand && account.protocol == EntityAccount.TYPE_IMAP);
                 cbExempted.setChecked(account.poll_exempted);
                 cbExempted.setText(account.name);
             }
@@ -648,6 +696,7 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
         private Context context;
         private LayoutInflater inflater;
 
+        private boolean enabled;
         private List<DnsBlockList.BlockList> items;
 
         public class ViewHolder extends RecyclerView.ViewHolder implements CompoundButton.OnCheckedChangeListener {
@@ -669,6 +718,7 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
             private void bindTo(DnsBlockList.BlockList blocklist) {
                 cbEnabled.setText(blocklist.name);
                 cbEnabled.setChecked(DnsBlockList.isEnabled(context, blocklist));
+                cbEnabled.setEnabled(enabled);
             }
 
             @Override
@@ -688,6 +738,13 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
 
             setHasStableIds(true);
             this.items = items;
+            enabledChanged();
+        }
+
+        void enabledChanged() {
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+            this.enabled = prefs.getBoolean("check_blocklist", false);
+            notifyDataSetChanged();
         }
 
         @Override

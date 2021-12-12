@@ -32,6 +32,7 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
@@ -41,11 +42,14 @@ import androidx.lifecycle.Observer;
 import androidx.preference.PreferenceManager;
 
 import com.sun.mail.smtp.SMTPSendFailedException;
+import com.sun.mail.util.TraceOutputStream;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -67,15 +71,17 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
     private TupleUnsent lastUnsent = null;
     private Network lastActive = null;
     private boolean lastSuitable = false;
+    private int lastProgress = -1;
 
+    private TwoStateOwner owner;
     private PowerManager.WakeLock wlOutbox;
-    private TwoStateOwner owner = new TwoStateOwner("send");
     private List<Long> handling = new ArrayList<>();
 
     private static ExecutorService executor = Helper.getBackgroundExecutor(1, "send");
 
     private static final int RETRY_MAX = 3;
     private static final int CONNECTIVITY_DELAY = 5000; // milliseconds
+    private static final int PROGRESS_UPDATE_INTERVAL = 1000; // milliseconds
 
     static final int PI_SEND = 1;
 
@@ -83,7 +89,10 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
     public void onCreate() {
         EntityLog.log(this, "Service send create");
         super.onCreate();
-        startForeground(Helper.NOTIFICATION_SEND, getNotificationService().build());
+        startForeground(NotificationHelper.NOTIFICATION_SEND,
+                getNotificationService().build());
+
+        owner = new TwoStateOwner(this, "send");
 
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         wlOutbox = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, BuildConfig.APPLICATION_ID + ":send");
@@ -98,8 +107,10 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                     EntityLog.log(ServiceSend.this, "Unsent=" + (unsent == null ? null : unsent.count));
 
                     try {
-                        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                        nm.notify(Helper.NOTIFICATION_SEND, getNotificationService().build());
+                        NotificationManager nm =
+                                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                        nm.notify(NotificationHelper.NOTIFICATION_SEND,
+                                getNotificationService().build());
                     } catch (Throwable ex) {
                         Log.w(ex);
                     }
@@ -177,8 +188,9 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
 
         stopForeground(true);
 
-        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        nm.cancel(Helper.NOTIFICATION_SEND);
+        NotificationManager nm =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        nm.cancel(NotificationHelper.NOTIFICATION_SEND);
 
         super.onDestroy();
     }
@@ -192,7 +204,8 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         super.onStartCommand(intent, flags, startId);
-        startForeground(Helper.NOTIFICATION_SEND, getNotificationService().build());
+        startForeground(NotificationHelper.NOTIFICATION_SEND,
+                getNotificationService().build());
 
         Log.i("Send intent=" + intent);
         Log.logExtras(intent);
@@ -225,6 +238,8 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
             builder.setSubText(getString(R.string.title_notification_idle));
         if (!lastSuitable)
             builder.setSubText(getString(R.string.title_notification_waiting));
+        if (lastProgress >= 0)
+            builder.setProgress(100, lastProgress, false);
 
         return builder;
     }
@@ -319,8 +334,10 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                 EntityLog.log(ServiceSend.this, "Service send suitable=" + suitable);
 
                 try {
-                    NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                    nm.notify(Helper.NOTIFICATION_SEND, getNotificationService().build());
+                    NotificationManager nm =
+                            (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                    nm.notify(NotificationHelper.NOTIFICATION_SEND,
+                            getNotificationService().build());
                 } catch (Throwable ex) {
                     Log.w(ex);
                 }
@@ -419,8 +436,10 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                             try {
                                 int tries_left = (unrecoverable ? 0 : RETRY_MAX - op.tries);
                                 NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                                nm.notify("send:" + message.id, 1, getNotificationError(
-                                        MessageHelper.formatAddressesShort(message.to), ex, tries_left).build());
+                                nm.notify("send:" + message.id,
+                                        NotificationHelper.NOTIFICATION_TAGGED,
+                                        getNotificationError(
+                                                MessageHelper.formatAddressesShort(message.to), ex, tries_left).build());
                             } catch (Throwable ex1) {
                                 Log.w(ex1);
                             }
@@ -473,7 +492,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                 }
 
                 db.message().setMessageError(message.id, null);
-                nm.cancel("send:" + message.id, 1);
+                nm.cancel("send:" + message.id, NotificationHelper.NOTIFICATION_TAGGED);
 
                 if (message.ui_snoozed == null)
                     EntityOperation.queue(this, message, EntityOperation.SEND);
@@ -503,9 +522,12 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
             db.message().setMessageLastAttempt(message.id, message.last_attempt);
         }
 
+        NotificationManager nm =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         boolean reply_move = prefs.getBoolean("reply_move", false);
-        boolean debug = prefs.getBoolean("debug", false);
+        boolean debug = (prefs.getBoolean("debug", false) || BuildConfig.DEBUG);
 
         if (message.identity == null)
             throw new IllegalArgumentException("Send without identity");
@@ -639,8 +661,9 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
         // Create transport
         long start, end;
         Long max_size = null;
-        try (EmailService iservice = new EmailService(
-                this, ident.getProtocol(), ident.realm, ident.encryption, ident.insecure, debug)) {
+        EmailService iservice = new EmailService(
+                this, ident.getProtocol(), ident.realm, ident.encryption, ident.insecure, debug);
+        try {
             iservice.setUseIp(ident.use_ip, ident.ehlo);
             iservice.setUnicode(ident.unicode);
 
@@ -660,17 +683,58 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
             if (ident.max_size == null)
                 max_size = iservice.getMaxSize();
 
-            Address[] to = imessage.getAllRecipients();
+            List<Address> recipients = new ArrayList<>();
+            if (message.headers == null) {
+                Address[] all = imessage.getAllRecipients();
+                if (all != null)
+                    recipients.addAll(Arrays.asList(all));
+            } else {
+                String to = imessage.getHeader("Resent-To", ",");
+                if (to != null)
+                    for (Address a : InternetAddress.parse(to))
+                        recipients.add(a);
+
+                String cc = imessage.getHeader("Resent-Cc", ",");
+                if (cc != null)
+                    for (Address a : InternetAddress.parse(cc))
+                        recipients.add(a);
+
+                String bcc = imessage.getHeader("Resent-Bcc", ",");
+                if (bcc != null)
+                    for (Address a : InternetAddress.parse(bcc))
+                        recipients.add(a);
+            }
+
             String via = "via " + ident.host + "/" + ident.user +
-                    " to " + (to == null ? null : TextUtils.join(", ", to));
+                    " recipients=" + TextUtils.join(", ", recipients);
+
+            iservice.setReporter(new TraceOutputStream.IReport() {
+                private int progress = -1;
+                private long last = SystemClock.elapsedRealtime();
+
+                @Override
+                public void report(int pos, int total) {
+                    int p = (total == 0 ? 0 : 100 * pos / total);
+                    if (p > progress) {
+                        progress = p;
+                        long now = SystemClock.elapsedRealtime();
+                        if (now > last + PROGRESS_UPDATE_INTERVAL) {
+                            last = now;
+                            lastProgress = progress;
+                            nm.notify(NotificationHelper.NOTIFICATION_SEND, getNotificationService().build());
+                        }
+                    }
+                }
+            });
 
             // Send message
             EntityLog.log(this, "Sending " + via);
             start = new Date().getTime();
-            iservice.getTransport().sendMessage(imessage, to);
+            iservice.getTransport().sendMessage(imessage, recipients.toArray(new Address[0]));
             end = new Date().getTime();
             EntityLog.log(this, "Sent " + via + " elapse=" + (end - start) + " ms");
         } catch (MessagingException ex) {
+            iservice.dump();
             Log.e(ex);
 
             if (ex instanceof SMTPSendFailedException) {
@@ -691,7 +755,15 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
             db.identity().setIdentityError(ident.id, Log.formatThrowable(ex));
 
             throw ex;
+        } catch (Throwable ex) {
+            iservice.dump();
+            throw ex;
         } finally {
+            iservice.close();
+            if (lastProgress >= 0) {
+                lastProgress = -1;
+                nm.notify(NotificationHelper.NOTIFICATION_SEND, getNotificationService().build());
+            }
             db.identity().setIdentityState(ident.id, null);
         }
 
@@ -734,8 +806,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
             db.endTransaction();
         }
 
-        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        nm.cancel("send:" + message.id, 1);
+        nm.cancel("send:" + message.id, NotificationHelper.NOTIFICATION_TAGGED);
 
         // Check sent message
         if (sid != null) {
@@ -788,6 +859,10 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
         } catch (Throwable ex) {
             Log.e(ex);
         }
+    }
+
+    static void stop(Context context) {
+        context.stopService(new Intent(context, ServiceSend.class));
     }
 
     static void schedule(Context context, long delay) {

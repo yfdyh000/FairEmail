@@ -63,18 +63,19 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.ExecutorService;
@@ -86,9 +87,41 @@ class ImageHelper {
             Helper.getBackgroundExecutor(0, "image_n");
 
     static final int DOWNLOAD_TIMEOUT = 15; // seconds
-    private static final int MAX_REDIRECTS = 5; // https://www.freesoft.org/CIE/RFC/1945/46.htm
-    private static final int MAX_PROBE = 64 * 1024; // bytes
+    private static final int MAX_PROBE = 128 * 1024; // bytes
     private static final int SLOW_CONNECTION = 2 * 1024; // Kbps
+    private static final int MAX_BITMAP_SIZE = 100 * 1024 * 1024; // RecordingCanvas.MAX_BITMAP_SIZE
+
+    // https://developer.android.com/guide/topics/media/media-formats#image-formats
+    static final List<String> IMAGE_TYPES = Collections.unmodifiableList(Arrays.asList(
+            "image/bmp",
+            "image/gif",
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp"
+    ));
+
+    static final List<String> IMAGE_TYPES8 = Collections.unmodifiableList(Arrays.asList(
+            "image/heic",
+            "image/heif"
+    ));
+
+    // https://developer.android.com/about/versions/12/features#avif
+    static final List<String> IMAGE_TYPES12 = Collections.unmodifiableList(Arrays.asList(
+            "image/avif"
+    ));
+
+    static boolean isImage(String mimeType) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            if (IMAGE_TYPES8.contains(mimeType))
+                return true;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+            if (IMAGE_TYPES12.contains(mimeType))
+                return true;
+
+        return IMAGE_TYPES.contains(mimeType);
+    }
 
     static Bitmap generateIdenticon(@NonNull String email, int size, int pixels, Context context) {
         byte[] hash = getHash(email);
@@ -104,6 +137,7 @@ class ImageHelper {
         int bg = Color.HSVToColor(new float[]{h, s / 100f, v / 100f});
 
         Paint paint = new Paint();
+        paint.setAntiAlias(true);
         paint.setColor(bg);
 
         Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
@@ -159,6 +193,7 @@ class ImageHelper {
         canvas.drawColor(bg);
 
         Paint paint = new Paint();
+        paint.setAntiAlias(true);
         paint.setColor(lum < t ? Color.WHITE : Color.BLACK);
         paint.setTextSize(size / 2f);
         try {
@@ -306,7 +341,10 @@ class ImageHelper {
                     int scaleToPixels = res.getDisplayMetrics().widthPixels;
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         try {
-                            Drawable d = getScaledDrawable(context, attachment.getFile(context), scaleToPixels);
+                            Drawable d = getScaledDrawable(context,
+                                    attachment.getFile(context),
+                                    attachment.getMimeType(),
+                                    scaleToPixels);
                             if (view != null)
                                 fitDrawable(d, a, scale, view);
                             return d;
@@ -317,7 +355,10 @@ class ImageHelper {
                             return d;
                         }
                     } else {
-                        Bitmap bm = decodeImage(attachment.getFile(context), scaleToPixels);
+                        Bitmap bm = decodeImage(
+                                attachment.getFile(context),
+                                attachment.getMimeType(),
+                                scaleToPixels);
                         if (bm == null) {
                             Log.i("Image not decodable CID=" + cid);
                             Drawable d = context.getDrawable(R.drawable.twotone_broken_image_24);
@@ -338,8 +379,9 @@ class ImageHelper {
             if (data && (show || inline || a.tracking))
                 try {
                     int scaleToPixels = res.getDisplayMetrics().widthPixels;
+                    String mimeType = getDataUriType(a.source);
                     ByteArrayInputStream bis = getDataUriStream(a.source);
-                    Bitmap bm = getScaledBitmap(bis, "data:" + getDataUriType(a.source), scaleToPixels);
+                    Bitmap bm = getScaledBitmap(bis, "data:" + mimeType, mimeType, scaleToPixels);
                     if (bm == null)
                         throw new IllegalArgumentException("decode byte array failed");
 
@@ -364,7 +406,7 @@ class ImageHelper {
                     Bitmap bm;
                     int scaleToPixels = res.getDisplayMetrics().widthPixels;
                     try (InputStream is = context.getContentResolver().openInputStream(uri)) {
-                        bm = getScaledBitmap(is, a.source, scaleToPixels);
+                        bm = getScaledBitmap(is, a.source, null, scaleToPixels);
                         if (bm == null)
                             throw new FileNotFoundException(a.source);
                     }
@@ -449,12 +491,12 @@ class ImageHelper {
                         }
 
                         // Download image
-                        Drawable d = downloadImage(context, id, a.source);
+                        Drawable d = downloadImage(context, id, a.source, null);
                         fitDrawable(d, a, scale, view);
                         post(d, a.source);
                     } catch (Throwable ex) {
                         // Show broken icon
-                        Log.w(ex);
+                        Log.i(ex);
                         int resid = (ex instanceof IOException && !(ex instanceof FileNotFoundException)
                                 ? R.drawable.twotone_cloud_off_24
                                 : R.drawable.twotone_broken_image_24);
@@ -599,7 +641,7 @@ class ImageHelper {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
                 try {
-                    return getScaledDrawable(context, file, dm.widthPixels);
+                    return getScaledDrawable(context, file, null, dm.widthPixels);
                 } catch (IOException ex) {
                     Log.i(ex);
                     return null;
@@ -617,7 +659,7 @@ class ImageHelper {
     }
 
     @NonNull
-    private static Drawable downloadImage(Context context, long id, String source) throws IOException {
+    private static Drawable downloadImage(Context context, long id, String source, String mimeType) throws IOException {
         Resources res = context.getResources();
         DisplayMetrics dm = res.getDisplayMetrics();
 
@@ -627,57 +669,19 @@ class ImageHelper {
         Bitmap bm;
         HttpURLConnection urlConnection = null;
         try {
-            int redirects = 0;
-            URL url = new URL(source);
-            while (true) {
-                urlConnection = (HttpURLConnection) url.openConnection();
-                urlConnection.setRequestMethod("GET");
-                urlConnection.setDoOutput(false);
-                urlConnection.setReadTimeout(timeout);
-                urlConnection.setConnectTimeout(timeout);
-                urlConnection.setInstanceFollowRedirects(true);
-                urlConnection.setRequestProperty("User-Agent", WebViewEx.getUserAgent(context));
-                urlConnection.connect();
-
-                int status = urlConnection.getResponseCode();
-
-                if (status == HttpURLConnection.HTTP_MOVED_PERM ||
-                        status == HttpURLConnection.HTTP_MOVED_TEMP ||
-                        status == HttpURLConnection.HTTP_SEE_OTHER ||
-                        status == 307 /* Temporary redirect */ ||
-                        status == 308 /* Permanent redirect */) {
-                    if (++redirects > MAX_REDIRECTS)
-                        throw new IOException("Too many redirects");
-
-                    String header = urlConnection.getHeaderField("Location");
-                    if (header == null)
-                        throw new IOException("Location header missing");
-
-                    String location = URLDecoder.decode(header, StandardCharsets.UTF_8.name());
-                    url = new URL(url, location);
-                    Log.i("Redirect #" + redirects + " to " + url);
-
-                    urlConnection.disconnect();
-                    continue;
-                }
-
-                if (status != HttpURLConnection.HTTP_OK)
-                    throw new IOException("HTTP status=" + status);
-
-                break;
-            }
+            urlConnection = Helper.openUrlRedirect(context, source, timeout);
 
             if (id > 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 File file = getCacheFile(context, id, source, ".blob");
                 try (FileOutputStream fos = new FileOutputStream(file)) {
                     Helper.copy(urlConnection.getInputStream(), fos);
                 }
-                return getScaledDrawable(context, file, dm.widthPixels);
+                return getScaledDrawable(context, file, null, dm.widthPixels);
             }
 
             bm = getScaledBitmap(
                     urlConnection.getInputStream(),
-                    source,
+                    source, mimeType,
                     Math.max(dm.widthPixels, dm.heightPixels));
         } finally {
             if (urlConnection != null)
@@ -702,7 +706,7 @@ class ImageHelper {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.P)
-    static Drawable getScaledDrawable(Context context, File file, int scaleToPixels) throws IOException {
+    static Drawable getScaledDrawable(Context context, File file, String mimeType, int scaleToPixels) throws IOException {
         Drawable d;
 
         try {
@@ -734,7 +738,7 @@ class ImageHelper {
                         at android.graphics.ImageDecoder.decodeDrawableImpl(ImageDecoder.java:1758)
                         at android.graphics.ImageDecoder.decodeDrawable(ImageDecoder.java:1751)
              */
-            Bitmap bm = _decodeImage(file, scaleToPixels);
+            Bitmap bm = _decodeImage(file, mimeType, scaleToPixels);
             if (bm == null)
                 throw new FileNotFoundException(file.getAbsolutePath());
             d = new BitmapDrawable(context.getResources(), bm);
@@ -744,7 +748,15 @@ class ImageHelper {
         return d;
     }
 
-    static Bitmap getScaledBitmap(InputStream is, String source, int scaleToPixels) throws IOException {
+    static Bitmap getScaledBitmap(InputStream is, String source, String mimeType, int scaleToPixels) throws IOException {
+        if (TextUtils.isEmpty(mimeType))
+            mimeType = Helper.guessMimeType(source);
+
+        if ("image/svg+xml".equals(mimeType))
+            return ImageHelper.renderSvg(is, Color.WHITE, scaleToPixels);
+
+        // ImageDecoder cannot decode streams
+
         BufferedInputStream bis = new BufferedInputStream(is);
 
         Log.i("Probe " + source);
@@ -775,41 +787,77 @@ class ImageHelper {
         return new File(dir, id + "_" + Math.abs(source.hashCode()) + extension);
     }
 
-    static Bitmap decodeImage(File file, int scaleToPixels) {
+    static Bitmap decodeImage(File file, String mimeType, int scaleToPixels) {
         try {
-            return _decodeImage(file, scaleToPixels);
-        } catch (OutOfMemoryError ex) {
+            return _decodeImage(file, mimeType, scaleToPixels);
+        } catch (IOException | OutOfMemoryError ex) {
             Log.e(ex);
             return null;
         }
     }
 
-    private static Bitmap _decodeImage(File file, int scaleToPixels) {
-        BitmapFactory.Options options = new BitmapFactory.Options();
-        options.inJustDecodeBounds = true;
-        BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+    private static Bitmap _decodeImage(File file, String mimeType, int scaleToPixels) throws IOException {
+        if (mimeType == null)
+            mimeType = Helper.guessMimeType(file.getName());
 
-        int factor = 1;
-        while (options.outWidth / factor > scaleToPixels)
-            factor *= 2;
-
-        Matrix rotation = getImageRotation(file);
-        if (factor > 1 || rotation != null) {
-            Log.i("Decode image factor=" + factor);
-            options.inJustDecodeBounds = false;
-            options.inSampleSize = factor;
-            Bitmap scaled = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
-
-            if (scaled != null && rotation != null) {
-                Bitmap rotated = Bitmap.createBitmap(scaled, 0, 0, scaled.getWidth(), scaled.getHeight(), rotation, true);
-                scaled.recycle();
-                scaled = rotated;
+        if ("image/svg+xml".equals(mimeType))
+            try (FileInputStream fis = new FileInputStream(file)) {
+                return ImageHelper.renderSvg(fis, Color.WHITE, scaleToPixels);
             }
 
-            return scaled;
+        Bitmap bm = null;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            try {
+                ImageDecoder.Source isource = ImageDecoder.createSource(file);
+                bm = ImageDecoder.decodeBitmap(isource, new ImageDecoder.OnHeaderDecodedListener() {
+                    @Override
+                    public void onHeaderDecoded(
+                            @NonNull ImageDecoder decoder,
+                            @NonNull ImageDecoder.ImageInfo info,
+                            @NonNull ImageDecoder.Source source) {
+                        int factor = 1;
+                        while (info.getSize().getWidth() / factor > scaleToPixels ||
+                                info.getSize().getWidth() * info.getSize().getHeight() * 8 / factor > MAX_BITMAP_SIZE)
+                            factor *= 2;
+
+                        Log.i("Decode image (decoder) factor=" + factor);
+                        decoder.setTargetSampleSize(factor);
+                    }
+                });
+            } catch (Throwable ex) {
+                Log.i(ex);
+            }
+
+        if (bm == null) {
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+
+            int factor = 1;
+            while (options.outWidth / factor > scaleToPixels ||
+                    options.outWidth * options.outHeight * 8 / factor > MAX_BITMAP_SIZE)
+                factor *= 2;
+
+            if (factor > 1) {
+                Log.i("Decode image (factory) factor=" + factor);
+                options.inJustDecodeBounds = false;
+                options.inSampleSize = factor;
+                bm = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+            } else
+                bm = BitmapFactory.decodeFile(file.getAbsolutePath());
         }
 
-        return BitmapFactory.decodeFile(file.getAbsolutePath());
+        if (bm != null) {
+            Matrix rotation = getImageRotation(file);
+            if (rotation != null) {
+                Bitmap rotated = Bitmap.createBitmap(bm, 0, 0, bm.getWidth(), bm.getHeight(), rotation, true);
+                bm.recycle();
+                bm = rotated;
+            }
+        }
+
+        return bm;
     }
 
     static Matrix getImageRotation(File file) {

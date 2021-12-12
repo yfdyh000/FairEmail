@@ -19,6 +19,8 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static androidx.room.ForeignKey.CASCADE;
+
 import android.content.Context;
 import android.text.TextUtils;
 
@@ -30,13 +32,12 @@ import androidx.room.PrimaryKey;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
 import javax.mail.Part;
-
-import static androidx.room.ForeignKey.CASCADE;
 
 @Entity(
         tableName = EntityAttachment.TABLE_NAME,
@@ -91,7 +92,7 @@ public class EntityAttachment {
     }
 
     boolean isImage() {
-        return Helper.isImage(getMimeType());
+        return ImageHelper.isImage(getMimeType());
     }
 
     boolean isEncryption() {
@@ -167,6 +168,12 @@ public class EntityAttachment {
         extension = extension.toLowerCase(Locale.ROOT);
 
         // Fix types
+        if ("csv".equals(extension))
+            return "text/csv";
+
+        if ("dxf".equals(extension))
+            return "application/dxf";
+
         if ("gpx".equals(extension))
             return "application/gpx+xml";
 
@@ -191,11 +198,15 @@ public class EntityAttachment {
         if ("pdf".equals(extension))
             return "application/pdf";
 
-        if ("text/plain".equals(type) && "ics".equals(extension))
+        if ("text/plain".equals(type) &&
+                ("ics".equals(extension) || "vcs".equals(extension)))
             return "text/calendar";
 
         if ("text/plain".equals(type) && "ovpn".equals(extension))
             return "application/x-openvpn-profile";
+
+        if ("audio/mid".equals(type))
+            return "audio/midi";
 
         // https://www.rfc-editor.org/rfc/rfc3555.txt
         if ("video/jpeg".equals(type))
@@ -222,6 +233,33 @@ public class EntityAttachment {
         }
 
         return type;
+    }
+
+    public static boolean equals(List<EntityAttachment> a1, List<EntityAttachment> a2) {
+        if (a1 == null || a2 == null)
+            return false;
+
+        List<EntityAttachment> list = new ArrayList<>();
+
+        for (EntityAttachment a : a1)
+            if (a.available && !a.isEncryption())
+                list.add(a);
+
+        for (EntityAttachment a : a2)
+            if (a.available && !a.isEncryption()) {
+                boolean found = false;
+                for (EntityAttachment l : list)
+                    if (Objects.equals(a.sequence, l.sequence) &&
+                            Objects.equals(a.subsequence, l.subsequence)) {
+                        list.remove(l);
+                        found = true;
+                        break;
+                    }
+                if (!found)
+                    return false;
+            }
+
+        return (list.size() == 0);
     }
 
     @Override

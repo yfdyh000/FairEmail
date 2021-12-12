@@ -21,6 +21,7 @@ package eu.faircode.email;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.database.sqlite.SQLiteConstraintException;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -44,6 +45,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.constraintlayout.widget.Group;
 import androidx.lifecycle.Lifecycle;
+import androidx.preference.PreferenceManager;
 
 import com.google.android.material.snackbar.Snackbar;
 
@@ -351,8 +353,10 @@ public class FragmentFolder extends FragmentBase {
                 btnSave.setEnabled(true);
                 tvInboxRootHint.setVisibility(folder == null && parent == null ? View.VISIBLE : View.GONE);
 
-                deletable = (folder != null && EntityFolder.USER.equals(folder.type));
-                getActivity().invalidateOptionsMenu();
+                deletable = (folder != null &&
+                        !folder.read_only &&
+                        EntityFolder.USER.equals(folder.type));
+                invalidateOptionsMenu();
             }
 
             @Override
@@ -382,6 +386,8 @@ public class FragmentFolder extends FragmentBase {
                         getMainHandler().post(new Runnable() {
                             @Override
                             public void run() {
+                                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                                    return;
                                 scroll.smoothScrollTo(0, btnSave.getBottom());
                             }
                         });
@@ -463,7 +469,7 @@ public class FragmentFolder extends FragmentBase {
             @Override
             protected void onPreExecute(Bundle args) {
                 saving = true;
-                getActivity().invalidateOptionsMenu();
+                invalidateOptionsMenu();
                 Helper.setViewsEnabled(view, false);
                 pbSave.setVisibility(View.VISIBLE);
             }
@@ -471,7 +477,7 @@ public class FragmentFolder extends FragmentBase {
             @Override
             protected void onPostExecute(Bundle args) {
                 saving = false;
-                getActivity().invalidateOptionsMenu();
+                invalidateOptionsMenu();
                 Helper.setViewsEnabled(view, true);
                 pbSave.setVisibility(View.GONE);
             }
@@ -574,11 +580,11 @@ public class FragmentFolder extends FragmentBase {
                         Log.i("Creating folder=" + name + " parent=" + parent);
 
                         if (parent != null) {
-                            EntityAccount account = db.account().getAccount(aid);
-                            if (account == null)
+                            EntityFolder p = db.folder().getFolderByName(aid, parent);
+                            if (p == null || p.separator == null)
                                 return false;
 
-                            name = parent + account.separator + name;
+                            name = parent + p.separator + name;
                         }
 
                         if (TextUtils.isEmpty(name))
@@ -656,8 +662,19 @@ public class FragmentFolder extends FragmentBase {
                     ask.setArguments(aargs);
                     ask.setTargetFragment(FragmentFolder.this, REQUEST_SAVE_CHANGES);
                     ask.show(getParentFragmentManager(), "folder:save");
-                } else if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                } else if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
+                    String name = args.getString("name");
+                    Integer color = args.getInt("color");
+
+                    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+                    String key = "label.color." + name;
+                    if (color == Color.TRANSPARENT)
+                        prefs.edit().remove(key).apply();
+                    else
+                        prefs.edit().putInt(key, color).apply();
+
                     getParentFragmentManager().popBackStack();
+                }
             }
 
             @Override

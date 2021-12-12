@@ -1,6 +1,6 @@
-# Bantuan Instalasi
+# Bantuan persiapan
 
-Menyiapkan FairEmail cukup simpel. Anda harus menambahkan setidaknya satu akun untuk menerima email dan setidaknya satu identitas jika Anda ingin mengirim email. The quick setup will add an account and an identity in one go for most major providers.
+Menyiapkan FairEmail cukup simpel. Anda harus menambahkan setidaknya satu akun untuk menerima email dan setidaknya satu identitas jika Anda ingin mengirim email. Penyiapan yang cepat akan menambahkan akun dan identitas sekaligus, untuk sebagian besar penyedia layanan email.
 
 ## Persyaratan
 
@@ -8,15 +8,15 @@ Koneksi internet diperlukan untuk mengatur akun dan identitas.
 
 ## Pengaturan Cepat
 
-Just select the appropriate provider or *Other provider* and enter your name, email address and password and tap *Check*.
+Pilih provider yang sesuai atau *provider lainnya* dan isi nama, alamat email dan kata sandi dan tekan *Periksa*.
 
-This will work for most email providers.
+Ini akan berfungsi bagi sebagian besar penyedia layanan email terkemuka.
 
-If the quick setup doesn't work, you'll need to set up an account and an identity manually, see below for instructions.
+Jika penyiapan cepat tidak berhasil, Anda perlu menyiapkan akun dan identitas dengan cara lain, lihat di bawah sebagai petunjuk.
 
 ## Siapkan akun - untuk menerima email
 
-To add an account, tap *Manual setup and more options*, tap *Accounts* and tap the 'plus' button at the bottom and select IMAP (or POP3). Pilih penyedia dari daftar, masukkan nama pengguna, yang sebagian besar merupakan alamat email Anda dan masukkan kata sandi Anda. Ketuk *Cek* untuk mengizinkan aplikasi FairEmail terhubung ke server email dan mengambil daftar folder sistem. Setelah meninjau pemilihan folder sistem, Anda bisa menambahkan akun tersebut dengan mengetuk *Simpan*.
+Untuk menambah akun, ketup *Penyiapan manual dan pilihan lainnya *, ketuk <0>Akun-akun<0> dan ketuk tombol 'tambah' di bawah dan pilih IMAP (atau POP3). Pilih penyedia dari daftar, masukkan nama pengguna, yang sebagian besar merupakan alamat email Anda dan masukkan kata sandi Anda. Ketuk *Periksa* untuk mengizinkan aplikasi FairEmail terhubung ke server email dan mengambil daftar folder sistem. Setelah meninjau pemilihan folder sistem, Anda bisa menambahkan akun tersebut dengan mengetuk *Simpan*.</p> 
 
 If your provider is not in the list of providers, there are thousands of providers, select *Custom*. </em></em></0> Masukkan nama domain, misalnya *gmail.com </0> dan ketuk * Dapatkan Pengaturan </0>. If your provider supports [auto-discovery](https://tools.ietf.org/html/rfc6186), FairEmail will fill in the host name and port number, else check the setup instructions of your provider for the right IMAP host name, port number and encryption protocol (SSL/TLS or STARTTLS). Untuk lebih lanjut tentang ini, silakan lihat [di sini](https://github.com/M66B/FairEmail/blob/master/FAQ.md#authorizing-accounts).</p> 
 
@@ -30,11 +30,11 @@ Lihat [ FAQ ini ](https://github.com/M66B/FairEmail/blob/master/FAQ.md#FAQ9) ten
 
 ## Berikan izin - untuk mengakses informasi kontak
 
-If you want to lookup email addresses, have contact photos shown, etc, you'll need to grant permission to read contact information to FairEmail. Just tap *Grant* and select *Allow*.
+Jika Anda ingin mencari alamat email, menampilkan foto kontak, dll, Anda harus memberikan izin baca kontak ke FairEmail. Cukup tekan *Beri izin* dan pilih *Izinkan*.
 
 ## Atur pengoptimalan baterai - untuk terus menerima pesan secara optimal
 
-Pada versi Android terbaru, perangkat akan menutup aplikasi saat layar mati selama beberapa waktu untuk mengurangi penggunaan baterai. Jika Anda ingin menerima email baru tanpa penundaan, Anda harus menonaktifkan pengoptimalan baterai untuk FairEmail. Tap *Manage* and follow the instructions.
+Pada versi Android terbaru, perangkat akan menutup aplikasi saat layar mati selama beberapa waktu untuk mengurangi penggunaan baterai. Jika Anda ingin menerima email baru tanpa penundaan, Anda harus menonaktifkan pengoptimalan baterai untuk FairEmail. Tekan *Atur* dan ikuti petunjuk.
 
 ## Pertanyaan atau masalah
 

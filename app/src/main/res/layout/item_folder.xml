@@ -25,7 +25,7 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
-            <ImageView
+            <eu.faircode.email.FixedImageView
                 android:id="@+id/ivState"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
@@ -36,7 +36,7 @@
                 app:layout_constraintTop_toTopOf="@+id/tvName"
                 app:srcCompat="@drawable/twotone_cloud_off_24" />
 
-            <ImageView
+            <eu.faircode.email.FixedImageView
                 android:id="@+id/ivReadOnly"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
@@ -53,7 +53,7 @@
                 app:layout_constraintStart_toEndOf="@id/ivState"
                 app:layout_constraintTop_toTopOf="parent" />
 
-            <ImageButton
+            <eu.faircode.email.FixedImageButton
                 android:id="@+id/ibExpander"
                 android:layout_width="wrap_content"
                 android:layout_height="0dp"
@@ -67,7 +67,7 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:srcCompat="@drawable/expander" />
 
-            <ImageView
+            <eu.faircode.email.FixedImageView
                 android:id="@+id/ivUnified"
                 android:layout_width="30dp"
                 android:layout_height="24dp"
@@ -78,7 +78,7 @@
                 app:layout_constraintTop_toTopOf="@+id/tvName"
                 app:srcCompat="@drawable/twotone_folder_special_24" />
 
-            <ImageView
+            <eu.faircode.email.FixedImageView
                 android:id="@+id/ivSubscribed"
                 android:layout_width="30dp"
                 android:layout_height="24dp"
@@ -89,7 +89,7 @@
                 app:layout_constraintTop_toTopOf="@+id/tvName"
                 app:srcCompat="@drawable/twotone_bookmark_24" />
 
-            <ImageView
+            <eu.faircode.email.FixedImageView
                 android:id="@+id/ivRule"
                 android:layout_width="30dp"
                 android:layout_height="24dp"
@@ -100,7 +100,7 @@
                 app:layout_constraintTop_toTopOf="@+id/tvName"
                 app:srcCompat="@drawable/twotone_filter_alt_24" />
 
-            <ImageView
+            <eu.faircode.email.FixedImageView
                 android:id="@+id/ivNotify"
                 android:layout_width="30dp"
                 android:layout_height="24dp"
@@ -110,6 +110,16 @@
                 app:layout_constraintStart_toEndOf="@id/ivRule"
                 app:layout_constraintTop_toTopOf="@+id/tvName"
                 app:srcCompat="@drawable/twotone_notifications_24" />
+
+            <eu.faircode.email.FixedImageView
+                android:id="@+id/ivAutoAdd"
+                android:layout_width="30dp"
+                android:layout_height="24dp"
+                android:paddingEnd="6dp"
+                app:layout_constraintBottom_toBottomOf="@+id/tvName"
+                app:layout_constraintStart_toEndOf="@id/ivNotify"
+                app:layout_constraintTop_toTopOf="@+id/tvName"
+                app:srcCompat="@drawable/twotone_add_24" />
 
             <eu.faircode.email.FixedTextView
                 android:id="@+id/tvName"
@@ -123,7 +133,7 @@
                 android:text="Name"
                 android:textAppearance="@style/TextAppearance.AppCompat.Medium"
                 app:layout_constraintEnd_toStartOf="@+id/tvMessages"
-                app:layout_constraintStart_toEndOf="@id/ivNotify"
+                app:layout_constraintStart_toEndOf="@id/ivAutoAdd"
                 app:layout_constraintTop_toTopOf="parent" />
 
             <eu.faircode.email.FixedTextView
@@ -138,7 +148,7 @@
                 app:layout_constraintEnd_toStartOf="@+id/ivMessages"
                 app:layout_constraintTop_toTopOf="@+id/tvName" />
 
-            <ImageView
+            <eu.faircode.email.FixedImageView
                 android:id="@+id/ivMessages"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
@@ -148,7 +158,7 @@
                 app:layout_constraintTop_toTopOf="@+id/tvName"
                 app:srcCompat="@drawable/twotone_mail_outline_24" />
 
-            <ImageView
+            <eu.faircode.email.FixedImageView
                 android:id="@+id/ivType"
                 android:layout_width="30dp"
                 android:layout_height="24dp"
@@ -197,14 +207,15 @@
                 android:text="30"
                 android:textAppearance="@android:style/TextAppearance.Small"
                 app:layout_constraintBottom_toBottomOf="@id/tvType"
-                app:layout_constraintEnd_toStartOf="@+id/ivSync"
+                app:layout_constraintEnd_toStartOf="@+id/ibSync"
                 app:layout_constraintTop_toTopOf="@+id/tvType" />
 
-            <ImageView
-                android:id="@+id/ivSync"
+            <eu.faircode.email.FixedImageButton
+                android:id="@+id/ibSync"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:layout_marginEnd="6dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
                 app:layout_constraintBottom_toBottomOf="@id/tvType"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="@+id/tvType"
@@ -236,7 +247,7 @@
                 app:layout_constraintEnd_toStartOf="@+id/ibFlagged"
                 app:layout_constraintTop_toTopOf="@+id/tvKeywords" />
 
-            <ImageView
+            <eu.faircode.email.FixedImageView
                 android:id="@+id/ibFlagged"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
@@ -287,7 +298,7 @@
                 android:id="@+id/grpExtended"
                 android:layout_width="0dp"
                 android:layout_height="0dp"
-                app:constraint_referenced_ids="ivType,tvType,tvTotal,tvAfter,ivSync" />
+                app:constraint_referenced_ids="ivType,tvType,tvTotal,tvAfter,ibSync" />
         </androidx.constraintlayout.widget.ConstraintLayout>
     </eu.faircode.email.ViewCardOptional>
 </FrameLayout>

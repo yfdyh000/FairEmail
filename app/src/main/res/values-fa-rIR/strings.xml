@@ -3,15 +3,23 @@
     <string name="app_search">جستجوی FairEmail</string>
     <string name="app_changelog">گزارش دگرگونی</string>
     <string name="app_welcome">FairEmail یک برنامه منبع باز بوده که تمرکز آن بر روی امنیت و حفظ حریم خصوصی است. بنابر دلایلی ممکن است برخی ویژگی‌ها بسته به نوع استفاده شما متفاوت باشند.</string>
-    <string name="app_crash">FairEmail در دستگاه شما پشتیبانی نمی‌شود، چون به دلیل وجود اشکالاتی در اندروید موجب خرابی برنامه می‌شود</string>
+    <string name="app_limitations">به عنوان مثال ، پیامها به طور پیش فرض برای حذف عناصر ناامن و بهبود خوانایی مجدداً قالب بندی می شوند و باز شدن پیوندها باید از نظر ایمنی تأیید شود. در صورت تمایل می توان هر دو را غیرفعال کرد.</string>
     <string name="app_exit">برای خروج دوباره روی \'بازگشت\' کلیک کنید</string>
+    <string name="app_cake">فضای ذخیره سازی کافی باقی نمانده است</string>
+    <string name="app_updated">آخرین به روز رسانی: %1$s</string>
     <string name="channel_service">دریافت</string>
     <string name="channel_send">ارسال</string>
+    <string name="channel_notification">ایمیل</string>
+    <string name="channel_progress">پیش رفتن</string>
     <string name="channel_update">به‌روزرسانی‌ها</string>
     <string name="channel_warning">هشدارها</string>
     <string name="channel_error">خطاها</string>
     <string name="channel_alert">هشدارهای سرور</string>
     <string name="channel_group_contacts">مخاطبین</string>
+    <string name="channel_service_description">همگام سازی و نظارت بر حساب ها</string>
+    <string name="channel_send_description">ارسال پیام ها</string>
+    <string name="channel_notification_description">اعلان های پیام جدید</string>
+    <string name="channel_progress_description">اعلان پیشرفت فعالیتهای طولانی مدت</string>
     <plurals name="page_conversation">
         <item quantity="one">گفتگو</item>
         <item quantity="other">گفتگو</item>
@@ -47,6 +55,12 @@
         <item quantity="one">%1$d جدید</item>
         <item quantity="other">%1$d جدید</item>
     </plurals>
+    <plurals name="title_moving_messages">
+        <item quantity="one">٪ 1 $ d پیام منتقل شود؟
+دیگر
+٪ 1 $ d پیام منتقل شود؟</item>
+        <item quantity="other">انتقال%1$d پیام به؟</item>
+    </plurals>
     <plurals name="title_deleting_messages">
         <item quantity="one">حذف همیشگی %1$d پیام؟</item>
         <item quantity="other">حذف همیشگی %1$d پیام؟</item>
@@ -59,14 +73,17 @@
     <string name="title_junk_hint">فراهم‌کننده شما مسئول پالایش هرزنامه است. برنامه ایمیل داده لازم برای قابل اطمینان بودن این کار را ندارد.</string>
     <string name="title_block">%s مسدود شود</string>
     <string name="title_block_sender">مسدود کردن فرستنده</string>
-    <string name="title_block_domain">مسدود کردن دامنه فرستنده</string>
-    <string name="title_block_sender_hint">        مسدود کردن یک فرستنده یک قانون ایجاد خواهد کرد که پیام‌های آینده را خودکار به پوشه هرزنامه انتقال خواهد داد.
-        ساخت و استفاده قوانین یک قابلیت ویژه است.
-    </string>
+    <string name="title_block_sender_domain">دامنه %1$s را مسدود کن</string>
+    <string name="title_block_sender_hint">مسدود کردن فرستنده یک ویژگی رایگان است.
+        مسدود کردن دامنه فرستنده از قوانین فیلتر استفاده می کند ، که یک ویژگی حرفه ای است.</string>
+    <string name="title_junk_filter">از فیلتر هرزنامه محلی استفاده کنید</string>
+    <string name="title_junk_blocklist">از فهرست‌های انسداد هرزنامه استفاده کن</string>
+    <string name="title_junk_clear">پاک‌سازی</string>
     <string name="title_notification_sending">درحال ارسال پیام‌ها</string>
     <string name="title_notification_waiting">درحال انتظار برای اتصال مناسب</string>
     <string name="title_notification_idle">بیکار</string>
     <string name="title_notification_failed">\'%1$s\' انجام نشد</string>
+    <string name="title_notification_alert">هشدار سرور: %1$s</string>
     <string name="title_notification_sending_left">تلاش‌های باقی‌مانده: %1$d</string>
     <string name="title_notification_sending_failed">ارسال به %1$s ناموفق بود</string>
     <string name="title_factor_minutes">%1$d دقیقه</string>
@@ -86,26 +103,34 @@
     <string name="menu_rate">به این برنامه امتیاز دهید</string>
     <string name="title_welcome">خوش آمدید</string>
     <string name="title_eula">توافقنامه مجوز کاربر نهایی</string>
+    <string name="title_contributors">مشارکت کنندگان</string>
     <string name="title_agree">می‌پذیرم</string>
     <string name="title_disagree">نمی‌پذیرم</string>
     <string name="title_version">نگارش %1$s</string>
+    <string name="title_privacy_policy">سیاست حفظ حریم خصوصی</string>
     <string name="title_list_accounts">حساب‌ها</string>
     <string name="title_list_identities">هویت‌ها</string>
     <string name="title_edit_account">ویرایش حساب</string>
     <string name="title_edit_identity">ویرایش هویت</string>
     <string name="title_edit_folder">ويرايش پوشه</string>
+    <string name="title_disable_gmail">برنامه جیمیل را غیرفعال کن</string>
     <string name="title_setup">تنظیمات</string>
     <string name="title_setup_help">راهنما</string>
     <string name="title_setup_quick">راه‌اندازی سریع</string>
+    <string name="title_setup_quick_accounts">افزودن یا تغییر حساب‌ها</string>
     <string name="title_setup_quick_hint">راه‌اندازی سریع اطلاعات پیکربندی را از autoconfig.thunderbird.net واکشی خواهد کرد</string>
+    <string name="title_setup_quick_patience">لطفا شکیبا باشید &#8230;</string>
     <string name="title_setup_quick_imap">سرور IMAP برای دریافت پیام‌ها</string>
     <string name="title_setup_quick_smtp">سرور SMTP برای ارسال پیام‌ها</string>
+    <string name="title_setup_quick_certificates">گواهینامه‌های سرور</string>
     <string name="title_setup_wizard">جادوگر</string>
     <string name="title_setup_wizard_new">من به یک نشانی‌های ایمیل تازه نیاز دارم</string>
+    <string name="title_setup_account_remark">دریافت ایمیل</string>
+    <string name="title_setup_identity_remark">ارسال ایمیل</string>
     <string name="title_setup_accounts">حساب‌ها</string>
     <string name="title_setup_identities">هویت‌ها</string>
     <string name="title_setup_other">فراهم کننده دیگر</string>
-    <string name="title_setup_gmail_support">حساب های گوگل فقط در نسخه‌های رسمی مجاز می‌شوند چون اندروید امضای برنامه را بررسی می‌کند</string>
+    <string name="title_setup_pop3">حساب POP3</string>
     <string name="title_setup_gmail_rationale">لطفا مجوز برای انتخاب حساب و خواندن نام شما را اعطا کنید</string>
     <string name="title_setup_gmail_permissions">گوگل برای خواندن، نوشتن، فرستادن و حذف همیشگی همه ایمیل‌های شما درخواست دسترسی خواهد کرد. FairEmail هیچ‌وقت بدون رضایت آشکار شما پیام‌های شما را حذف نخواهد کرد.</string>
     <string name="title_setup_gmail_drafts">اگر پوشه پیش‌نویس‌ها به‌وسیله IMAP قابل دسترسی نیست، می‌توان آن را در تنظیمات برچسب‌های جیمیل درست کرد</string>
@@ -122,12 +147,16 @@
     <string name="title_setup_grant">دادن</string>
     <string name="title_setup_grant_again">مجوزهای مورد نیاز را اعطا کنید</string>
     <string name="title_setup_identity_what">هویت چیست؟</string>
+    <string name="title_setup_free">آیا این برنامه رایگان است؟</string>
     <string name="title_setup_permissions">دادن دسترسی</string>
     <string name="title_setup_permissions_remark">برای دسترسی به اطلاعات مخاطبین (اختیاری)</string>
+    <string name="title_setup_permission_import_contacts">چگونه می‌توانم مخاطبین را وارد کنم؟</string>
+    <string name="title_setup_doze">غیرفعال کردن بهینه سازی باتری</string>
     <string name="title_setup_doze_battery">آیا مصرف باتری زیاد است؟</string>
     <string name="title_setup_doze_stopped">همگام‌سازی متوقف شده؟</string>
     <string name="title_setup_data">سرور داده فعال شده است</string>
     <string name="title_setup_advanced_options">نمایش گزینه‌های پیشرفته</string>
+    <string name="title_setup_inbox">رفتن به صندوق دریافت</string>
     <string name="title_setup_go">برو</string>
     <string name="title_setup_to_do">برای انجام</string>
     <string name="title_setup_done">انجام شد</string>
@@ -160,6 +189,7 @@
     <string name="title_setup_theme_grey">خاکستری</string>
     <string name="title_setup_theme_black">سیاه</string>
     <string name="title_setup_theme_reverse">تعویض رنگ‌ها</string>
+    <string name="title_setup_theme_light">روشن</string>
     <string name="title_setup_theme_dark">تیره</string>
     <string name="title_setup_theme_system">همسان سیستم</string>
     <string name="title_setup_theme_black_background">زمینه سیاه</string>
@@ -168,7 +198,10 @@
     <string name="title_setup_options">گزینه‌ها</string>
     <string name="title_setup_defaults">بازیابی پیش‌فرض‌ها</string>
     <string name="title_setup_reset_questions">بازنشانی پرسش‌ها</string>
+    <string name="title_setup_reset_general">پرسش‌های عمومی</string>
+    <string name="title_setup_reset_images">نمایش تصاویر</string>
     <string name="title_advanced_hint_title">گزینه‌های پیشرفته بیشتر</string>
+    <string name="title_advanced_section_main">اصلی</string>
     <string name="title_advanced_section_synchronize">دریافت</string>
     <string name="title_advanced_section_send">ارسال</string>
     <string name="title_advanced_section_connection">اتصال</string>
@@ -221,17 +254,18 @@
     <string name="title_advanced_ssl_harden">اتصالات SSL را محکم کن</string>
     <string name="title_advanced_manage_connectivity">مدیریت اتصال</string>
     <string name="title_advanced_caption_general">عمومی</string>
+    <string name="title_advanced_caption_checks">بررسی‌ها</string>
     <string name="title_advanced_caption_list">فهرست</string>
     <string name="title_advanced_caption_conversation">گفتگو</string>
     <string name="title_advanced_caption_message">پیام</string>
     <string name="title_advanced_caption_message_header">عنوان پیام</string>
     <string name="title_advanced_caption_message_body">متن پیام</string>
+    <string name="title_advanced_portrait">حالت عمودی</string>
     <string name="title_advanced_startup">نمایش در صفحه آغازین</string>
     <string name="title_advanced_date_header">گروه بندی بر اساس تاریخ</string>
     <string name="title_advanced_threading">دسته بندی مکالمه</string>
     <string name="title_advanced_threading_unread">شمار پیام‌های خوانده نشده را در گفتگوها نمایش بده</string>
     <string name="title_advanced_highlight_unread">برجسته‌سازی پیام‌های خوانده نشده</string>
-    <string name="title_advanced_highlight_subject">برجسته‌سازی موضوع</string>
     <string name="title_advanced_color_stripe">نمایش نوار رنگ</string>
     <string name="title_advanced_avatars">نمایش تصویر مخاطبین</string>
     <string name="title_advanced_gravatars">نمایش Gravatar ها</string>
@@ -243,10 +277,10 @@
     <string name="title_advanced_replace_name">نام مخاطب را بر نام فرستنده ترجیح بده</string>
     <string name="title_advanced_show_recipients">گیرندگان را در سرتیتر نمایش بده</string>
     <string name="title_advanced_font_size_sender">اندازه متن فرستنده</string>
-    <string name="title_advanced_font_size_subject">اندازه متن موضوع</string>
     <string name="title_advanced_subject_top">نمایش موضوع در بالای فرستنده</string>
     <string name="title_advanced_subject_italic">نمایش موضوع به‌صورت italic</string>
-    <string name="title_advanced_subject_elipsed">هنگامی که نیاز باشد، موضوع را کوچک‌تر کن</string>
+    <string name="title_advanced_highlight_subject">برجسته‌سازی موضوع</string>
+    <string name="title_advanced_font_size_subject">اندازه متن موضوع</string>
     <string name="title_advanced_keywords">کلیدواژه‌ها را در سرتیتر پیام نمایش بده</string>
     <string name="title_advanced_flags">نمایش ستاره‌ها</string>
     <string name="title_advanced_flags_background">به‌جای ستاره‌های رنگی، پس‌زمینه رنگی را نمایش بده</string>
@@ -255,7 +289,6 @@
     <string name="title_advanced_preview_lines">شمار خط‌های پیش‌نمایش</string>
     <string name="title_advanced_addresses">نمایش جزئیات آدرس به صورت پیش‌فرض</string>
     <string name="title_advanced_attachments_alt">نمایش پیوست‌ها بعد از متن پیام</string>
-    <string name="title_advanced_message_text_zoom">بزرگ‌نمایی پیش‌فرض متن پیام</string>
     <string name="title_advanced_contrast">از کنتراست زیاد برای متن پیام استفاده کن</string>
     <string name="title_advanced_text_color">استفاده از رنگ‌های متن</string>
     <string name="title_advanced_text_size">استفاده از اندازه متن</string>
@@ -277,7 +310,6 @@
     <string name="title_advanced_onclose">هنگام بستن یک گفتگو</string>
     <string name="title_advanced_autoread">به طور خودکار پیام‌های انتقال یافته به عنوان خوانده شده علامت گذاری شود</string>
     <string name="title_advanced_autounstar">هنگام انتقال پیام‌ها ستاره‌ها را خودکار از پیام‌ها حذف کن</string>
-    <string name="title_advanced_default_snooze">زمان پیش‌فرض چرت زدن</string>
     <string name="title_advanced_notifications">مدیریت اعلان‌ها</string>
     <string name="title_advanced_notifications_default">کانال پیش‌فرض</string>
     <string name="title_advanced_notifications_service">دریافت کانال</string>
@@ -290,6 +322,7 @@
     <string name="title_advanced_notify_preview_all">پیش‌نمایش تمام متن</string>
     <string name="title_advanced_notify_actions">کنش‌های اعلان</string>
     <string name="title_advanced_notify_action_trash">زباله‌دان</string>
+    <string name="title_advanced_notify_action_delete">حذف</string>
     <string name="title_advanced_notify_action_junk">هرزنامه</string>
     <string name="title_advanced_notify_action_archive">بایگانی</string>
     <string name="title_advanced_notify_action_move">انتقال</string>
@@ -305,7 +338,7 @@
     <string name="title_advanced_sound">انتخاب صدای اعلان‌ها</string>
     <string name="title_advanced_confirm_links">تایید بازکردن پیوندها</string>
     <string name="title_advanced_browse_links">بازکردن پیوند‌ها را به اندروید واگذار کن</string>
-    <string name="title_advanced_confirm_images">تایید نمایش تصاویر</string>
+    <string name="title_advanced_ask_images">تایید نمایش تصاویر</string>
     <string name="title_advanced_hide_timezone">پیام‌ها را بدون داده منطقه زمانی بفرست</string>
     <string name="title_advanced_display_hidden">نمایش متن پیام‌های پنهان</string>
     <string name="title_advanced_secure">از صفحه برنامه های اخیر پنهان شو و از گرفتن اسکرین‌شات جلوگیری کن</string>
@@ -336,12 +369,11 @@
     <string name="title_advanced_app">تنظیمات برنامه</string>
     <string name="title_advanced_more">گزینه‌های بیشتر</string>
     <string name="title_advanced_debug">حالت عیب‌یابی</string>
-    <string name="title_advanced_query_threads">دسترسی موازی پایگاه‌داده را محدود کن</string>
     <string name="title_advanced_schedule_hint">برای تنظیم زمان روی زمان ضربه بزنید</string>
     <string name="title_advanced_lookup_mx_hint">این بررسی خواهد کرد که آیا سابقه DNS MX وجود دارد</string>
     <string name="title_advanced_sync_delay_hint">این سرعت همگام‌سازی پیام‌ها را کاهش خواهد داد</string>
-    <string name="title_advanced_usenet_hint">بین متن و امضا \'-- \' درج کنید</string>
     <string name="title_advanced_send_reminders_hint">هنگامی که موضوع یا متن پیام خالی است یا یک پیوست ممکن است وجود نداشته باشد، یک هشدار نشان بده</string>
+    <string name="title_advanced_usenet_hint">بین متن و امضا \'-- \' درج کنید</string>
     <string name="title_advanced_metered_hint">اتصال‌های حجمی عموما شبکه‌های موبایل یا یک هات اسپات غیر رایگان می‌باشند</string>
     <string name="title_advanced_metered_warning">غیرفعال‌سازی این گزینه، دریافت و فرستادن پیام‌ها را روی داده همراه غیرفعال خواهد کرد</string>
     <string name="title_advanced_ssl_harden_hint">فعال‌سازی این باعث غیرفعال‌سازی SSL و رمز‌های ضعیف خواهد شد، که می‌تواند موجب مشکلات اتصال شود</string>
@@ -408,7 +440,6 @@
     <string name="title_leave_on_server">رها کردن پیام‌ها روی سرور</string>
     <string name="title_leave_deleted">رهاکردن پیام‌های حذف شده روی سرور</string>
     <string name="title_leave_on_device">رها کردن پیام‌ها روی دستگاه</string>
-    <string name="title_keep_alive_interval">فعال ماندن/فاصله اخذ (دقایق)</string>
     <string name="title_check">بررسی</string>
     <string name="title_no_name">نام وجود ندارد</string>
     <string name="title_no_email">ایمیل آدرس وجود ندارد</string>
@@ -460,7 +491,6 @@
     <string name="title_show_folders">نمایش پوشه‌های پنهان</string>
     <string name="title_show_flagged">نمایش شمار پیام‌های ستاره‌دار</string>
     <string name="title_subscribed_only">تنها مشترک شده</string>
-    <string name="title_apply_to_all">اعمال به همه &#8230;</string>
     <string name="title_hide_folder">پنهان‌سازی پوشه</string>
     <string name="title_unified_folder">نمایش در صندوق دریافت یکپارچه</string>
     <string name="title_navigation_folder">نمایش در منوی ناوبری</string>
@@ -525,6 +555,8 @@
     <string name="title_show_headers">نمایش سرصفحه</string>
     <string name="title_raw_save">ذخیره پیام خام</string>
     <string name="title_raw_send">ارسال به‌عنوان پیوست</string>
+    <string name="title_raw_send_message">پیام</string>
+    <string name="title_raw_send_thread">گفتگو</string>
     <string name="title_manage_keywords">مدیریت کلیدواژه‌ها</string>
     <string name="title_manage_labels">مدیریت برچسب‌های Gmail</string>
     <string name="title_add_keyword">افزودن کلیدواژه</string>
@@ -563,7 +595,6 @@
     <string name="title_receipt_subject">رسید خواندن: %1$s</string>
     <string name="title_receipt_text">این رسید خواندن تنها نشان می‌دهد که پیام نمایش داده شده. هیچ ضمانتی وجود ندارد که گیرنده محتویات پیام را خوانده باشد.</string>
     <string name="title_no_answers">هیچ الگوی پاسخی تعریف نشده است</string>
-    <string name="title_no_viewer">هیچ برنامه نمایش دهنده‌ای در دسترس نیست برای %1$s</string>
     <string name="title_no_recorder">برنامه ضبط صدا سازگاری در دسترس نیست</string>
     <string name="title_no_camera">برنامه دوربین سازگاری در دسترس نیست</string>
     <string name="title_no_saf">چارچوب دسترسی ذخیره سازی موجود نیست</string>
@@ -571,9 +602,9 @@
     <string name="title_no_internet">اینترنت یا اتصال سازگاری در دسترس نیست</string>
     <string name="title_no_connection">در حال اتصال به یک یا چند حساب &#8230;</string>
     <string name="title_no_folder">پوشه وجود ندارد</string>
-    <string name="title_no_image">تصویر نمی‌تواند رمزگشایی شود</string>
     <string name="title_no_search">جستجو روی سرور برای این حساب در دسترس نیست</string>
     <string name="title_show_full">نمایش تمام پیام</string>
+    <string name="title_fullscreen">نمایش تمام صفحه</string>
     <string name="title_accross_remark">پیام‌های انتقال یافته میان حساب‌ها موجب دانلود مجدد خواهد شد و در نتیجه افزایش مصرف دیتا را در پی دارد</string>
     <string name="title_raw_saved">پیام خام ذخیره شد</string>
     <string name="title_attachment_saved">پیوست ذخیره شد</string>
@@ -584,7 +615,6 @@
     <string name="title_ask_delete_rule">دستور به صورت همیشگی حذف شود؟</string>
     <string name="title_ask_discard">پیش‌نویس‌ کنار گذاشته شود؟</string>
     <string name="title_ask_show_html">نمایش پیام اصلی می تواند موجب نشت اطلاعات حساس شود</string>
-    <string name="title_ask_show_html_dark">استفاده از پوسته تیره</string>
     <string name="title_ask_show_image">نمایش تصاویر می تواند موجب نشت اطلاعات حساس شود</string>
     <string name="title_ask_show_image_hint">تصاویری که به عنوان تصاویر ردیاب شناخته شده‌اند نشان داده نخواهند شد</string>
     <string name="title_ask_delete_local">پیام‌های محلی حذف شوند؟ پیام‌ها روی سرور راه دور باقی خواهند ماند.</string>
@@ -747,6 +777,7 @@
     <string name="title_filter_duplicates">پیام‌های تکراری</string>
     <string name="title_compact">نمایش فشرده</string>
     <string name="title_zoom">اندازه متن</string>
+    <string name="title_padding">اندازه لایه‌گذاری</string>
     <string name="title_select_language">انتخاب زبان</string>
     <string name="title_select_all">انتخاب همه</string>
     <string name="title_select_found">انتخاب یافته‌ها</string>
@@ -928,7 +959,6 @@
     <string name="title_check_owner">بررسی مالک</string>
     <string name="title_ip_owner">نشانی IP مالک</string>
     <string name="title_select_app">انتخاب برنامه</string>
-    <string name="title_updated">یک بروز رسانی به نسخه %1$s وجود دارد</string>
     <string name="title_issue">سوال یا مشکلی دارید؟</string>
     <string name="title_yes">بله</string>
     <string name="title_no">خير</string>
@@ -941,6 +971,7 @@
     <string name="title_download">بارگیری</string>
     <string name="title_report">گزارش</string>
     <string name="title_fix">تعمیر</string>
+    <string name="title_show">نمایش</string>
     <string name="title_enable">فعال‌سازی</string>
     <string name="title_enabled">فعال شده</string>
     <string name="title_disable">غیرفعال‌سازی</string>
@@ -1044,6 +1075,7 @@
     <string name="title_accessibility_to">گیرنده</string>
     <string-array name="pollIntervalNames">
         <item>همیشه</item>
+        <item>Every 5 minutes</item>
         <item>هر ۱۵ دقیقه</item>
         <item>هر ۳۰ دقیقه</item>
         <item>هر ساعت</item>
@@ -1174,4 +1206,7 @@
         <item>OpenDyslexic</item>
     </string-array>
     <!-- https://www.w3.org/TR/css-fonts-4/#generic-font-families -->
+    <!-- https://www.bouncycastle.org/specifications.html -->
+    <!-- https://datatracker.ietf.org/doc/html/rfc5751#page-29 -->
+    <!-- https://datatracker.ietf.org/doc/html/rfc5751#section-2.7 -->
 </resources>

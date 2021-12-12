@@ -25,6 +25,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.os.Build;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.TextUtils;
@@ -57,6 +58,7 @@ public class WidgetUnifiedRemoteViewsFactory implements RemoteViewsService.Remot
     private int background;
     private int font;
     private int padding;
+    private int colorStripeWidth;
     private int colorWidgetForeground;
     private int colorWidgetRead;
     private int colorSeparator;
@@ -93,6 +95,8 @@ public class WidgetUnifiedRemoteViewsFactory implements RemoteViewsService.Remot
         background = prefs.getInt("widget." + appWidgetId + ".background", Color.TRANSPARENT);
         font = prefs.getInt("widget." + appWidgetId + ".font", 0);
         padding = prefs.getInt("widget." + appWidgetId + ".padding", 0);
+        boolean color_stripe_wide = prefs.getBoolean("color_stripe_wide", false);
+        this.colorStripeWidth = Helper.dp2pixels(context, color_stripe_wide ? 12 : 6);
         colorWidgetForeground = ContextCompat.getColor(context, R.color.colorWidgetForeground);
         colorWidgetRead = ContextCompat.getColor(context, R.color.colorWidgetRead);
         colorSeparator = ContextCompat.getColor(context, R.color.lightColorSeparator);
@@ -146,18 +150,18 @@ public class WidgetUnifiedRemoteViewsFactory implements RemoteViewsService.Remot
         int idSubject = (subject_top ? R.id.tvFrom : R.id.tvSubject);
         int idAccount = (subject_top ? R.id.tvTime : R.id.tvAccount);
 
-        if (font > 0) {
-            int sp = WidgetUnified.getFontSizeSp(font);
-            views.setTextViewTextSize(idFrom, TypedValue.COMPLEX_UNIT_SP, sp);
-            views.setTextViewTextSize(idTime, TypedValue.COMPLEX_UNIT_SP, sp);
-            views.setTextViewTextSize(idSubject, TypedValue.COMPLEX_UNIT_SP, sp);
-            views.setTextViewTextSize(idAccount, TypedValue.COMPLEX_UNIT_SP, sp);
-        }
+        if (font == 0)
+            font = 1; // Default small
 
-        if (padding > 0) {
-            int px = WidgetUnified.getPaddingPx(padding, context);
-            views.setViewPadding(R.id.llMessage, px, px, px, px);
-        }
+        int sp = WidgetUnified.getFontSizeSp(font);
+        views.setTextViewTextSize(idFrom, TypedValue.COMPLEX_UNIT_SP, sp);
+        views.setTextViewTextSize(idTime, TypedValue.COMPLEX_UNIT_SP, sp);
+        views.setTextViewTextSize(idSubject, TypedValue.COMPLEX_UNIT_SP, sp);
+        views.setTextViewTextSize(idAccount, TypedValue.COMPLEX_UNIT_SP, sp);
+
+        // Default no padding
+        int px = (padding == 0 ? 0 : WidgetUnified.getPaddingPx(padding, context));
+        views.setViewPadding(R.id.llMessage, px, px, px, px);
 
         if (position >= messages.size())
             return views;
@@ -174,6 +178,8 @@ public class WidgetUnifiedRemoteViewsFactory implements RemoteViewsService.Remot
 
             int colorBackground =
                     (message.accountColor == null || !pro ? colorSeparator : message.accountColor);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                views.setViewLayoutWidth(R.id.stripe, colorStripeWidth, TypedValue.COMPLEX_UNIT_PX);
             views.setInt(R.id.stripe, "setBackgroundColor", colorBackground);
             views.setViewVisibility(R.id.stripe, hasColor && color_stripe ? View.VISIBLE : View.GONE);
 

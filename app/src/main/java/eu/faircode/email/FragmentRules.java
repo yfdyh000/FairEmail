@@ -19,6 +19,8 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static android.app.Activity.RESULT_OK;
+
 import android.Manifest;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -39,6 +41,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.SearchView;
 import androidx.constraintlayout.widget.Group;
+import androidx.core.view.MenuCompat;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.Observer;
 import androidx.preference.PreferenceManager;
@@ -61,8 +64,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-
-import static android.app.Activity.RESULT_OK;
 
 public class FragmentRules extends FragmentBase {
     private long account;
@@ -243,13 +244,9 @@ public class FragmentRules extends FragmentBase {
             }
         });
 
-        super.onCreateOptionsMenu(menu, inflater);
-    }
+        MenuCompat.setGroupDividerEnabled(menu, true);
 
-    @Override
-    public void onPrepareOptionsMenu(@NonNull Menu menu) {
-        super.onPrepareOptionsMenu(menu);
-        menu.findItem(R.id.menu_delete_junk).setVisible(!EntityFolder.JUNK.equals(type));
+        super.onCreateOptionsMenu(menu, inflater);
     }
 
     @Override
@@ -262,10 +259,7 @@ public class FragmentRules extends FragmentBase {
             onMenuImport();
             return true;
         } else if (itemId == R.id.menu_delete_all) {
-            onMenuDelete(true);
-            return true;
-        } else if (itemId == R.id.menu_delete_junk) {
-            onMenuDelete(false);
+            onMenuDelete();
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -293,13 +287,10 @@ public class FragmentRules extends FragmentBase {
         startActivityForResult(intent, REQUEST_IMPORT);
     }
 
-    private void onMenuDelete(boolean all) {
+    private void onMenuDelete() {
         Bundle aargs = new Bundle();
-        aargs.putString("question", getString(all
-                ? R.string.title_rules_delete_all_confirm
-                : R.string.title_rules_delete_junk_confirm));
+        aargs.putString("question", getString(R.string.title_rules_delete_all_confirm));
         aargs.putLong("folder", folder);
-        aargs.putBoolean("all", all);
 
         FragmentDialogAsk ask = new FragmentDialogAsk();
         ask.setArguments(aargs);
@@ -322,6 +313,9 @@ public class FragmentRules extends FragmentBase {
             protected Void onExecute(Context context, Bundle args) throws Throwable {
                 long fid = args.getLong("folder");
                 Uri uri = args.getParcelable("uri");
+
+                if (uri == null)
+                    throw new FileNotFoundException();
 
                 if (!"content".equals(uri.getScheme())) {
                     Log.w("Export uri=" + uri);
@@ -386,6 +380,9 @@ public class FragmentRules extends FragmentBase {
             protected Void onExecute(Context context, Bundle args) throws Throwable {
                 long fid = args.getLong("folder");
                 Uri uri = args.getParcelable("uri");
+
+                if (uri == null)
+                    throw new FileNotFoundException();
 
                 if (!"content".equals(uri.getScheme()) &&
                         !Helper.hasPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE)) {
@@ -488,35 +485,12 @@ public class FragmentRules extends FragmentBase {
             @Override
             protected Void onExecute(Context context, Bundle args) throws Throwable {
                 long fid = args.getLong("folder");
-                boolean all = args.getBoolean("all");
 
                 DB db = DB.getInstance(context);
                 try {
                     db.beginTransaction();
 
-                    if (all)
-                        db.rule().deleteRules(fid);
-                    else {
-                        EntityFolder folder = db.folder().getFolder(fid);
-                        if (folder == null)
-                            return null;
-
-                        EntityFolder junk = db.folder().getFolderByType(folder.account, EntityFolder.JUNK);
-                        if (junk == null)
-                            return null;
-
-                        List<EntityRule> rules = db.rule().getRules(fid);
-                        if (rules == null)
-                            return null;
-
-                        for (EntityRule rule : rules) {
-                            JSONObject jaction = new JSONObject(rule.action);
-                            int type = jaction.optInt("type", -1);
-                            long target = jaction.optLong("target", -1);
-                            if (type == EntityRule.TYPE_MOVE && target == junk.id)
-                                db.rule().deleteRule(rule.id);
-                        }
-                    }
+                    db.rule().deleteRules(fid);
 
                     db.setTransactionSuccessful();
                 } finally {

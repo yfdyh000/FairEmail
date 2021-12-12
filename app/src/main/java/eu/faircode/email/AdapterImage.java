@@ -79,7 +79,8 @@ public class AdapterImage extends RecyclerView.Adapter<AdapterImage.ViewHolder> 
 
         private void bindTo(EntityAttachment attachment) {
             if (attachment.available) {
-                Bitmap bm = ImageHelper.decodeImage(attachment.getFile(context),
+                Bitmap bm = ImageHelper.decodeImage(
+                        attachment.getFile(context), attachment.getMimeType(),
                         context.getResources().getDisplayMetrics().widthPixels);
                 if (bm == null)
                     ivImage.setImageResource(R.drawable.twotone_broken_image_24);
@@ -181,6 +182,7 @@ public class AdapterImage extends RecyclerView.Adapter<AdapterImage.ViewHolder> 
             public void onDestroyed() {
                 Log.d(AdapterImage.this + " parent destroyed");
                 AdapterImage.this.parentFragment = null;
+                owner.getLifecycle().removeObserver(this);
             }
         });
     }

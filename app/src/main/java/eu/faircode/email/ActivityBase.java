@@ -29,12 +29,14 @@ import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.MenuItem;
@@ -48,15 +50,20 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
+import androidx.core.graphics.ColorUtils;
 import androidx.documentfile.provider.DocumentFile;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.OnLifecycleEvent;
 import androidx.preference.PreferenceManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -82,12 +89,14 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         EntityLog.log(this, "Activity create " + this.getClass().getName() +
-                " version=" + BuildConfig.VERSION_NAME +
+                " version=" + BuildConfig.VERSION_NAME + BuildConfig.REVISION +
                 " process=" + android.os.Process.myPid());
         Intent intent = getIntent();
         if (intent != null)
             EntityLog.log(this, intent +
                     " extras=" + TextUtils.join(", ", Log.getExtras(intent.getExtras())));
+
+        getSupportFragmentManager().registerFragmentLifecycleCallbacks(lifecycleCallbacks, true);
 
         this.contacts = hasPermission(Manifest.permission.READ_CONTACTS);
 
@@ -116,18 +125,29 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
         int colorPrimaryDark = Helper.resolveColor(this, R.attr.colorPrimaryDark);
         int colorActionForeground = Helper.resolveColor(this, R.attr.colorActionForeground);
 
-        Drawable d = getDrawable(R.drawable.baseline_mail_24);
-        Bitmap bm = Bitmap.createBitmap(
-                d.getIntrinsicWidth(),
-                d.getIntrinsicHeight(),
-                Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bm);
-        d.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        d.setTint(colorActionForeground);
-        d.draw(canvas);
+        try {
+            Drawable d = getDrawable(R.drawable.baseline_mail_24);
+            Bitmap bm = Bitmap.createBitmap(
+                    d.getIntrinsicWidth(),
+                    d.getIntrinsicHeight(),
+                    Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bm);
+            d.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+            d.setTint(colorActionForeground);
+            d.draw(canvas);
 
-        ActivityManager.TaskDescription td = new ActivityManager.TaskDescription(null, bm, colorPrimaryDark);
-        setTaskDescription(td);
+            int colorPrimary = colorPrimaryDark;
+            if (colorPrimary != 0 && Color.alpha(colorPrimary) != 255) {
+                Log.w("Task color primary=" + Integer.toHexString(colorPrimary));
+                colorPrimary = ColorUtils.setAlphaComponent(colorPrimary, 255);
+            }
+
+            ActivityManager.TaskDescription td = new ActivityManager.TaskDescription(
+                    null, bm, colorPrimary);
+            setTaskDescription(td);
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
 
         boolean navbar_colorize = prefs.getBoolean("navbar_colorize", false);
         if (navbar_colorize) {
@@ -136,9 +156,62 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
                 window.setNavigationBarColor(colorPrimaryDark);
         }
 
+        Fragment bfragment = getSupportFragmentManager()
+                .findFragmentByTag("androidx.biometric.BiometricFragment");
+        if (bfragment != null) {
+            Log.e("Orphan BiometricFragment");
+            getSupportFragmentManager()
+                    .beginTransaction()
+                    .remove(bfragment)
+                    .commitNowAllowingStateLoss();
+            /*
+                java.lang.RuntimeException: Unable to start activity ComponentInfo{eu.faircode.email/eu.faircode.email.ActivitySetup}: androidx.fragment.app.Fragment$InstantiationException: Unable to instantiate fragment androidx.biometric.FingerprintDialogFragment: could not find Fragment constructor
+                  at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:2957)
+                  at android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:3032)
+                  at android.app.ActivityThread.handleRelaunchActivity(ActivityThread.java:4921)
+                  at android.app.ActivityThread.-wrap19(Unknown Source:0)
+                  at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1702)
+                  at android.os.Handler.dispatchMessage(Handler.java:105)
+                  at android.os.Looper.loop(Looper.java:164)
+                  at android.app.ActivityThread.main(ActivityThread.java:6944)
+                  at java.lang.reflect.Method.invoke(Native Method)
+                  at com.android.internal.os.Zygote$MethodAndArgsCaller.run(Zygote.java:327)
+                  at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1374)
+                Caused by: androidx.fragment.app.Fragment$InstantiationException: Unable to instantiate fragment androidx.biometric.FingerprintDialogFragment: could not find Fragment constructor
+                  at androidx.fragment.app.Fragment.instantiate(SourceFile:8)
+                  at androidx.fragment.app.FragmentContainer.instantiate(SourceFile:1)
+                  at androidx.fragment.app.FragmentManager$3.instantiate(SourceFile:1)
+                  at androidx.fragment.app.FragmentStateManager.<init>(SourceFile:12)
+                  at androidx.fragment.app.FragmentManager.restoreSaveState(SourceFile:11)
+                  at androidx.fragment.app.FragmentController.restoreSaveState(SourceFile:2)
+                  at androidx.fragment.app.FragmentActivity$2.onContextAvailable(SourceFile:5)
+                  at androidx.activity.contextaware.ContextAwareHelper.dispatchOnContextAvailable(SourceFile:3)
+                  at androidx.activity.ComponentActivity.onCreate(SourceFile:2)
+                  at androidx.fragment.app.FragmentActivity.onCreate(SourceFile:1)
+                  at eu.faircode.email.ActivityBase.onCreate(SourceFile:37)
+                  at eu.faircode.email.ActivitySetup.onCreate(SourceFile:1)
+                  at android.app.Activity.performCreate(Activity.java:7183)
+                  at android.app.Instrumentation.callActivityOnCreate(Instrumentation.java:1220)
+                  at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:2910)
+                  ... 10 more
+                Caused by: java.lang.NoSuchMethodException: <init> []
+                  at java.lang.Class.getConstructor0(Class.java:2320)
+                  at java.lang.Class.getConstructor(Class.java:1725)
+                  at androidx.fragment.app.Fragment.instantiate(SourceFile:4)
+             */
+        }
+
         checkAuthentication();
 
         super.onCreate(savedInstanceState);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        if (intent != null)
+            EntityLog.log(this, "New " + intent +
+                    " extras=" + TextUtils.join(", ", Log.getExtras(intent.getExtras())));
+        super.onNewIntent(intent);
     }
 
     @Override
@@ -184,7 +257,8 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
 
         visible = false;
 
-        if (!this.getClass().equals(ActivityMain.class) && Helper.shouldAuthenticate(this))
+        if (!this.getClass().equals(ActivityMain.class) &&
+                Helper.shouldAuthenticate(this, true))
             finishAndRemoveTask();
     }
 
@@ -198,7 +272,8 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
     public void onUserInteraction() {
         Log.d("User interaction");
 
-        if (!this.getClass().equals(ActivityMain.class) && Helper.shouldAuthenticate(this)) {
+        if (!this.getClass().equals(ActivityMain.class) &&
+                Helper.shouldAuthenticate(this, false)) {
             finishAndRemoveTask();
             Intent main = new Intent(this, ActivityMain.class);
             main.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -221,7 +296,8 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
             boolean biometrics = prefs.getBoolean("biometrics", false);
             String pin = prefs.getString("pin", null);
-            if (biometrics || !TextUtils.isEmpty(pin)) {
+            boolean autolock = prefs.getBoolean("autolock", true);
+            if (autolock && (biometrics || !TextUtils.isEmpty(pin))) {
                 Helper.clearAuthentication(this);
                 finish();
             }
@@ -294,19 +370,21 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        String action = (data == null ? null : data.getAction());
-        Log.i("Result class=" + this.getClass().getSimpleName() +
-                " action=" + action + " request=" + requestCode + " result=" + resultCode);
-        Log.logExtras(data);
-        if (data != null)
-            Log.i("data=" + data.getData());
+        EntityLog.log(this, "Result class=" + this.getClass().getSimpleName() +
+                " action=" + (data == null ? null : data.getAction()) +
+                " request=" + requestCode +
+                " result=" + resultCode + " ok=" + (resultCode == RESULT_OK) +
+                " data=" + (data == null ? null : data.getData()) +
+                (data == null ? "" : " " + TextUtils.join(" ", Log.getExtras(data.getExtras()))));
         super.onActivityResult(requestCode, resultCode, data);
     }
 
     private void checkAuthentication() {
-        if (!this.getClass().equals(ActivityMain.class) && Helper.shouldAuthenticate(this)) {
+        if (!this.getClass().equals(ActivityMain.class) &&
+                Helper.shouldAuthenticate(this, false)) {
             Intent intent = getIntent();
             finishAndRemoveTask();
+            finishAffinity();
             processStreams(intent);
             Intent main = new Intent(this, ActivityMain.class)
                     .putExtra("intent", intent);
@@ -451,6 +529,7 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
             public void onDestroyed() {
                 Log.d("Removing back listener=" + listener);
                 keyPressedListeners.remove(listener);
+                owner.getLifecycle().removeObserver(this);
             }
         });
     }
@@ -638,6 +717,102 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
     Handler getMainHandler() {
         return ApplicationEx.getMainHandler();
     }
+
+    private final FragmentManager.FragmentLifecycleCallbacks lifecycleCallbacks = new FragmentManager.FragmentLifecycleCallbacks() {
+        private long last = 0;
+
+        @Override
+        public void onFragmentPreAttached(@NonNull FragmentManager fm, @NonNull Fragment f, @NonNull Context context) {
+            log(fm, f, "onFragmentPreAttached");
+        }
+
+        @Override
+        public void onFragmentAttached(@NonNull FragmentManager fm, @NonNull Fragment f, @NonNull Context context) {
+            log(fm, f, "onFragmentAttached");
+        }
+
+        @Override
+        public void onFragmentPreCreated(@NonNull FragmentManager fm, @NonNull Fragment f, @Nullable @org.jetbrains.annotations.Nullable Bundle savedInstanceState) {
+            log(fm, f, "onFragmentPreCreated");
+        }
+
+        @Override
+        public void onFragmentCreated(@NonNull FragmentManager fm, @NonNull Fragment f, @Nullable @org.jetbrains.annotations.Nullable Bundle savedInstanceState) {
+            log(fm, f, "onFragmentCreated");
+        }
+
+        @Override
+        public void onFragmentActivityCreated(@NonNull FragmentManager fm, @NonNull Fragment f, @Nullable @org.jetbrains.annotations.Nullable Bundle savedInstanceState) {
+            log(fm, f, "onFragmentActivityCreated");
+        }
+
+        @Override
+        public void onFragmentViewCreated(@NonNull FragmentManager fm, @NonNull Fragment f, @NonNull View v, @Nullable @org.jetbrains.annotations.Nullable Bundle savedInstanceState) {
+            log(fm, f, "onFragmentViewCreated");
+        }
+
+        @Override
+        public void onFragmentStarted(@NonNull FragmentManager fm, @NonNull Fragment f) {
+            log(fm, f, "onFragmentStarted");
+        }
+
+        @Override
+        public void onFragmentResumed(@NonNull FragmentManager fm, @NonNull Fragment f) {
+            log(fm, f, "onFragmentResumed");
+        }
+
+        @Override
+        public void onFragmentPaused(@NonNull FragmentManager fm, @NonNull Fragment f) {
+            log(fm, f, "onFragmentPaused");
+        }
+
+        @Override
+        public void onFragmentStopped(@NonNull FragmentManager fm, @NonNull Fragment f) {
+            log(fm, f, "onFragmentStopped");
+        }
+
+        @Override
+        public void onFragmentSaveInstanceState(@NonNull FragmentManager fm, @NonNull Fragment f, @NonNull Bundle outState) {
+            log(fm, f, "onFragmentSaveInstanceState");
+        }
+
+        @Override
+        public void onFragmentViewDestroyed(@NonNull FragmentManager fm, @NonNull Fragment f) {
+            log(fm, f, "onFragmentViewDestroyed");
+        }
+
+        @Override
+        public void onFragmentDestroyed(@NonNull FragmentManager fm, @NonNull Fragment f) {
+            log(fm, f, "onFragmentDestroyed");
+            if (BuildConfig.PLAY_STORE_RELEASE)
+                return;
+            try {
+                for (Field field : f.getClass().getDeclaredFields()) {
+                    Class<?> type = field.getType();
+                    if (View.class.isAssignableFrom(type) ||
+                            RecyclerView.Adapter.class.isAssignableFrom(type)) {
+                        Log.i("Clearing " + f.getClass().getSimpleName() + ":" + field.getName());
+                        field.setAccessible(true);
+                        field.set(f, null);
+                    }
+                }
+            } catch (Throwable ex) {
+                Log.w(ex);
+            }
+        }
+
+        @Override
+        public void onFragmentDetached(@NonNull FragmentManager fm, @NonNull Fragment f) {
+            log(fm, f, "onFragmentDetached");
+        }
+
+        private void log(@NonNull FragmentManager fm, @NonNull Fragment f, @NonNull String what) {
+            long start = last;
+            last = SystemClock.elapsedRealtime();
+            long elapsed = (start == 0 ? 0 : last - start);
+            Log.i(f.getClass().getSimpleName() + " " + what + " " + elapsed + " ms");
+        }
+    };
 
     public interface IKeyPressedListener {
         boolean onKeyPressed(KeyEvent event);

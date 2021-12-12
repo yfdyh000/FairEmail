@@ -45,6 +45,7 @@ import com.flask.colorpicker.builder.ColorPickerClickListener;
 import com.flask.colorpicker.builder.ColorPickerDialogBuilder;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -59,6 +60,8 @@ public class ActivityWidgetUnified extends ActivityBase {
     private ViewButtonColor btnColor;
     private Spinner spFontSize;
     private Spinner spPadding;
+    private CheckBox cbRefresh;
+    private CheckBox cbCompose;
     private Button btnSave;
     private ContentLoadingProgressBar pbWait;
     private Group grpReady;
@@ -81,6 +84,18 @@ public class ActivityWidgetUnified extends ActivityBase {
         appWidgetId = extras.getInt(
                 AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID);
 
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        long account = prefs.getLong("widget." + appWidgetId + ".account", -1L);
+        long folder = prefs.getLong("widget." + appWidgetId + ".folder", -1L);
+        boolean unseen = prefs.getBoolean("widget." + appWidgetId + ".unseen", false);
+        boolean flagged = prefs.getBoolean("widget." + appWidgetId + ".flagged", false);
+        boolean semi = prefs.getBoolean("widget." + appWidgetId + ".semi", true);
+        int background = prefs.getInt("widget." + appWidgetId + ".background", Color.TRANSPARENT);
+        int font = prefs.getInt("widget." + appWidgetId + ".font", 0);
+        int padding = prefs.getInt("widget." + appWidgetId + ".padding", 0);
+        boolean refresh = prefs.getBoolean("widget." + appWidgetId + ".refresh", false);
+        boolean compose = prefs.getBoolean("widget." + appWidgetId + ".compose", false);
+
         getSupportActionBar().setSubtitle(R.string.title_widget_title_list);
         setContentView(R.layout.activity_widget_unified);
 
@@ -92,6 +107,8 @@ public class ActivityWidgetUnified extends ActivityBase {
         btnColor = findViewById(R.id.btnColor);
         spFontSize = findViewById(R.id.spFontSize);
         spPadding = findViewById(R.id.spPadding);
+        cbRefresh = findViewById(R.id.cbRefresh);
+        cbCompose = findViewById(R.id.cbCompose);
         btnSave = findViewById(R.id.btnSave);
         pbWait = findViewById(R.id.pbWait);
         grpReady = findViewById(R.id.grpReady);
@@ -147,6 +164,9 @@ public class ActivityWidgetUnified extends ActivityBase {
                 else
                     editor.remove("widget." + appWidgetId + ".name");
 
+                int font = spFontSize.getSelectedItemPosition();
+                int padding = spPadding.getSelectedItemPosition();
+
                 editor.putLong("widget." + appWidgetId + ".account", account == null ? -1L : account.id);
                 editor.putLong("widget." + appWidgetId + ".folder", folder == null ? -1L : folder.id);
                 editor.putString("widget." + appWidgetId + ".type", folder == null ? null : folder.type);
@@ -154,8 +174,10 @@ public class ActivityWidgetUnified extends ActivityBase {
                 editor.putBoolean("widget." + appWidgetId + ".flagged", cbFlagged.isChecked());
                 editor.putBoolean("widget." + appWidgetId + ".semi", cbSemiTransparent.isChecked());
                 editor.putInt("widget." + appWidgetId + ".background", btnColor.getColor());
-                editor.putInt("widget." + appWidgetId + ".font", spFontSize.getSelectedItemPosition());
-                editor.putInt("widget." + appWidgetId + ".padding", spPadding.getSelectedItemPosition());
+                editor.putInt("widget." + appWidgetId + ".font", tinyOut(font));
+                editor.putInt("widget." + appWidgetId + ".padding", tinyOut(padding));
+                editor.putBoolean("widget." + appWidgetId + ".refresh", cbRefresh.isChecked());
+                editor.putBoolean("widget." + appWidgetId + ".compose", cbCompose.isChecked());
                 editor.putInt("widget." + appWidgetId + ".version", BuildConfig.VERSION_CODE);
 
                 editor.apply();
@@ -236,7 +258,14 @@ public class ActivityWidgetUnified extends ActivityBase {
                         adapterFolder.clear();
                         adapterFolder.addAll(folders);
 
-                        spFolder.setSelection(0);
+                        int select = 0;
+                        for (int i = 0; i < folders.size(); i++)
+                            if (folders.get(i).id.equals(folder)) {
+                                select = i;
+                                break;
+                            }
+
+                        spFolder.setSelection(select);
                     }
 
                     @Override
@@ -247,7 +276,9 @@ public class ActivityWidgetUnified extends ActivityBase {
             }
         });
 
-        String[] sizes = getResources().getStringArray(R.array.fontSizeNames);
+        List<String> sizes = new ArrayList<>();
+        sizes.addAll(Arrays.asList(getResources().getStringArray(R.array.fontSizeNames)));
+        sizes.add(1, getString(R.string.title_size_tiny));
 
         adapterFontSize = new ArrayAdapter<>(this, R.layout.spinner_item1, android.R.id.text1, sizes);
         adapterFontSize.setDropDownViewResource(R.layout.spinner_item1_dropdown);
@@ -257,12 +288,22 @@ public class ActivityWidgetUnified extends ActivityBase {
         adapterPadding.setDropDownViewResource(R.layout.spinner_item1_dropdown);
         spPadding.setAdapter(adapterPadding);
 
-        btnColor.setColor(Color.TRANSPARENT);
+        // Initialize
+        cbUnseen.setChecked(unseen);
+        cbFlagged.setChecked(flagged);
+        cbSemiTransparent.setChecked(semi);
+        btnColor.setColor(background);
+        spFontSize.setSelection(tinyIn(font));
+        spPadding.setSelection(tinyIn(padding));
+        cbRefresh.setChecked(refresh);
+        cbCompose.setChecked(compose);
 
         grpReady.setVisibility(View.GONE);
         pbWait.setVisibility(View.VISIBLE);
 
         setResult(RESULT_CANCELED, resultValue);
+
+        Bundle args = new Bundle();
 
         new SimpleTask<List<EntityAccount>>() {
             @Override
@@ -285,6 +326,12 @@ public class ActivityWidgetUnified extends ActivityBase {
 
                 adapterAccount.addAll(accounts);
 
+                for (int i = 0; i < accounts.size(); i++)
+                    if (accounts.get(i).id.equals(account)) {
+                        spAccount.setSelection(i);
+                        break;
+                    }
+
                 grpReady.setVisibility(View.VISIBLE);
                 pbWait.setVisibility(View.GONE);
             }
@@ -293,6 +340,24 @@ public class ActivityWidgetUnified extends ActivityBase {
             protected void onException(Bundle args, Throwable ex) {
                 Log.unexpectedError(getSupportFragmentManager(), ex);
             }
-        }.execute(this, new Bundle(), "widget:accounts");
+        }.execute(this, args, "widget:accounts");
+    }
+
+    private int tinyOut(int value) {
+        if (value == 1) // tiny
+            return 4;
+        else if (value > 1)
+            return value - 1;
+        else
+            return value;
+    }
+
+    private int tinyIn(int value) {
+        if (value == 4)
+            return 1;
+        else if (value >= 1)
+            return value + 1;
+        else
+            return value;
     }
 }

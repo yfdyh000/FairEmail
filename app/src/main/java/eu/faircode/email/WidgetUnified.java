@@ -29,10 +29,13 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
 import android.util.TypedValue;
+import android.view.View;
 import android.widget.RemoteViews;
 
 import androidx.core.graphics.ColorUtils;
 import androidx.preference.PreferenceManager;
+
+import java.util.Date;
 
 public class WidgetUnified extends AppWidgetProvider {
     @Override
@@ -48,7 +51,16 @@ public class WidgetUnified extends AppWidgetProvider {
             int background = prefs.getInt("widget." + appWidgetId + ".background", Color.TRANSPARENT);
             int font = prefs.getInt("widget." + appWidgetId + ".font", 0);
             int padding = prefs.getInt("widget." + appWidgetId + ".padding", 0);
+            boolean refresh = prefs.getBoolean("widget." + appWidgetId + ".refresh", false);
+            boolean compose = prefs.getBoolean("widget." + appWidgetId + ".compose", false);
             int version = prefs.getInt("widget." + appWidgetId + ".version", 0);
+
+            if (version <= 1550)
+                semi = true; // Legacy
+            if (font == 0)
+                font = 2; // Default medium
+            if (padding == 0)
+                padding = 2; // Default medium
 
             Intent view = new Intent(context, ActivityView.class);
             view.setAction("folder:" + folder);
@@ -60,15 +72,27 @@ public class WidgetUnified extends AppWidgetProvider {
             PendingIntent pi = PendingIntentCompat.getActivity(
                     context, appWidgetId, view, PendingIntent.FLAG_UPDATE_CURRENT);
 
+            Intent sync = new Intent(context, ServiceUI.class);
+            sync.setAction("widget:" + appWidgetId);
+            sync.putExtra("account", account);
+            sync.putExtra("folder", folder);
+            PendingIntent piSync = PendingIntentCompat.getService(
+                    context, appWidgetId, sync, PendingIntent.FLAG_UPDATE_CURRENT);
+
+            Intent edit = new Intent(context, ActivityCompose.class);
+            edit.setAction("widget:" + appWidgetId);
+            edit.putExtra("action", "new");
+            edit.putExtra("account", account);
+            edit.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            PendingIntent piCompose = PendingIntentCompat.getActivity(
+                    context, appWidgetId, edit, PendingIntent.FLAG_UPDATE_CURRENT);
+
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_unified);
 
-            if (font > 0)
-                views.setTextViewTextSize(R.id.title, TypedValue.COMPLEX_UNIT_SP, getFontSizeSp(font));
+            views.setTextViewTextSize(R.id.title, TypedValue.COMPLEX_UNIT_SP, getFontSizeSp(font));
 
-            if (padding > 0) {
-                int px = getPaddingPx(padding, context);
-                views.setViewPadding(R.id.title, px, px, px, px);
-            }
+            int px = getPaddingPx(padding, context);
+            views.setViewPadding(R.id.title, px, px, px, px);
 
             if (name == null)
                 views.setTextViewText(R.id.title, context.getString(R.string.title_folder_unified));
@@ -76,6 +100,18 @@ public class WidgetUnified extends AppWidgetProvider {
                 views.setTextViewText(R.id.title, name);
 
             views.setOnClickPendingIntent(R.id.title, pi);
+
+            views.setViewVisibility(R.id.refresh, refresh ? View.VISIBLE : View.GONE);
+            views.setViewPadding(R.id.refresh, px, px, px, px);
+            views.setOnClickPendingIntent(R.id.refresh, piSync);
+
+            boolean syncing = prefs.getBoolean("widget." + appWidgetId + ".syncing", false);
+            views.setImageViewResource(R.id.refresh, syncing ? R.drawable.twotone_compare_arrows_24 : R.drawable.twotone_sync_24);
+            views.setViewVisibility(R.id.refresh, refresh ? View.VISIBLE : View.GONE);
+
+            views.setViewVisibility(R.id.compose, compose ? View.VISIBLE : View.GONE);
+            views.setViewPadding(R.id.compose, px, px, px, px);
+            views.setOnClickPendingIntent(R.id.compose, piCompose);
 
             Intent service = new Intent(context, WidgetUnifiedService.class);
             service.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
@@ -90,27 +126,36 @@ public class WidgetUnified extends AppWidgetProvider {
             thread.putExtra("widget_type", type);
             thread.putExtra("filter_archive", !EntityFolder.ARCHIVE.equals(type));
             thread.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            PendingIntent piItem = PendingIntent.getActivity(
-                    context, ActivityView.PI_WIDGET, thread, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntentCompat.FLAG_MUTABLE);
+            PendingIntent piItem = PendingIntentCompat.getActivity(
+                    context, ActivityView.PI_WIDGET, thread, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
 
             views.setPendingIntentTemplate(R.id.lv, piItem);
 
             if (background == Color.TRANSPARENT) {
-                if (!semi && version > 1550)
-                    views.setInt(R.id.widget, "setBackgroundColor", background);
+                if (semi)
+                    views.setInt(android.R.id.background, "setBackgroundResource", R.drawable.widget_background);
+                else
+                    views.setInt(android.R.id.background, "setBackgroundColor", background);
+
+                int colorWidgetForeground = context.getResources().getColor(R.color.colorWidgetForeground);
+                views.setTextColor(R.id.title, colorWidgetForeground);
             } else {
                 float lum = (float) ColorUtils.calculateLuminance(background);
 
                 if (semi)
                     background = ColorUtils.setAlphaComponent(background, 127);
 
-                views.setInt(R.id.widget, "setBackgroundColor", background);
+                views.setInt(android.R.id.background, "setBackgroundColor", background);
 
                 if (lum > 0.7f)
                     views.setTextColor(R.id.title, Color.BLACK);
             }
 
+            int dp6 = Helper.dp2pixels(context, 6);
+            views.setViewPadding(R.id.content, dp6, 0, dp6, 0);
+
             appWidgetManager.updateAppWidget(appWidgetId, views);
+            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.lv);
         }
     }
 
@@ -137,6 +182,8 @@ public class WidgetUnified extends AppWidgetProvider {
                 return 14;
             case 3: // large
                 return 22;
+            case 4: // tiny
+                return 10;
             default: // medium
                 return 18;
         }
@@ -148,6 +195,8 @@ public class WidgetUnified extends AppWidgetProvider {
                 return Helper.dp2pixels(context, 3);
             case 3: // large
                 return Helper.dp2pixels(context, 9);
+            case 4: // tiny
+                return Helper.dp2pixels(context, 1);
             default: // medium
                 return Helper.dp2pixels(context, 6);
         }

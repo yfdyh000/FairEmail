@@ -56,6 +56,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.constraintlayout.widget.Group;
 import androidx.fragment.app.DialogFragment;
+import androidx.lifecycle.Lifecycle;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -103,6 +104,9 @@ public class FragmentRule extends FragmentBase {
 
     private EditText etHeader;
     private CheckBox cbHeader;
+
+    private EditText etBody;
+    private CheckBox cbBody;
 
     private TextView tvDateAfter;
     private TextView tvDateBefore;
@@ -238,6 +242,9 @@ public class FragmentRule extends FragmentBase {
 
         etHeader = view.findViewById(R.id.etHeader);
         cbHeader = view.findViewById(R.id.cbHeader);
+
+        etBody = view.findViewById(R.id.etBody);
+        cbBody = view.findViewById(R.id.cbBody);
 
         tvDateAfter = view.findViewById(R.id.tvDateAfter);
         tvDateBefore = view.findViewById(R.id.tvDateBefore);
@@ -483,6 +490,8 @@ public class FragmentRule extends FragmentBase {
                 getMainHandler().post(new Runnable() {
                     @Override
                     public void run() {
+                        if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                            return;
                         scroll.smoothScrollTo(0, content.getBottom());
                     }
                 });
@@ -874,6 +883,7 @@ public class FragmentRule extends FragmentBase {
                         JSONObject jrecipient = jcondition.optJSONObject("recipient");
                         JSONObject jsubject = jcondition.optJSONObject("subject");
                         JSONObject jheader = jcondition.optJSONObject("header");
+                        JSONObject jbody = jcondition.optJSONObject("body");
                         JSONObject jdate = jcondition.optJSONObject("date");
                         JSONObject jschedule = jcondition.optJSONObject("schedule");
 
@@ -901,6 +911,9 @@ public class FragmentRule extends FragmentBase {
 
                         etHeader.setText(jheader == null ? null : jheader.getString("value"));
                         cbHeader.setChecked(jheader != null && jheader.getBoolean("regex"));
+
+                        etBody.setText(jbody == null ? null : jbody.getString("value"));
+                        cbBody.setChecked(jbody != null && jbody.getBoolean("regex"));
 
                         long after = (jdate != null && jdate.has("after") ? jdate.getLong("after") : 0);
                         long before = (jdate != null && jdate.has("before") ? jdate.getLong("before") : 0);
@@ -1115,6 +1128,7 @@ public class FragmentRule extends FragmentBase {
                     JSONObject jrecipient = jcondition.optJSONObject("recipient");
                     JSONObject jsubject = jcondition.optJSONObject("subject");
                     JSONObject jheader = jcondition.optJSONObject("header");
+                    JSONObject jbody = jcondition.optJSONObject("body");
                     JSONObject jdate = jcondition.optJSONObject("date");
                     JSONObject jschedule = jcondition.optJSONObject("schedule");
 
@@ -1123,6 +1137,7 @@ public class FragmentRule extends FragmentBase {
                             jsubject == null &&
                             !jcondition.optBoolean("attachments") &&
                             jheader == null &&
+                            jbody == null &&
                             jdate == null &&
                             jschedule == null)
                         throw new IllegalArgumentException(context.getString(R.string.title_rule_condition_missing));
@@ -1215,6 +1230,14 @@ public class FragmentRule extends FragmentBase {
             jheader.put("value", header);
             jheader.put("regex", cbHeader.isChecked());
             jcondition.put("header", jheader);
+        }
+
+        String body = etBody.getText().toString();
+        if (!TextUtils.isEmpty(body)) {
+            JSONObject jbody = new JSONObject();
+            jbody.put("value", body);
+            jbody.put("regex", cbBody.isChecked());
+            jcondition.put("body", jbody);
         }
 
         Object hafter = tvDateAfter.getTag();
@@ -1438,7 +1461,7 @@ public class FragmentRule extends FragmentBase {
                                     if (message == null)
                                         continue;
 
-                                    if (rule.matches(context, message, null))
+                                    if (rule.matches(context, message, null, null))
                                         if (rule.execute(context, message))
                                             applied++;
 
@@ -1498,7 +1521,7 @@ public class FragmentRule extends FragmentBase {
                         if (message == null)
                             continue;
 
-                        if (rule.matches(context, message, null))
+                        if (rule.matches(context, message, null, null))
                             matching.add(message);
 
                         if (matching.size() >= MAX_CHECK)
@@ -1530,6 +1553,7 @@ public class FragmentRule extends FragmentBase {
             }.execute(this, args, "rule:check");
 
             return new AlertDialog.Builder(getContext())
+                    .setIcon(R.drawable.baseline_mail_outline_24)
                     .setTitle(R.string.title_rule_matched)
                     .setView(dview)
                     .setNegativeButton(android.R.string.cancel, null)

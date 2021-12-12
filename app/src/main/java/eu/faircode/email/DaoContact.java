@@ -43,6 +43,8 @@ public interface DaoContact {
 
     @Query("SELECT email, name, avatar FROM contact" +
             " WHERE state <> " + EntityContact.STATE_IGNORE +
+            " AND (type = " + EntityContact.TYPE_TO +
+            " OR type = " + EntityContact.TYPE_FROM + ")" +
             " ORDER BY" +
             " CASE WHEN state = " + EntityContact.STATE_FAVORITE + " THEN 0 ELSE 1 END" +
             ", CASE WHEN avatar IS NULL THEN 1 ELSE 0 END" +
@@ -77,6 +79,11 @@ public interface DaoContact {
 
     @Query("DELETE FROM contact" +
             " WHERE account = :account" +
+            " AND type = :type")
+    int deleteContact(long account, int type);
+
+    @Query("DELETE FROM contact" +
+            " WHERE account = :account" +
             " AND type = :type" +
             " AND email = :email")
     int deleteContact(long account, int type, String email);
@@ -90,9 +97,13 @@ public interface DaoContact {
     @Query("DELETE FROM contact" +
             " WHERE last_contacted IS NOT NULL" +
             " AND last_contacted < :before" +
-            " AND state <> " + EntityContact.STATE_FAVORITE)
+            " AND state <> " + EntityContact.STATE_FAVORITE +
+            " AND (type = " + EntityContact.TYPE_TO +
+            " OR type = " + EntityContact.TYPE_FROM + ")")
     int deleteContacts(long before);
 
-    @Query("DELETE FROM contact")
+    @Query("DELETE FROM contact" +
+            " WHERE (type = " + EntityContact.TYPE_TO +
+            " OR type = " + EntityContact.TYPE_FROM + ")")
     int clearContacts();
 }

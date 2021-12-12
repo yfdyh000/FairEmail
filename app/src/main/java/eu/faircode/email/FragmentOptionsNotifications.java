@@ -19,12 +19,15 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static android.app.Activity.RESULT_OK;
+
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Paint;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
@@ -45,20 +48,23 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.constraintlayout.widget.Group;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceManager;
 
-import static android.app.Activity.RESULT_OK;
+import java.util.List;
 
 public class FragmentOptionsNotifications extends FragmentBase implements SharedPreferences.OnSharedPreferenceChangeListener {
     private Button btnManage;
+    private ImageButton ibClear;
     private Button btnManageDefault;
     private ImageView ivChannelDefault;
     private Button btnManageService;
     private ImageView ivChannelService;
     private ImageButton ibWhy;
+    private FixedTextView tvNotifySeparate;
     private SwitchCompat swNewestFirst;
     private SwitchCompat swBackground;
 
@@ -96,6 +102,7 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
     private SwitchCompat swWearablePreview;
     private ImageButton ibWearable;
     private SwitchCompat swMessagingStyle;
+    private ImageButton ibCar;
     private SwitchCompat swBiometricsNotify;
     private SwitchCompat swAlertOnce;
     private TextView tvNoGrouping;
@@ -131,11 +138,13 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
         // Get controls
 
         btnManage = view.findViewById(R.id.btnManage);
+        ibClear = view.findViewById(R.id.ibClear);
         btnManageDefault = view.findViewById(R.id.btnManageDefault);
         ivChannelDefault = view.findViewById(R.id.ivChannelDefault);
         btnManageService = view.findViewById(R.id.btnManageService);
         ivChannelService = view.findViewById(R.id.ivChannelService);
         ibWhy = view.findViewById(R.id.ibWhy);
+        tvNotifySeparate = view.findViewById(R.id.tvNotifySeparate);
         swNewestFirst = view.findViewById(R.id.swNewestFirst);
         swBackground = view.findViewById(R.id.swBackground);
 
@@ -173,6 +182,7 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
         swWearablePreview = view.findViewById(R.id.swWearablePreview);
         ibWearable = view.findViewById(R.id.ibWearable);
         swMessagingStyle = view.findViewById(R.id.swMessagingStyle);
+        ibCar = view.findViewById(R.id.ibCar);
         swBiometricsNotify = view.findViewById(R.id.swBiometricsNotify);
         swAlertOnce = view.findViewById(R.id.swAlertOnce);
         tvNoGrouping = view.findViewById(R.id.tvNoGrouping);
@@ -187,6 +197,7 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
 
         PackageManager pm = getContext().getPackageManager();
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+        boolean debug = prefs.getBoolean("debug", false);
 
         final Intent manage = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                 .putExtra("app_package", getContext().getPackageName())
@@ -198,6 +209,43 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
             @Override
             public void onClick(View view) {
                 startActivity(manage);
+            }
+        });
+
+        ibClear.setVisibility(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                (BuildConfig.DEBUG || debug) ? View.VISIBLE : View.GONE);
+        ibClear.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                new SimpleTask<Void>() {
+                    @Override
+                    protected Void onExecute(Context context, Bundle args) {
+                        DB db = DB.getInstance(context);
+
+                        List<EntityAccount> accounts = db.account().getAccounts();
+                        if (accounts == null)
+                            return null;
+
+                        for (EntityAccount account : accounts)
+                            if (account.notify) {
+                                EntityLog.log(context, account.name + " disabling notify");
+                                db.account().setAccountNotify(account.id, false);
+                            }
+
+                        return null;
+                    }
+
+                    @Override
+                    @RequiresApi(api = Build.VERSION_CODES.O)
+                    protected void onExecuted(Bundle args, Void data) {
+                        NotificationHelper.clear(getContext());
+                    }
+
+                    @Override
+                    protected void onException(Bundle args, Throwable ex) {
+                        Log.unexpectedError(getParentFragmentManager(), ex);
+                    }
+                }.execute(FragmentOptionsNotifications.this, new Bundle(), "notification:clear");
             }
         });
 
@@ -233,6 +281,14 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
             @Override
             public void onClick(View v) {
                 Helper.viewFAQ(v.getContext(), 2);
+            }
+        });
+
+        tvNotifySeparate.setPaintFlags(tvNotifySeparate.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
+        tvNotifySeparate.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Helper.viewFAQ(view.getContext(), 145);
             }
         });
 
@@ -482,6 +538,13 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("notify_messaging", checked).apply();
+            }
+        });
+
+        ibCar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Helper.viewFAQ(v.getContext(), 165);
             }
         });
 

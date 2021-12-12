@@ -33,6 +33,7 @@ import org.xbill.DNS.Lookup;
 import org.xbill.DNS.MXRecord;
 import org.xbill.DNS.Message;
 import org.xbill.DNS.Record;
+import org.xbill.DNS.SOARecord;
 import org.xbill.DNS.SRVRecord;
 import org.xbill.DNS.SimpleResolver;
 import org.xbill.DNS.TXTRecord;
@@ -66,50 +67,24 @@ public class DnsHelper {
             String domain = UriHelper.getEmailDomain(email);
             if (domain == null)
                 continue;
-
-            try {
-                SimpleResolver resolver = new SimpleResolver(getDnsServer(context));
-                resolver.setTimeout(CHECK_TIMEOUT);
-                Lookup lookup = new Lookup(domain, Type.MX);
-                lookup.setResolver(resolver);
-                lookup.run();
-                Log.i("Check name=" + domain + " @" + resolver.getAddress() + " result=" + lookup.getResult());
-
-                if (lookup.getResult() == Lookup.SUCCESSFUL)
-                    continue;
-
-                String error = "Error " + lookup.getResult() + ": " + lookup.getErrorString();
-                if (lookup.getResult() == Lookup.HOST_NOT_FOUND ||
-                        lookup.getResult() == Lookup.TYPE_NOT_FOUND)
-                    throw new UnknownHostException(context.getString(R.string.title_no_server, domain));
-                else
-                    Log.e(error);
-            } catch (UnknownHostException ex) {
-                throw ex;
-            } catch (Throwable ex) {
-                Log.e(ex);
-            }
+            lookup(context, domain, "mx", CHECK_TIMEOUT);
         }
-    }
-
-    static InetAddress lookupMx(Context context, String domain) {
-        try {
-            DnsRecord[] records = lookup(context, domain, "mx");
-            if (records.length > 0)
-                return InetAddress.getByName(records[0].name);
-        } catch (Throwable ex) {
-            Log.w(ex);
-        }
-
-        return null;
     }
 
     @NonNull
     static DnsRecord[] lookup(Context context, String name, String type) throws UnknownHostException {
+        return lookup(context, name, type, LOOKUP_TIMEOUT);
+    }
+
+    @NonNull
+    static DnsRecord[] lookup(Context context, String name, String type, int timeout) throws UnknownHostException {
         int rtype;
         switch (type) {
             case "mx":
                 rtype = Type.MX;
+                break;
+            case "soa":
+                rtype = Type.SOA;
                 break;
             case "srv":
                 rtype = Type.SRV;
@@ -175,7 +150,7 @@ public class DnsHelper {
                                     }
                                 });
                         try {
-                            if (!sem.tryAcquire(LOOKUP_TIMEOUT, TimeUnit.SECONDS))
+                            if (!sem.tryAcquire(timeout, TimeUnit.SECONDS))
                                 ex = new IOException("timeout");
                         } catch (InterruptedException e) {
                             ex = new IOException("interrupted");
@@ -195,7 +170,7 @@ public class DnsHelper {
                     }
                 }
             };
-            resolver.setTimeout(LOOKUP_TIMEOUT);
+            resolver.setTimeout(timeout);
             Lookup lookup = new Lookup(name, rtype);
             lookup.setResolver(resolver);
             Log.i("Lookup name=" + name + " @" + resolver.getAddress() + " type=" + rtype);
@@ -205,7 +180,7 @@ public class DnsHelper {
                     lookup.getResult() == Lookup.TYPE_NOT_FOUND)
                 throw new UnknownHostException(name);
             else if (lookup.getResult() != Lookup.SUCCESSFUL)
-                Log.e("DNS error=" + lookup.getErrorString());
+                Log.i("DNS error=" + lookup.getErrorString());
 
             List<DnsRecord> result = new ArrayList<>();
 
@@ -215,6 +190,9 @@ public class DnsHelper {
                     if (record instanceof MXRecord) {
                         MXRecord mx = (MXRecord) record;
                         result.add(new DnsRecord(mx.getTarget().toString(true)));
+                    } else if (record instanceof SOARecord) {
+                        SOARecord soa = (SOARecord) record;
+                        result.add(new DnsRecord(soa.getHost().toString(true)));
                     } else if (record instanceof SRVRecord) {
                         SRVRecord srv = (SRVRecord) record;
                         result.add(new DnsRecord(srv.getTarget().toString(true), srv.getPort()));
@@ -228,7 +206,8 @@ public class DnsHelper {
 
             return result.toArray(new DnsRecord[0]);
         } catch (TextParseException ex) {
-            throw new UnknownHostException(ex.getMessage());
+            Log.e(ex);
+            return new DnsRecord[0];
         }
     }
 
@@ -277,20 +256,6 @@ public class DnsHelper {
         DnsRecord(String name, int port) {
             this.name = name;
             this.port = port;
-        }
-    }
-
-    static void test(Context context) {
-        try {
-            String domain = "gmail.com";
-            checkMx(context, new Address[]{Log.myAddress()});
-            InetAddress iaddr = lookupMx(context, domain);
-            DnsRecord[] records = DnsHelper.lookup(context, "_imaps._tcp." + domain, "srv");
-            if (records.length == 0)
-                throw new UnknownHostException(domain);
-            Log.i("DNS iaddr=" + iaddr + " srv=" + records[0].name + ":" + records[0].port);
-        } catch (Throwable ex) {
-            Log.e("DNS", ex);
         }
     }
 }

@@ -3,7 +3,7 @@
     <string name="app_search">FairEmail 검색</string>
     <string name="app_changelog">변경 로그</string>
     <string name="app_welcome">FairEmail은 프라이버시와 보안을 위한 오픈 소스 이메일 앱입니다. 그렇기에 몇몇 기능은 당신이 지금까지 써왔던 것과 조금 다르게 작동할 수 있습니다.</string>
-    <string name="app_crash">Android가 충돌을 일으키기 때문에 이 기기에서는 FailEmail이 지원되지 않습니다.</string>
+    <string name="app_limitations">예를 들어, 안전하지 않은 요소를 제거하고 가독성을 향상시키기 위해 기본적으로 메시지 형식이 다시 지정되며 안전을 위해 링크 열기를 확인해야 합니다. 원하는 경우 둘 다 비활성화할 수 있습니다.</string>
     <string name="app_exit">나가려면 뒤로 버튼을 한번 더 누르세요</string>
     <string name="app_cake">저장 공간 부족</string>
     <string name="app_updated">최근 업데이트: %1$s</string>
@@ -19,6 +19,7 @@
     <string name="channel_service_description">계정 동기화 및 모니터링</string>
     <string name="channel_send_description">메시지 전송 중</string>
     <string name="channel_notification_description">새 메시지 알림</string>
+    <string name="channel_progress_description">장기 실행 활동의 진행 알림</string>
     <plurals name="page_conversation">
         <item quantity="other">대화</item>
     </plurals>
@@ -32,6 +33,18 @@
     <string name="shortcut_refresh">새로고침</string>
     <string name="shortcut_compose">작성</string>
     <string name="shortcut_setup">설정</string>
+    <plurals name="title_notification_synchronizing">
+        <item quantity="other">%1$d 계정 모니터링</item>
+    </plurals>
+    <plurals name="title_notification_operations">
+        <item quantity="other">%1$d 작업 보류중</item>
+    </plurals>
+    <plurals name="title_notification_unseen">
+        <item quantity="other">%1$d 새 메시지</item>
+    </plurals>
+    <plurals name="title_notification_unsent">
+        <item quantity="other">보낼 메시지 %1$d</item>
+    </plurals>
     <plurals name="title_tile_unseen">
         <item quantity="other">새 메일 %1$d건</item>
     </plurals>
@@ -45,19 +58,23 @@
         <item quantity="other">%1$d개의 메일을 스팸 처리하겠습니까?</item>
     </plurals>
     <string name="title_ask_spam_who">%1$s의 메일을 스팸 처리하시겠습니까?</string>
+    <string name="title_junk_hint">이메일 공급자는 스팸 필터링을 담당합니다. 이메일 앱에는 이를 안정적으로 수행하는데 필요한 모든 데이터가 없습니다. </string>
     <string name="title_block">%1$s 차단</string>
     <string name="title_block_sender">발송자 차단</string>
-    <string name="title_block_domain">발송자 도메인 차단</string>
-    <string name="title_block_sender_hint">        발송자 차단 시, 새 메일을 스팸함으로 이동하는 새로운 룰이 생성됩니다
-        룰 생성 및 사용은 pro버전에서 사용하실 수 있습니다.
-    </string>
+    <string name="title_block_sender_domain">도메인 \'%1$s\' 차단</string>
+    <string name="title_block_sender_hint">발신자를 차단하는 것은 무료 기능입니다. 발신자 도메인을 차단하는 것은 유료 기능인 필터 규칙을 사용합니다.    </string>
     <string name="title_junk_filter">로컬 스팸 필터 사용</string>
     <string name="title_junk_filter_hint">배터리 사용량이 증가할 수 있으며 스팸 메일로 잘못 인식할 수도 있습니다.</string>
+    <string name="title_junk_blocklist">스팸 차단 목록 사용</string>
+    <string name="title_junk_clear">비우기</string>
+    <string name="title_junk_clear_hint">이는 모든 발신자 차단 규칙을 제거합니다.</string>
     <string name="title_notification_sending">메일 전송 중</string>
     <string name="title_notification_waiting">안정된 인터넷 연결을 기다리는 중</string>
     <string name="title_notification_idle">유휴</string>
     <string name="title_notification_failed">\'%1$s\' 실패</string>
+    <string name="title_notification_alert">서버 알림: \'%1$s\'</string>
     <string name="title_notification_sending_left">남은 시도 횟수: %1$d</string>
+    <string name="title_notification_sending_retry">인터넷 연결 변경 또는 아웃박스 해제 발생 시 보내기를 다시 시도합니다.</string>
     <string name="title_notification_sending_failed">%1$s에게 전송 실패</string>
     <string name="title_notification_redacted">수정됨: 생체 및 PIN 인증 활성화됨</string>
     <string name="title_factor_minutes">%1$d분</string>
@@ -81,6 +98,7 @@
     <string name="title_agree">동의합니다</string>
     <string name="title_disagree">동의하지 않습니다</string>
     <string name="title_version">버전: %1$s</string>
+    <string name="title_privacy_policy">개인정보 보호 정책</string>
     <string name="title_list_accounts">계정</string>
     <string name="title_list_identities">ID</string>
     <string name="title_edit_account">계정 편집</string>
@@ -89,17 +107,36 @@
     <string name="title_setup">설정</string>
     <string name="title_setup_help">도움말</string>
     <string name="title_setup_quick">빠른 설정</string>
+    <string name="title_setup_intro">새 계정을 설정하는 것은 오직 3단계이며 그 후에는 이메일을 보내거나 받을 수 있습니다.</string>
+    <string name="title_setup_simple">다른 설정을 변경할 필요가 없습니다.</string>
+    <string name="title_setup_issue">FairEmail은 당신의 개인정보를 보호하기 위해 만들어 졌으며 몇천 시간의 일을 의미합니다. 문제가 있으시다면 나쁜 별점을 남기시기 전에 저에게 먼저 연락해 주세요. 저의 최선을 다해 도와드리겠습니다!</string>
+    <string name="title_setup_analytics">FairEmail은 광고를 표시하지도 당신의 행동을 추적하거나 분석하지도 않습니다. 오류 보고를 위해 기본적으로 사용이 중지되어 있는 Bugsnag를 사용합니다.</string>
     <string name="title_setup_quick_accounts">계정 추가 및 변경</string>
+    <string name="title_setup_quick_support">몇몇 서비스 제공자들은 계정 추가하기를 어렵도록 설계해 두었습니다. FairEmail을 탓하지 마시고, 대신 도움을 요청해 주세요.</string>
+    <string name="title_setup_quick_hint">빠른 설정은 autoconfig.thunderbird.net에서 설정들을 가져와요.</string>
+    <string name="title_setup_quick_patience">인내심을 가지고 기다려 주세요 &#8230;</string>
     <string name="title_setup_quick_imap">메시지를 수신할 IMAP 서버</string>
     <string name="title_setup_quick_smtp">메시지를 발신할 SMTP 서버</string>
+    <string name="title_setup_quick_certificates">서버 인증서</string>
     <string name="title_setup_wizard">마법사</string>
+    <string name="title_setup_wizard_multiple">마법사는 여러 계정을 설정하기 위해 여려번 사용할 수 있습니다.</string>
     <string name="title_setup_wizard_new">새 이메일 주소 받기</string>
+    <string name="title_setup_manual">수동 설정 및 계정 설정</string>
+    <string name="title_setup_classic">클래식 구성</string>
+    <string name="title_setup_documentation">올바른 이메일 서버 설정을 위해 당신의 이메일 제공업체의 문서를 참고해 주세요.</string>
     <string name="title_setup_account_remark">이메일 수신</string>
     <string name="title_setup_identity_remark">이메일 발신</string>
+    <string name="title_setup_account_identity_hint">이름, 색상, 및 밀기 동작은 계정 설정에서 구성하실 수 있고, ID 설정에서 서명을 구성할 수 있습니다</string>
     <string name="title_setup_accounts">계정</string>
     <string name="title_setup_identities">ID</string>
     <string name="title_setup_other">기타 제공업체</string>
     <string name="title_setup_pop3">POP3 계정</string>
+    <string name="title_setup_oauth_permission">이메일 공급자가 Play 스토어 및 Github 버전의 OAuth만 승인했습니다</string>
+    <string name="title_setup_gmail_support">Android에서는 디지털 앱 서명을 확인하므로 Google 계정 인증은 Play 스토어 및 Github 버전에서만 동작합니다</string>
+    <string name="title_setup_gmail_rationale">계정을 설정하고 이름을 읽기 위해 권한을 허용해 주세요</string>
+    <string name="title_setup_gmail_permissions">Google은 이메일 읽기, 쓰기, 보내기 및 영구 삭제 권한을 요구합니다. FairEmail은 당신의 허락 없이는 절대로 이메일을 삭제하지 않습니다.</string>
+    <string name="title_setup_gmail_drafts">IMAP으로 임시보관함을 접근할 수 없다면, 이는 Gmail 라벨 설정에서 수정할 수 있습니다.</string>
+    <string name="title_setup_gmail_password">계정을 비밀번호로 인증하고 싶습니다.</string>
     <string name="title_setup_oauth_updated">계정 인증이 갱신되었습니다</string>
     <string name="title_setup_oauth_authorize">인증</string>
     <string name="title_setup_select_account">계정 선택</string>
@@ -115,7 +152,6 @@
     <string name="title_setup_doze_explanation">앱이 백그라운드에서도 안정적으로 메일을 수신 및 발신하려면 이 앱에 대한 배터리 최적화 기능을 꺼야 합니다</string>
     <string name="title_setup_doze_stopped">동기화가 중단되었습니까?</string>
     <string name="title_setup_doze_device">이 기기에 필요한 작업으로 예상됩니다</string>
-    <string name="title_setup_doze_android">이 안드로이드 버전에 필요한 작업입니다</string>
     <string name="title_setup_inbox">받은편지함으로 이동</string>
     <string name="title_setup_go">시작</string>
     <string name="title_setup_to_do">할 일</string>
@@ -156,6 +192,7 @@
     <string name="title_setup_options">설정</string>
     <string name="title_setup_defaults">기본값 복원</string>
     <string name="title_setup_reset_questions">질문 초기화</string>
+    <string name="title_setup_reset_images">사진 표시</string>
     <string name="title_advanced_hint_title">고급 설정 더보기</string>
     <string name="title_advanced_section_main">메인</string>
     <string name="title_advanced_section_synchronize">수신</string>
@@ -195,11 +232,12 @@
     <string name="title_advanced_caption_message">메시지</string>
     <string name="title_advanced_caption_message_header">메시지 제목</string>
     <string name="title_advanced_caption_message_body">메시지 본문</string>
-    <string name="title_advanced_portrait2">세로 모드에서 2행 사용</string>
-    <string name="title_advanced_landscape">가로 모드에서 2열 사용</string>
     <string name="title_advanced_date_header">날짜로 묶기</string>
+    <string name="title_advanced_date_fixed">상단 헤더에서 수정일 표시</string>
     <string name="title_advanced_threading">대화 스레딩</string>
     <string name="title_advanced_gravatars">그라바타 표시</string>
+    <string name="title_advanced_bimi_unverified">확인되지 않은 발신자</string>
+    <string name="title_advanced_bimi_verified">확인된 발신자</string>
     <string name="title_advanced_favicons">파비콘 표시</string>
     <string name="title_advanced_identicons">아이덴티콘 표시</string>
     <string name="title_advanced_circular">둥근 아이콘 표시</string>
@@ -234,6 +272,7 @@
     <string name="title_advanced_notifications_background_hint">백그라운드 서비스는 안드로이드에 의해 언제든 중단될 수 있지만, 상태표시줄 알림이 없어도 구동됩니다.</string>
     <string name="title_advanced_notify_actions">알림 동작</string>
     <string name="title_advanced_notify_action_trash">삭제</string>
+    <string name="title_advanced_notify_action_delete">제거</string>
     <string name="title_advanced_notify_action_junk">스팸</string>
     <string name="title_advanced_notify_action_archive">보관</string>
     <string name="title_advanced_notify_action_move">이동</string>
@@ -291,6 +330,8 @@
     <string name="title_password">비밀번호</string>
     <string name="title_realm">NTML 인증 도메인</string>
     <string name="title_primary">최상</string>
+    <string name="title_keep_poll_interval">여론조사 시간 (분)</string>
+    <string name="title_keep_alive_interval">유지 간격 (분)</string>
     <string name="title_check">확인</string>
     <string name="title_no_name">이름 없음</string>
     <string name="title_no_account">계정 누락</string>
@@ -353,6 +394,8 @@
     <string name="title_print_images">사진 인쇄</string>
     <string name="title_show_headers">제목 표시</string>
     <string name="title_share_as_html">HTML로 공유</string>
+    <string name="title_raw_send_message">메시지</string>
+    <string name="title_raw_send_thread">대화</string>
     <string name="title_manage_keywords">키워드 관리</string>
     <string name="title_add_keyword">키워드 추가</string>
     <string name="title_download_all">모두 다운로드</string>
@@ -385,7 +428,6 @@
     <string name="title_ask_save">변경 사항을 저장합니까?</string>
     <string name="title_ask_delete_accept">메시지를 삭제하면 되돌릴 수 없음을 압니다</string>
     <string name="title_ask_discard">초안을 삭제하시겠습니까?</string>
-    <string name="title_ask_show_html_dark">어두운 테마 사용</string>
     <string name="title_need_help">도움 요청</string>
     <string name="title_download_message">&#8230; 다운로드 중</string>
     <string name="title_reformatted">        재구성된 메시지를 보고 있습니다.
@@ -505,6 +547,7 @@
     <string name="title_filter_duplicates">중복</string>
     <string name="title_compact">간략히 보기</string>
     <string name="title_zoom">글씨 크기</string>
+    <string name="title_padding">여백 크기</string>
     <string name="title_select_language">언어 선택</string>
     <string name="title_select_all">모두 선택</string>
     <string name="title_select_found">결과 모두 선택</string>
@@ -655,6 +698,7 @@
     <string name="title_download">다운로드</string>
     <string name="title_report">신고</string>
     <string name="title_fix">수정</string>
+    <string name="title_show">표시</string>
     <string name="title_enable">사용</string>
     <string name="title_enabled">켜짐</string>
     <string name="title_disable">사용 안 함</string>
@@ -740,6 +784,7 @@
     <string name="title_accessibility_to">수신</string>
     <string-array name="pollIntervalNames">
         <item>항상</item>
+        <item>매 5분</item>
         <item>매 15분</item>
         <item>매 30분</item>
         <item>매시간</item>
@@ -858,4 +903,7 @@
         <item>OpenDyslexic</item>
     </string-array>
     <!-- https://www.w3.org/TR/css-fonts-4/#generic-font-families -->
+    <!-- https://www.bouncycastle.org/specifications.html -->
+    <!-- https://datatracker.ietf.org/doc/html/rfc5751#page-29 -->
+    <!-- https://datatracker.ietf.org/doc/html/rfc5751#section-2.7 -->
 </resources>

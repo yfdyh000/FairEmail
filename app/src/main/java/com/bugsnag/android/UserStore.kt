@@ -1,5 +1,7 @@
 package com.bugsnag.android
 
+import com.bugsnag.android.internal.ImmutableConfig
+import com.bugsnag.android.internal.StateObserver
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicReference
@@ -10,7 +12,7 @@ import java.util.concurrent.atomic.AtomicReference
 internal class UserStore @JvmOverloads constructor(
     private val config: ImmutableConfig,
     private val deviceId: String?,
-    file: File = File(config.persistenceDirectory, "user-info"),
+    file: File = File(config.persistenceDirectory.value, "user-info"),
     private val sharedPrefMigrator: SharedPrefMigrator,
     private val logger: Logger
 ) {
@@ -21,9 +23,7 @@ internal class UserStore @JvmOverloads constructor(
 
     init {
         try {
-            if (!file.exists()) {
-                file.createNewFile()
-            }
+            file.createNewFile()
         } catch (exc: IOException) {
             logger.w("Failed to created device ID file", exc)
         }
@@ -55,11 +55,13 @@ internal class UserStore @JvmOverloads constructor(
             else -> UserState(User(deviceId, null, null))
         }
 
-        userState.addObserver { _, arg ->
-            if (arg is StateEvent.UpdateUser) {
-                save(arg.user)
+        userState.addObserver(
+            StateObserver { event ->
+                if (event is StateEvent.UpdateUser) {
+                    save(event.user)
+                }
             }
-        }
+        )
         return userState
     }
 

@@ -62,7 +62,8 @@ public class FragmentAbout extends FragmentBase {
         TextView tvGplV3 = view.findViewById(R.id.tvGplV3);
         LinearLayout llContributors = view.findViewById(R.id.llContributors);
 
-        tvVersion.setText(getString(R.string.title_version, BuildConfig.VERSION_NAME));
+        String version = BuildConfig.VERSION_NAME + BuildConfig.REVISION;
+        tvVersion.setText(getString(R.string.title_version, version));
         tvRelease.setText(BuildConfig.RELEASE_NAME);
 
         long last = 0;
@@ -86,7 +87,7 @@ public class FragmentAbout extends FragmentBase {
                 if (BuildConfig.PLAY_STORE_RELEASE)
                     Helper.view(v.getContext(), Helper.getIntentRate(v.getContext()));
                 else
-                    onMenuChangelog();
+                    Helper.view(v.getContext(), Uri.parse(BuildConfig.CHANGELOG), false);
             }
         });
 
@@ -109,6 +110,8 @@ public class FragmentAbout extends FragmentBase {
             llContributors.addView(tv);
         }
 
+        FragmentDialogTheme.setBackground(context, view, false);
+
         return view;
     }
 
@@ -116,12 +119,6 @@ public class FragmentAbout extends FragmentBase {
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.menu_about, menu);
         super.onCreateOptionsMenu(menu, inflater);
-    }
-
-    @Override
-    public void onPrepareOptionsMenu(Menu menu) {
-        menu.findItem(R.id.menu_changelog).setVisible(!TextUtils.isEmpty(BuildConfig.CHANGELOG));
-        super.onPrepareOptionsMenu(menu);
     }
 
     @Override
@@ -138,7 +135,11 @@ public class FragmentAbout extends FragmentBase {
     }
 
     private void onMenuChangelog() {
-        Helper.view(getContext(), Uri.parse(BuildConfig.CHANGELOG), false);
+        Bundle args = new Bundle();
+        args.putString("name", "CHANGELOG.md");
+        FragmentDialogMarkdown fragment = new FragmentDialogMarkdown();
+        fragment.setArguments(args);
+        fragment.show(getParentFragmentManager(), "changelog");
     }
 
     private void onMenuAttribution() {
@@ -146,6 +147,6 @@ public class FragmentAbout extends FragmentBase {
         args.putString("name", "ATTRIBUTION.md");
         FragmentDialogMarkdown fragment = new FragmentDialogMarkdown();
         fragment.setArguments(args);
-        fragment.show(getParentFragmentManager(), "privacy");
+        fragment.show(getParentFragmentManager(), "attribution");
     }
 }

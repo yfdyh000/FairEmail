@@ -2,7 +2,7 @@
 
 # FairEmail-tuki
 
-Jos sinulla on kysymyksiä, ole hyvä ja tarkista seuraavat usein kysytyt kysymykset. [At the bottom](#user-content-get-support), you can find out how to ask other questions, request features, and report bugs.
+Jos sinulla on kysymyksiä, tarkista seuraavat usein kysytyt kysymykset. [At the bottom](#user-content-get-support), you can find out how to ask other questions, request features, and report bugs.
 
 Wenn Sie eine Frage haben, überprüfen Sie bitte zuerst die nachstehenden häufig gestellten Fragen (FAQ). [Ganz unten erfahren Sie](#user-content-get-support), wie Sie weitere Fragen stellen, Funktionen anfordern und Fehler melden können.
 
@@ -18,15 +18,15 @@ Wenn Sie eine Frage haben, überprüfen Sie bitte zuerst die nachstehenden häuf
 
 <h2><a name="authorizing-accounts"></a>Tilien valtuutus</h2>
 
-In most cases, the quick setup wizard will be able to automatically identify the correct configuration.
+Useimmissa tapauksissa pika-asetusvelho pystyy automaattisesti tunnistamaan oikeat asetukset.
 
-If the quick setup wizard fails, you'll need to manually set up an account (to receive email) and an identity (to send email). For this you'll need the IMAP and SMTP server addresses and port numbers, whether SSL/TLS or STARTTLS should be used and your username (mostly, but not always, your email address) and your password.
+Jos pika-asetusvelho epäonnistuu, tili on määritettävä manuaalisesti (sähköpostin vastaanottamiseksi) ja identiteetti (sähköpostin lähettämiseksi). For this you'll need the IMAP and SMTP server addresses and port numbers, whether SSL/TLS or STARTTLS should be used and your username (mostly, but not always, your email address) and your password.
 
 Searching for *IMAP* and the name of the provider is mostly sufficient to find the right documentation.
 
 In some cases, you'll need to enable external access to your account and/or to use a special (app) password, for instance when two-factor authentication is enabled.
 
-For authorizing:
+Valtuutukseen:
 
 * Gmail / G Suite, katso [kysymys 6](#user-content-faq6)
 * Outlook / Live / Hotmail, katso [kysymys 14](#user-content-faq14)
@@ -38,7 +38,7 @@ For authorizing:
 
 Please see [here](#user-content-faq22) for common error messages and solutions.
 
-Related questions:
+Aiheeseen liittyvät kysymykset:
 
 * [Onko OAuth tuettu?](#user-content-faq111)
 * [Miksi ActiveSync ei ole tuettu?](#user-content-faq133)
@@ -51,7 +51,7 @@ Related questions:
 * Change the swipe left/right target: Settings, tab page Behavior, Set swipe actions
 * Change password: Settings, tap Manual setup, tap Accounts, tap account, change password
 * Set a signature: Settings, tap Manual setup, tap Identities, tap identity, Edit signature.
-* Lisää CC ja BCC osoitteet: napauta ihmisten kuvaketta aiheen lopussa
+* Lisää CC- ja BCC-osoitteet: napauta ihmisten kuvaketta aiheen lopussa
 * Mene seuraavaan tai edelliseen viestiin arkistossa/poistossa: käytösasetuksissa pois käytöstä *Sulje automaattisesti keskustelut* ja valitse *Siirry seuraavaan / edelliseen keskusteluun* *Keskustelun sulkemisen yhteydessä*
 * Lisää yhdistettyyn saapuneet-kansioon kansio: paina kansiota kansiolistassa pitkään ja valitse *Näytä yhdistetyssä saapuneet-kansiossa*
 * Lisää yhdistettyyn saapuneet-kansioon kansio: paina kansiota kansiolistassa pitkään ja valitse *Näytä yhdistetyssä saapuneet-kansiossa*
@@ -64,12 +64,12 @@ Related questions:
 * Change system folders: Settings, tap Manual setup, tap Accounts, tap account, at the bottom
 * Export/import settings: Settings, navigation (left side) menu
 
-<h2><a name="known-problems"></a>Known problem</h2>
+<h2><a name="known-problems"></a>Tunnettu ongelma</h2>
 
-* ~~A [vika Android 5.1 ja 6](https://issuetracker.google.com/issues/37054851) aiheuttaa joskus sovellusten näyttämään väärän aikamuodon. Android-asetuksen vaihtaminen *Käytä 24-tunnin formaattia* saattaa tilapäisesti ratkaista ongelman. workaround lisättiin ~~
+* ~~A [vika Android 5.1 ja 6](https://issuetracker.google.com/issues/37054851) aiheuttaa joskus sovellusten näyttämään väärän aikamuodon. Android-asetuksen vaihtaminen *Käytä 24-tunnin formaattia* saattaa tilapäisesti ratkaista ongelman. Kiertotapa lisättiin.~~
 * ~~A [vika Google Drivessa](https://issuetracker.google.com/issues/126362828) aiheuttaa sen, että Google Driveen vietävät tiedostot ovat tyhjiä. Google on korjannut tämän.~~
-* ~~A [vika AndroidX:ssa](https://issuetracker.google.com/issues/78495471) aiheuttaa joskus FairEmailin kaatumisen pitkään painamalla tai pyyhkäisemällä. Google on korjannut tämän.~~
-* ~~A [vika AndroidX ROOM:ssa](https://issuetracker.google.com/issues/138441698) aiheuttaa joskus kaatumisen "*... Exception while computing database live data ... Riviä ...* " ei voitu lukea. workaround lisättiin ~~
+* ~~[Vika AndroidX:ssa](https://issuetracker.google.com/issues/78495471) aiheuttaa joskus FairEmailin kaatumisen pitkään painamalla tai pyyhkäisemällä. Google on korjannut tämän.~~
+* ~~[Vika AndroidX ROOM:ssa](https://issuetracker.google.com/issues/138441698) aiheuttaa joskus kaatumisen "*... Exception while computing database live data ... Riviä ...* " ei voitu lukea. workaround lisättiin ~~
 * A [vika AndroidX ROOM:ssa](https://issuetracker.google.com/issues/119872129) aiheuttaa joskus kaatumisen "*... Bad notification posted ...*" on some devices once after updating FairEmail and tapping on a notification.
 * [Vika Androidissa](https://issuetracker.google.com/issues/62427912) aiheuttaa joskus kaatumisen "*... Aktiviteettitietuetta ei löydy ...*" FairEmailin päivityksen jälkeen. Uudelleenasennus ([lähde](https://stackoverflow.com/questions/46309428/android-activitythread-reportsizeconfigurations-causes-app-to-freeze-with-black)) saattaa korjata ongelman.
 * A [vika Androidissa](https://issuetracker.google.com/issues/37018931) aiheuttaa joskus kaatumisen "*... InputChannel is not initialized ...* on some devices.
@@ -482,7 +482,7 @@ Some people ask:
 <a name="faq6"></a>
 **(6) How can I login to Gmail / G suite?**
 
-If you use the Play store or GitHub version of FairEmail, you can use the quick setup wizard to easily setup a Gmail account and identity. The Gmail quick setup wizard is not available for third party builds, like the F-Droid build because Google approved the use of OAuth for official builds only.
+Jos käytät Play Kaupan tai GitHubin versiota FairEmailista, voit käyttää pika-asetusvelhoa, että saat määritettyä Gmail-tilin ja identiteetin helposti. Gmailin pika-asetusvelho ei ole käytettävissä kolmannen osapuolen koontiversioissa, kuten F-Droid-versiossa, koska Google on hyväksynyt OAuthin käytön vain virallisissa koontiversioissa.
 
 If you don't want to use or can't use an on-device Google account, for example on recent Huawei devices, you can either enable access for "less secure apps" and use your account password (not advised) or enable two factor authentication and use an app specific password. To use a password you'll need to set up an account and identity via the manual setup instead of via the quick setup wizard.
 

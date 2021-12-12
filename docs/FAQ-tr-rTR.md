@@ -4,17 +4,21 @@
 
 Sorunuzun olması halinde, öncelikle aşağıda yer alan sıkça sorulan soruları kontrol ediniz. [Sayfanın altında](#user-content-get-support) diğer soruları sormayı, özellikleri talep etmeyi ve hata bildirmeyi nasıl yapacağınızı öğrenebilirsiniz.
 
-Eğer bir sorunuz varsa, lütfen önce sıkça sorulan soruları kontrol edin (SSS). Nasıl daha fazla soru sorabileceğiniz, özellik talep edebileceğiniz ve hataları nasıl bildirebileceğinizi [aşağıdan öğrenebilirsiniz.](#user-content-get-support)
+Herhangi bir sorunuz varsa, lütfen önce aşağıdaki sıkça sorulan soruları (SSS) kontrol edin.
+
+aşağıda < /0>hakkında bilgi edinin, daha fazla soru sorabilir, özellikler talep edebilir ve hataları bildirebilirsiniz.</p> 
+
+
 
 ## Dizin
 
-* [Hesap Yetkilendirme](#user-content-authorizing-accounts)
+* [Hesapları yetkilendirme](#user-content-authorizing-accounts)
 * [Nasıl yapılır?](#user-content-howto)
-* [Bilinen hatalar](#user-content-known-problems)
+* [Bilinen hatalar.](#user-content-known-problems)
 * [Planlanan Özellikler](#user-content-planned-features)
 * [Sıkça talep edilen özellikler](#user-content-frequently-requested-features)
 * [Sıkça Sorulan Sorular](#user-content-frequently-asked-questions)
-* [Yardım](#user-content-get-support)
+* [Yardım Al](#user-content-get-support)
 
 <h2><a name="authorizing-accounts"></a>Hesap Yetkilendirme</h2>
 
@@ -28,13 +32,13 @@ Bazı durumlarda, hesabınıza harici erişimi etkinleştirmeniz ve / veya özel
 
 Yetkilendirmek için:
 
-* Gmail / G Suite, [6. soru](#user-content-faq6)ya bakınız
-* Outlook / Live / Hotmail, [14. soru](#user-content-faq14)ya bakınız
-* Office 365, [14. soru](#user-content-faq156)ya bakınız
-* Microsoft Exchange, [8. soru](#user-content-faq8)ya bakınız
-* Yahoo, AOL and Sky, [88. soru](#user-content-faq88)ya bakınız
-* Apple iCloud, [148. soru](#user-content-faq148)ya bakınız
-* Free.fr, [157. soru](#user-content-faq157)ya bakınız
+* Gmail/G Suite, [6. soruna](#user-content-faq6) bakınız
+* Outlook/Live/Hotmail, [14. soruna](#user-content-faq14) bakınız
+* Office 365, [14. soruna](#user-content-faq156) bakınız
+* Microsoft Exchange, [8. soruna](#user-content-faq8) bakınız
+* Yahoo, AOL ve Sky, [88. soruna](#user-content-faq88) bakınız
+* Apple iCloud, [148. soruna](#user-content-faq148) bakınız
+* Free.fr, [157. soruna](#user-content-faq157) bakınız
 
 Yaygın hata mesajları ve çözümleri için lütfen [burayı](#user-content-faq22) kontrol ediniz.
 
@@ -44,6 +48,8 @@ Yaygın hata mesajları ve çözümleri için lütfen [burayı](#user-content-fa
 * [ActiveSync neden desteklenmiyor?](#user-content-faq133)
 
 <a name="howto">
+
+
 
 ## Nasıl yapılır?
 
@@ -66,15 +72,18 @@ Yaygın hata mesajları ve çözümleri için lütfen [burayı](#user-content-fa
 
 <h2><a name="known-problems"></a>Bilinen sorun</h2>
 
-* ~~ Android 5.1 ve 6'daki bir [ hata](https://issuetracker.google.com/issues/37054851), uygulamaların bazen yanlış bir saat biçimi göstermesine neden oluyor. Android ayarını, * 24 saatlik biçimi kullan* olarak ayarlamak sorunu geçici olarak çözebilir. Bir geçici çözüm eklendi.~~
+* ~~[Android 5.1 ve 6'daki hata ](https://issuetracker.google.com/issues/37054851), uygulamaların bazen yanlış bir saat biçimi göstermesine neden oluyor. Android ayarını, * 24 saatlik biçimi kullan* olarak ayarlamak sorunu geçici olarak çözebilir. Bir geçici çözüm eklendi.~~
 * ~~ Google Drive'daki bir [ hata ](https://issuetracker.google.com/issues/126362828), Google Drive'a dışa aktarılan dosyaların boş olmasına neden oluyor. Google bunu düzeltti. ~~
 * ~~ AndroidX'teki bir [ hata ](https://issuetracker.google.com/issues/78495471), FairEmail'in bazen uzun basma veya kaydırma sırasında çökmesine neden oluyor. Google bunu düzeltti. ~~
-* ~~ AndroidX ROOM'daki bir [ hatası ](https://issuetracker.google.com/issues/138441698), bazen çökmeye sebep oluyor "*... Veritabanı canlı verilerini hesaplarken istisna ... Satır okunamadı ... * ". Bir geçici çözüm eklendi. ~~
+* ~~ AndroidX ROM'daki bir [ hatası ](https://issuetracker.google.com/issues/138441698), bazen çökmeye sebep oluyor "*... Veritabanı canlı verilerini hesaplarken datalar... Satır okunamadı ... * ". Bir geçici çözüm eklendi. ~~
 * Bir [Android'deki bir hata](https://issuetracker.google.com/issues/119872129) FairEmail'in "* ile çökmesine neden oluyor... FairEmail'i güncelledikten ve bir bildirime dokunduktan sonra bazı cihazlarda bir kez hatalı bildirim gönderildi...*".
-* A [bug in Android](https://issuetracker.google.com/issues/62427912) sometimes causes a crash with "*... ActivityRecord not found for ...*" after updating FairEmail. ([source](https://stackoverflow.com/questions/46309428/android-activitythread-reportsizeconfigurations-causes-app-to-freeze-with-black)) yeniden yükleme sorunu çözebilir.
-* A [bug in Android](https://issuetracker.google.com/issues/37018931) sometimes causes a crash with *... InputChannel is not initialized ...* on some devices.
-* ~~A [bug in LineageOS](https://review.lineageos.org/c/LineageOS/android_frameworks_base/+/265273) sometimes causes a crash with *... java.lang.ArrayIndexOutOfBoundsException: length=...; index=... ...*.~~
-* Android 5.x'te Nova Launcher'daki bir hata, Nova Launcher'ın erişilebilirlik hizmetine erişimi olduğunda FairEmail'in bir *java.lang.StackOverflowError* ile çökmesine neden oluyor.
+* [Android'deki bir hata](https://issuetracker.google.com/issues/62427912) bazen "*... ActivityRecord bulunamadı ...< / 0>" fairemail'i güncelledikten sonra. ([source](https://stackoverflow.com/questions/46309428/android-activitythread-reportsizeconfigurations-causes-app-to-freeze-with-black)) yeniden yükleme sorunu çözebilir.</li> 
+  
+  * Android'de bir < 0>hatası < / 0> bazen *ile bir çökmeye neden olur... Inputchannel başlatılmadı ...< / 0> bazı cihazlarda.</li> 
+  
+  * ~~LineageOS </a> ' daki hatası bazen *ile çökmeye neden olur... java.dil.Arrayındexoutofboundsexception: uzunluk=...; dizin=... ...*.~~</li> 
+  
+  * Android 5.x'te Nova Launcher'daki bir hata, Nova Launcher'ın erişilebilirlik hizmetine erişimi olduğunda FairEmail'in bir *java.lang.StackOverflowError* ile çökmesine neden oluyor.
 * ~~Klasör seçici bazen henüz bilinmeyen nedenlerle klasör göstermez. Bu düzeltilmiş görünüyor.~~
 * ~~[AndroidX'te bir hata](https://issuetracker.google.com/issues/64729576), hızlı kaydırma çubuğunu yakalamayı zorlaştırıyor. Bir geçici çözüm eklendi.~~
 * ~~YubiKey ile şifreleme, sonsuz bir döngüye neden oluyor. Bu, [OpenKeychain](https://github.com/open-keychain/open-keychain/issues/2507)'deki bir hatadan kaynaklanıyor gibi görünüyor.~~
@@ -82,24 +91,26 @@ Yaygın hata mesajları ve çözümleri için lütfen [burayı](#user-content-fa
 * [setLocalOnly](https://developer.android.com/reference/androidx/core/app/NotificationCompat.Builder.html#setLocalOnly(boolean)) yok sayıldığı için Samsung saatlerinde bir mesaj metninin önizlemesi (her zaman) görünmez. Mesaj önizleme metinlerinin Pebble 2, Fitbit Charge 3, Mi band 3 ve Xiaomi Amazfit BIP giyilebilir cihazlarda doğru görüntülendiği biliniyor. Ayrıca [bu SSS](#user-content-faq126)'e bakın.
 * [Android 6.0'daki bir hata](https://issuetracker.google.com/issues/37068143), * ile kilitlenmeye neden oluyor... Geçersiz ofset: ... Geçerli aralık ...* metin seçildiğinde ve seçilen metnin dışına dokunulduğunda. Bu hata Android 6.0.1'de düzeltildi.
 * Orijinal mesajlar, kayan bir görünümde (konuşma listesi) katıştırılmış bir Web Görünümünde gösterildiğinden, dahili (sabit) bağlantılar çalışmayacaktır. Bu, düzeltilemeyen veya çözülemeyen bir Android sınırlamasıdır.
-* Language detection [is not working anymore](https://issuetracker.google.com/issues/173337263) on Pixel devices with (upgraded to?) Android 11
-* A [bug in OpenKeychain](https://github.com/open-keychain/open-keychain/issues/2688) causes invalid PGP signatures when using a hardware token.
+* Dil algılamaartık çalışmıyor < /0> piksel cihazlarda (yükseltildi?) Android 11</li> 
+  
+  * Birhata openkeychain < /0> bir donanım belirteci kullanırken geçersiz PGP imzaları neden olur.</li> </ul>
 
 <h2><a name="planned-features"></a>Planlanan özellikler</h2>
 
-* ~~ Talep üzerine senkronize et (manuel) ~~
+  
+  * ~~İsteğe bağlı olarak senkronize et (manuel)~~
 * ~~Yarı-otomatik şifreleme~~
 * ~~ Mesajı kopyala ~~
 * ~~Renkli yıldızlar~~
 * ~~Her bir klasör için bildirim ayarı~~
-* ~~ İmzalar için yerel resimler seçmek ~~ (bu eklenmeyecektir çünkü resim dosyası yönetimi gerektirmektedir ve resimler zaten çoğu e-posta istemcisinde varsayılan olarak gösterilmemektedir)
-* ~~ Bir kuralla eşleşen mesajları göster ~~
-* ~~[ ManageSieve ](https://tools.ietf.org/html/rfc5804) ~~ (uygun bir lisansa sahip ve bağımlılıkları olmayan korunan Java kitaplıkları yoktur ve bunun yanında, FairEmail'in kendi filtre kuralları vardır)
-* ~~ Ekli / eksiz mesajları ara ~~ (bu eklenemez çünkü IMAP ekleri aramayı desteklemiyor)
-* ~~ Bir klasör arayın ~~ (hiyerarşik bir klasör listesini filtrelemek sorun teşkil eder)
-* ~~ Arama önerileri ~~
-* ~~[ Otomatik Şifreleme Kurulum Mesajı ](https://autocrypt.org/autocrypt-spec-1.0.0.pdf) (bölüm 4.4) ~~ (IMO, bir e-posta istemcisinin istisnai bir kullanım durumu için hassas şifreleme anahtarlarını işlemesine izin verirken, OpenKeychain de anahtarları dışa aktarabilir)
-* ~~ Genel birleşik klasörler ~~
+* ~~İmzalar için yerel resimleri seçin~~ (bu, görüntü dosyası yönetimi gerektirdiği ve çoğu e-posta istemcisinde varsayılan olarak görüntüler gösterilmediği için eklenmeyecektir.)
+* ~~Kuralla eşleşen mesajları göster~~
+* ~~[ ManageSieve ](https://tools.ietf.org/html/rfc5804) ~~ (uygun lisansa sahip ve bağımlılıkları olmayan bakımlı Java kitaplıkları yoktur ve bunun yanı sıra FairEmail'in kendi filtre kuralları vardır.)
+* ~~Ekli/eksiz mesajları ara~~ (bu eklenemez çünkü IMAP eklerde aramayı desteklemez)
+* ~~Klasör ara~~ (hiyerarşik bir klasör listesini filtrelemek sorunlu)
+* ~~Arama önerileri~~
+* ~~[Otomatik Şifreleme Kurulum Mesajı](https://autocrypt.org/autocrypt-spec-1.0.0.pdf) (Bölüm 4.4)~~ (IMO, OpenKeychain anahtarları dışa aktarabilirken, istisnai bir kullanım durumu için bir e-posta istemcisinin hassas şifreleme anahtarlarını işlemesine izin vermek iyi bir fikir değildir.)
+* ~~Genel birleştirilmiş klasörler~~
 * ~~ Hesap başına yeni mesaj bildirim programları ~~ (kurallara bir zaman koşulu eklenerek uygulanır, böylece mesajlar seçilen dönemlerde ertelenebilir)
 * ~~ Hesapları ve kimlikleri kopyalayın ~~
 * ~~ Kıstırma yakınlaştırma ~~ (kayan bir listede güvenilir bir şekilde mümkün değildir; bunun yerine tam ileti görünümü yakınlaştırılabilir)
@@ -128,29 +139,29 @@ Tasarım birçok tartışmaya dayanıyor ve isterseniz bunu [ bu forumda ](https
 
 * [(1) Hangi izinler gerekli ve neden?](#user-content-faq1)
 * [(2) Neden gösterilen kalıcı bir bildirim var?](#user-content-faq2)
-* [(3) What are operations and why are they pending?](#user-content-faq3)
-* [(4) How can I use an invalid security certificate / empty password / plain text connection?](#user-content-faq4)
-* [(5) How can I customize the message view?](#user-content-faq5)
-* [(6) How can I login to Gmail / G suite?](#user-content-faq6)
-* [(7) Why are sent messages not appearing (directly) in the sent folder?](#user-content-faq7)
-* [(8) Can I use a Microsoft Exchange account?](#user-content-faq8)
-* [(9) What are identities / how do I add an alias?](#user-content-faq9)
-* [~~(11) Why is POP not supported?~~](#user-content-faq11)
-* [~~(10) What does 'UIDPLUS not supported' mean?~~](#user-content-faq10)
-* [(12) How does encryption/decryption work?](#user-content-faq12)
-* [(13) How does search on device/server work?](#user-content-faq13)
-* [(14) How can I set up an Outlook / Live / Hotmail account?](#user-content-faq14)
-* [(15) Why does the message text keep loading?](#user-content-faq15)
-* [(16) Why are messages not being synchronized?](#user-content-faq16)
-* [~~(17) Why does manual synchronize not work?~~](#user-content-faq17)
-* [(18) Why is the message preview not always shown?](#user-content-faq18)
-* [(19) Why are the pro features so expensive?](#user-content-faq19)
+* [(3) işlemler nelerdir ve neden beklemede?](#user-content-faq3)
+* [(4) geçersiz bir güvenlik sertifikası / boş şifre / düz metin bağlantısını nasıl kullanabilirim?](#user-content-faq4)
+* [(5) mesaj görünümünü nasıl özelleştirebilirim?](#user-content-faq5)
+* [(6) Gmail / g suite'e nasıl giriş yapabilirim?](#user-content-faq6)
+* [(7) gönderilen mesajlar neden gönderilen klasörde (doğrudan) görünmüyor?](#user-content-faq7)
+* [(8) Bir Microsoft Exchange hesabı kullanabilir miyim?](#user-content-faq8)
+* [(9) kimlikler nelerdir / nasıl bir takma ad ekleyebilirim?](#user-content-faq9)
+* [~~(11) neden POP desteklenmiyor?~~](#user-content-faq11)
+* [~ ~ (10) 'uıdplus desteklenmiyor' ne anlama geliyor?~~](#user-content-faq10)
+* [(12) şifreleme/şifre çözme nasıl çalışır?](#user-content-faq12)
+* [(13) cihaz/sunucuda arama nasıl çalışır?](#user-content-faq13)
+* [(14) bir Outlook / Live / Hotmail hesabını nasıl kurabilirim?](#user-content-faq14)
+* [(15) mesaj metni neden yüklenmeye devam ediyor?](#user-content-faq15)
+* [(16) mesajlar neden senkronize edilmiyor?](#user-content-faq16)
+* [~~(17) manuel senkronizasyon neden çalışmıyor?~~](#user-content-faq17)
+* [(18) mesaj önizlemesi neden her zaman gösterilmiyor?](#user-content-faq18)
+* [(19) pro özellikleri neden bu kadar pahalı?](#user-content-faq19)
 * [(20) Geri ödeme alabilir miyim?](#user-content-faq20)
-* [(21) How do I enable the notification light?](#user-content-faq21)
-* [(22) What does account/folder error ... mean?](#user-content-faq22)
-* [(23) Neden alarm alıyorum? ?](#user-content-faq23)
-* [(24) What is browse messages on the server?](#user-content-faq24)
-* [(25) Why can't I select/open/save an image, attachment or a file?](#user-content-faq25)
+* [(21) bildirim ışığını nasıl etkinleştiririm?](#user-content-faq21)
+* [(22) hesap/klasör hatası ne yapar ... demek?](#user-content-faq22)
+* [(23) Neden alarm çalmıyor ?](#user-content-faq23)
+* [(24) sunucudaki iletilere Gözat nedir?](#user-content-faq24)
+* [(25) neden bir resim, ek veya dosya seçemiyorum/açamıyorum/kaydedemiyorum?](#user-content-faq25)
 * [(26) Fairemail'i kendi dilimde çevirmeye yardımcı olabilir miyim?](#user-content-faq26)
 * [(27) Gömülü ve harici görüntüleri nasıl ayırt edebilirim?](#user-content-faq27)
 * [(28) Durum çubuğu bildirimlerini nasıl yönetebilirim?](#user-content-faq28)
@@ -164,157 +175,157 @@ Tasarım birçok tartışmaya dayanıyor ve isterseniz bunu [ bu forumda ](https
 * [(36) Ayarlar dosyaları nasıl şifrelenir?](#user-content-faq36)
 * [(37) Şifreler nasıl saklanıyor?](#user-content-faq37)
 * [(39) Fairemail'in pil kullanımını nasıl azaltabilirim?](#user-content-faq39)
-* [(40) How can I reduce the data usage of FairEmail?](#user-content-faq40)
-* [(41) How can I fix the error 'Handshake failed' ?](#user-content-faq41)
-* [(42) Can you add a new provider to the list of providers?](#user-content-faq42)
+* [(40) Fairemail'in veri kullanımını nasıl azaltabilirim?](#user-content-faq40)
+* [(41) 'el sıkışma başarısız oldu' hatasını nasıl düzeltebilirim ?](#user-content-faq41)
+* [(42) sağlayıcılar listesine yeni bir sağlayıcı ekleyebilir misiniz?](#user-content-faq42)
 * [(43) Orijinali gösterebilir misiniz ?](#user-content-faq43)
-* [(44) Can you show contact photos / identicons in the sent folder?](#user-content-faq44)
-* [(45) How can I fix 'This key is not available. To use it, you must import it as one of your own!' ?](#user-content-faq45)
-* [(46) Why does the message list keep refreshing?](#user-content-faq46)
-* [(47) How do I solve the error 'No primary account or no drafts folder' ?](#user-content-faq47)
-* [~~(48) How do I solve the error 'No primary account or no archive folder' ?~~](#user-content-faq48)
-* [(49) How do I fix 'An outdated app sent a file path instead of a file stream' ?](#user-content-faq49)
-* [(50) Can you add an option to synchronize all messages?](#user-content-faq50)
-* [(51) How are folders sorted?](#user-content-faq51)
-* [(52) Why does it take some time to reconnect to an account?](#user-content-faq52)
-* [(53) Can you stick the message action bar to the top/bottom?](#user-content-faq53)
-* [~~(54) How do I use a namespace prefix?~~](#user-content-faq54)
-* [(55) How can I mark all messages as read / move or delete all messages?](#user-content-faq55)
-* [(56) Can you add support for JMAP?](#user-content-faq56)
-* [(57) Can I use HTML in signatures?](#user-content-faq57)
-* [(58) What does an open/closed email icon mean?](#user-content-faq58)
-* [(59) Can original messages be opened in the browser?](#user-content-faq59)
+* [(44) gönderilen klasörde kişi fotoğraflarını / kimliklerini gösterebilir misiniz?](#user-content-faq44)
+* [(45) nasıl düzeltebilirim 'bu anahtar mevcut değil. Bunu kullanmak için, kendi biri olarak almalısınız!' ?](#user-content-faq45)
+* [(46) Mesaj listesi neden sürekli yenileniyor?](#user-content-faq46)
+* [(47) 'birincil hesap yok veya Taslak klasörü yok' hatasını nasıl çözebilirim ?](#user-content-faq47)
+* [~~(48) 'Birincil hesap yok veya arşiv klasörü yok' hatasını nasıl çözerim?~~](#user-content-faq48)
+* [(49) 'Eski bir uygulama dosya akışı yerine dosya yolu gönderdi' sorununu nasıl düzeltirim?](#user-content-faq49)
+* [(50) tüm mesajları senkronize etmek için bir seçenek ekleyebilir misiniz?](#user-content-faq50)
+* [(50) tüm mesajları senkronize etmek için bir seçenek ekleyebilir misiniz?](#user-content-faq51)
+* [(52) bir hesaba yeniden bağlanmak neden biraz zaman alıyor?](#user-content-faq52)
+* [(53) mesaj eylem çubuğunu üst/alt tarafa yapıştırabilir misiniz?](#user-content-faq53)
+* [~~(54) ad alanı önekini nasıl kullanırım?~~](#user-content-faq54)
+* [(55) tüm mesajları okuma / taşıma veya silme olarak nasıl işaretleyebilirim?](#user-content-faq55)
+* [(56) JMAP için destek ekleyebilir misiniz?](#user-content-faq56)
+* [(57) İmzalarda HTML kullanabilir miyim?](#user-content-faq57)
+* [(58) Açık/kapalı e-posta simgesi ne anlama geliyor?](#user-content-faq58)
+* [(59) Orijinal mesajlar tarayıcıda açılabilir mi?](#user-content-faq59)
 * [(60) Biliyor muydunuz ...?](#user-content-faq60)
-* [(61) Why are some messages shown dimmed?](#user-content-faq61)
-* [(62) Which authentication methods are supported?](#user-content-faq62)
-* [(63) How are images resized for displaying on screens?](#user-content-faq63)
-* [~~(64) Can you add custom actions for swipe left/right?~~](#user-content-faq64)
-* [(65) Why are some attachments shown dimmed?](#user-content-faq65)
-* [(66) Is FairEmail available in the Google Play Family Library?](#user-content-faq66)
-* [(67) How can I snooze conversations?](#user-content-faq67)
-* [~~(68) Why can Adobe Acrobat reader not open PDF attachments / Microsoft apps not open attached documents?~~](#user-content-faq68)
-* [(69) Can you add auto scroll up on new message?](#user-content-faq69)
-* [(70) When will messages be auto expanded?](#user-content-faq70)
+* [(61) Neden bazı mesajlar soluk görünüyor?](#user-content-faq61)
+* [(62) Hangi kimlik doğrulama yöntemleri destekleniyor?](#user-content-faq62)
+* [(63) Görüntüler ekranlarda gösterilmek üzere nasıl yeniden boyutlandırılır?](#user-content-faq63)
+* [~~(64) Sola/sağa kaydırmak için özel eylemler ekleyebilir misiniz?~~](#user-content-faq64)
+* [(65) Neden bazı ekler soluk görünüyor?](#user-content-faq65)
+* [(66) FairEmail, Google Play Aile Kitaplığı'nda mevcut mu?](#user-content-faq66)
+* [(67) Konuşmaları nasıl erteleyebilirim?](#user-content-faq67)
+* [~~(68) Adobe Acrobat okuyucu neden PDF eklerini açamıyor / Microsoft uygulamaları ekli belgeleri açamıyor?~~](#user-content-faq68)
+* [(69) Yeni mesaja otomatik yukarı kaydırma ekleyebilir misiniz?](#user-content-faq69)
+* [(70) Mesajlar ne zaman otomatik olarak genişletilecek?](#user-content-faq70)
 * [(71) Filtre kurallarını nasıl kullanırım?](#user-content-faq71)
 * [(72) Birincil hesaplar / kimlikler nedir?](#user-content-faq72)
 * [(73) Mesajları hesaplar arasında taşımak güvenli / verimli mi?](#user-content-faq73)
 * [(74) Neden yinelenen iletiler görüyorum?](#user-content-faq74)
-* [(75) Can you make an iOS, Windows, Linux, etc version?](#user-content-faq75)
-* [(76) What does 'Clear local messages' do?](#user-content-faq76)
-* [(77) Why are messages sometimes shown with a small delay?](#user-content-faq77)
-* [(78) How do I use schedules?](#user-content-faq78)
-* [(79) How do I use synchronize on demand (manual)?](#user-content-faq79)
-* [~~(80) How do I fix the error 'Unable to load BODYSTRUCTURE'?~~](#user-content-faq80)
-* [~~(81) Can you make the background of the original message dark in the dark theme?~~](#user-content-faq81)
-* [(82) What is a tracking image?](#user-content-faq82)
-* [(84) What are local contacts for?](#user-content-faq84)
-* [(85) Why is an identity not available?](#user-content-faq85)
-* [~~(86) What are 'extra privacy features'?~~](#user-content-faq86)
-* [(87) What does 'invalid credentials' mean?](#user-content-faq87)
-* [(88) How can I use a Yahoo, AOL or Sky account?](#user-content-faq88)
+* [(75) Bir iOS, Windows, Linux vb. sürümü yapabilir misiniz?](#user-content-faq75)
+* [(76) 'Yerel mesajları temizle' ne işe yarar?](#user-content-faq76)
+* [(77) Mesajlar neden bazen küçük bir gecikmeyle gösteriliyor?](#user-content-faq77)
+* [(78) Zamanlamayı nasıl kullanırım?](#user-content-faq78)
+* [(79) Senkronizasyonu istek üzerine nasıl kullanırım (manuel)?](#user-content-faq79)
+* [~~(80) 'BODYSTRUCTURE yüklenemiyor' hatasını nasıl düzeltirim?~~](#user-content-faq80)
+* [~~(81) Karanlık temada orijinal mesajın arka planını karanlık yapabilir misin?~~](#user-content-faq81)
+* [(82) İzleme görüntüsü nedir?](#user-content-faq82)
+* [(84) Yerel kişiler ne içindir?](#user-content-faq84)
+* [(85) Neden bir kimlik mevcut değil?](#user-content-faq85)
+* [~~(86) 'Ekstra gizlilik özellikleri' nelerdir?~~](#user-content-faq86)
+* [(87) 'Geçersiz kimlik bilgileri' ne anlama geliyor?](#user-content-faq87)
+* [(88) Bir Yahoo, AOL veya Sky hesabını nasıl kullanabilirim?](#user-content-faq88)
 * [(89) Yalnızca düz metin mesajları nasıl gönderebilirim?](#user-content-faq89)
-* [(90) Why are some texts linked while not being a link?](#user-content-faq90)
-* [~~(91) Can you add periodical synchronization to save battery power?~~](#user-content-faq91)
-* [(92) Can you add spam filtering, verification of the DKIM signature and SPF authorization?](#user-content-faq92)
-* [(93) Can you allow installation/data storage on external storage media (sdcard)?](#user-content-faq93)
-* [(94) What does the red/orange stripe at the end of the header mean?](#user-content-faq94)
-* [(95) Why are not all apps shown when selecting an attachment or image?](#user-content-faq95)
-* [(96) Where can I find the IMAP and SMTP settings?](#user-content-faq96)
-* [(97) What is 'cleanup' ?](#user-content-faq97)
-* [(98) Why can I still pick contacts after revoking contacts permissions?](#user-content-faq98)
-* [(99) Can you add a rich text or markdown editor?](#user-content-faq99)
-* [(100) How can I synchronize Gmail categories?](#user-content-faq100)
-* [(101) What does the blue/orange dot at the bottom of the conversations mean?](#user-content-faq101)
-* [(102) How can I enable auto rotation of images?](#user-content-faq102)
+* [(90) Bazı metinler neden bir bağlantı değilken bağlantılıdır?](#user-content-faq90)
+* [~~(91) Pil gücünden tasarruf etmek için periyodik senkronizasyon ekleyebilir misiniz?~~](#user-content-faq91)
+* [(92) Spam filtreleme, DKIM imzasının doğrulanması ve SPF yetkilendirmesi ekleyebilir misiniz?](#user-content-faq92)
+* [(93) Harici depolama ortamında (sdcard) kurulum/veri depolamasına izin verebilir misiniz?](#user-content-faq93)
+* [(94) Başlığın sonundaki kırmızı/turuncu şerit ne anlama geliyor?](#user-content-faq94)
+* [(95) Bir ek veya resim seçerken neden tüm uygulamalar gösterilmiyor?](#user-content-faq95)
+* [(96) IMAP ve SMTP ayarlarını nerede bulabilirim?](#user-content-faq96)
+* [(97) 'Temizleme' nedir?](#user-content-faq97)
+* [(98) Kişi izinlerini iptal ettikten sonra neden hala kişileri seçebiliyorum?](#user-content-faq98)
+* [(99) Zengin bir metin veya işaretleme düzenleyicisi ekleyebilir misiniz?](#user-content-faq99)
+* [(100) Gmail kategorilerini nasıl senkronize edebilirim?](#user-content-faq100)
+* [(101) Görüşmelerin altındaki mavi/turuncu nokta ne anlama geliyor?](#user-content-faq101)
+* [(102) Görüntülerin otomatik olarak döndürülmesini nasıl etkinleştirebilirim?](#user-content-faq102)
 * [(103) Nasıl ses kaydı alabilirim?](#user-content-faq158)
 * [(104) Hata raporlama hakkında bilmem gerekenler nelerdir?](#user-content-faq104)
-* [(105) How does the roam-like-at-home option work?](#user-content-faq105)
-* [(106) Which launchers can show a badge count with the number of unread messages?](#user-content-faq106)
+* [(105) Evdeki gibi dolaş seçeneği nasıl çalışır?](#user-content-faq105)
+* [(106) Hangi başlatıcılar, okunmamış mesajların sayısıyla birlikte bir rozet sayısı gösterebilir?](#user-content-faq106)
 * [(107) Renkli yıldızları nasıl kullanırım?](#user-content-faq107)
-* [~~(108) Can you add permanently delete messages from any folder?~~](#user-content-faq108)
-* [~~(109) Why is 'select account' available in official versions only?~~](#user-content-faq109)
-* [(110) Why are (some) messages empty and/or attachments corrupted?](#user-content-faq110)
+* [~~(108) Herhangi bir klasörden kalıcı olarak silinen mesajları ekleyebilir misiniz?~~](#user-content-faq108)
+* [~~(109) 'Hesap seç' neden yalnızca resmi sürümlerde kullanılabilir?~~](#user-content-faq109)
+* [(110) Neden (bazı) iletiler boş ve/veya ekler bozuk?](#user-content-faq110)
 * [(111) OAuth destekleniyor mu?](#user-content-faq111)
 * [(112) Hangi e-posta sağlayıcısını öneriyorsunuz?](#user-content-faq112)
-* [(113) How does biometric authentication work?](#user-content-faq113)
-* [(114) Can you add an import for the settings of other email apps?](#user-content-faq114)
-* [(115) Can you add email address chips?](#user-content-faq115)
-* [~~(116) How can I show images in messages from trusted senders by default?~~](#user-content-faq116)
-* [(117) Can you help me restore my purchase?](#user-content-faq117)
-* [(118) What does 'Remove tracking parameters' exactly?](#user-content-faq118)
-* [~~(119) Can you add colors to the unified inbox widget?~~](#user-content-faq119)
-* [(120) Why are new message notifications not removed on opening the app?](#user-content-faq120)
-* [(121) How are messages grouped into a conversation?](#user-content-faq121)
-* [~~(122) Why is the recipient name/email address show with a warning color?~~](#user-content-faq122)
-* [(123) What will happen when FairEmail cannot connect to an email server?](#user-content-faq123)
-* [(124) Why do I get 'Message too large or too complex to display'?](#user-content-faq124)
-* [(125) What are the current experimental features?](#user-content-faq125)
-* [(126) Can message previews be sent to my wearable?](#user-content-faq126)
-* [(127) How can I fix 'Syntactically invalid HELO argument(s)'?](#user-content-faq127)
-* [(128) How can I reset asked questions, for example to show images?](#user-content-faq128)
-* [(129) Are ProtonMail, Tutanota supported?](#user-content-faq129)
-* [(130) Mesaj hatası ne anlama geliyor?](#user-content-faq130)
-* [(131) Can you change the direction for swiping to previous/next message?](#user-content-faq131)
+* [(113) Biyometrik kimlik doğrulama nasıl çalışır?](#user-content-faq113)
+* [(114) Diğer e-posta uygulamalarının ayarları için bir içe aktarma ekleyebilir misiniz?](#user-content-faq114)
+* [(115) E-posta adresi çipleri ekleyebilir misiniz?](#user-content-faq115)
+* [~~(116) Varsayılan olarak güvenilir göndericilerden gelen iletilerdeki resimleri nasıl gösterebilirim?~~](#user-content-faq116)
+* [(117) Satın alma işlemimi geri yüklememe yardım eder misiniz?](#user-content-faq117)
+* [(118) 'İzleme parametrelerini kaldır' tam olarak nedir?](#user-content-faq118)
+* [~~(119) Birleşik gelen kutusu widget'ına renk ekleyebilir misiniz?~~](#user-content-faq119)
+* [(120) Uygulama açıldığında yeni mesaj bildirimleri neden kaldırılmıyor?](#user-content-faq120)
+* [(121) Konuşmada mesajlar nasıl gruplandırılır?](#user-content-faq121)
+* [~~(122) Alıcı adı/e-posta adresi neden bir uyarı rengiyle gösteriliyor?~~](#user-content-faq122)
+* [(123) FairEmail bir e-posta sunucusuna bağlanamadığında ne olacak?](#user-content-faq123)
+* [(124) Neden 'Mesaj görüntülenemeyecek kadar büyük veya çok karmaşık' mesajı alıyorum?](#user-content-faq124)
+* [(125) Mevcut deneysel özellikler nelerdir?](#user-content-faq125)
+* [(126) Giyilebilir cihazıma (Akıllı saatler gibi) mesaj önizlemeleri gönderilebilir mi?](#user-content-faq126)
+* [(127) 'Sözdizimsel olarak geçersiz HELO argüman(lar)'ı nasıl düzeltebilirim?](#user-content-faq127)
+* [(128) Örneğin resimleri göstermek için sorulan soruları nasıl sıfırlayabilirim?](#user-content-faq128)
+* [(129) ProtonMail, Tutanota destekleniyor mu?](#user-content-faq129)
+* [(130) Mesaj hatası.. ne anlama geliyor?](#user-content-faq130)
+* [(131) Önceki/sonraki mesaja kaydırma yönünü değiştirebilir misiniz?](#user-content-faq131)
 * [(132) Yeni mesaj bildirimleri neden sessiz?](#user-content-faq132)
-* [(133) Why is ActiveSync not supported?](#user-content-faq133)
-* [(134) Can you add deleting local messages?](#user-content-faq134)
-* [(135) Why are trashed messages and drafts shown in conversations?](#user-content-faq135)
-* [(136) How can I delete an account/identity/folder?](#user-content-faq136)
-* [(137) How can I reset 'Don't ask again'?](#user-content-faq137)
-* [(138) Can you add calendar/contact/tasks/notes management?](#user-content-faq138)
-* [(139) How do I fix 'User is authenticated but not connected'?](#user-content-faq139)
-* [(140) Why does the message text contain strange characters?](#user-content-faq140)
-* [(141) How can I fix 'A drafts folder is required to send messages'?](#user-content-faq141)
-* [(142) How can I store sent messages in the inbox?](#user-content-faq142)
-* [~~(143) Can you add a trash folder for POP3 accounts?~~](#user-content-faq143)
+* [(133) ActiveSync neden desteklenmiyor?](#user-content-faq133)
+* [(134) Silinen yerel mesajları ekleyebilir misiniz?](#user-content-faq134)
+* [(135) Konuşmalarda neden çöp kutusuna atılan mesajlar ve taslaklar gösteriliyor?](#user-content-faq135)
+* [(136) Bir hesabı/kimliği/klasörü nasıl silebilirim?](#user-content-faq136)
+* [(137) 'Tekrar sorma'yı nasıl sıfırlayabilirim?](#user-content-faq137)
+* [(138) Takvim/kişi/görevler/not yönetimi ekleyebilir misiniz?](#user-content-faq138)
+* [(139) 'Kullanıcının kimliği doğrulandı ancak bağlı değil' sorununu nasıl düzeltirim?](#user-content-faq139)
+* [(140) Mesaj metni neden garip karakterler içeriyor?](#user-content-faq140)
+* [(141) 'Mesaj göndermek için bir taslak klasörü gerekli' sorununu nasıl düzeltebilirim?](#user-content-faq141)
+* [(142) Gönderilen mesajları gelen kutusunda nasıl saklayabilirim?](#user-content-faq142)
+* [~~(143) POP3 hesapları için bir çöp klasörü ekleyebilir misiniz?~~](#user-content-faq143)
 * [(144) Sesli notları nasıl kaydedebilirim?](#user-content-faq144)
-* [(145) How can I set a notification sound for an account, folder or sender?](#user-content-faq145)
+* [(145) Bir hesap, klasör veya gönderici için nasıl bildirim sesi ayarlayabilirim?](#user-content-faq145)
 * [(146) Yanlış mesaj zamanlarını nasıl düzeltebilirim?](#user-content-faq146)
 * [(147) Üçüncü taraf sürümleri hakkında ne bilmeliyim?](#user-content-faq147)
 * [(148) Apple iCloud hesabını nasıl kullanabilirim?](#user-content-faq148)
-* [(149) How does the unread message count widget work?](#user-content-faq149)
-* [(150) Can you add cancelling calendar invites?](#user-content-faq150)
-* [(151) Can you add backup/restore of messages?](#user-content-faq151)
-* [(152) How can I insert a contact group?](#user-content-faq152)
-* [(153) Why does permanently deleting Gmail message not work?](#user-content-faq153)
-* [~~(154) Can you add favicons as contact photos?~~](#user-content-faq154)
-* [(155) What is a winmail.dat file?](#user-content-faq155)
+* [(149) Okunmamış mesaj sayımı widget'ı nasıl çalışır?](#user-content-faq149)
+* [(150) İptal eden takvim davetlerini ekleyebilir misiniz?](#user-content-faq150)
+* [(151) Mesajların yedeğini / geri yüklemesini ekleyebilir misiniz?](#user-content-faq151)
+* [(152) Bir kişi grubunu nasıl ekleyebilirim?](#user-content-faq152)
+* [(153) Gmail iletisini kalıcı olarak silmek neden çalışmıyor?](#user-content-faq153)
+* [~~ (154) Kişi fotoğrafları olarak sık kullanılanlar ekleyebilir misiniz? ~~](#user-content-faq154)
+* [(155) winmail.dat dosyası nedir?](#user-content-faq155)
 * [(156) Nasıl bir Office 365 hesabı oluşturabilirim?](#user-content-faq156)
 * [157) Nasıl bir Free.Fr hesabı oluşturabilirim?](#user-content-faq157)
 * [(158) Hangi kamera / ses kaydediciyi tavsiye edersiniz?](#user-content-faq158)
-* [(159) What are Disconnect's tracker protection lists?](#user-content-faq159)
+* [(159) Disconnect'in izleyici koruma listeleri nelerdir?](#user-content-faq159)
 * [(160) Onay olmadan mesajların kalıcı olarak silinmesini ekleyebilir misiniz?](#user-content-faq160)
-* [(161) Can you add a setting to change the primary and accent color?](#user-content-faq161)
-* [(162) Is IMAP NOTIFY supported?](#user-content-faq162)
-* [(163) What is message classification?](#user-content-faq163)
-* [(164) Can you add customizable themes?](#user-content-faq164)
-* [(165) Is Android Auto supported?](#user-content-faq165)
-* [(166) Can I snooze a message across multiple devices?](#user-content-faq166)
+* [(161) Birincil ve vurgu rengini değiştirmek için bir ayar ekleyebilir misiniz?](#user-content-faq161)
+* [(162) IMAP BİLDİRİMİ destekleniyor mu?](#user-content-faq162)
+* [(163) Mesaj sınıflandırması nedir?](#user-content-faq163)
+* [(164) Özelleştirilebilir temalar ekleyebilir misiniz?](#user-content-faq164)
+* [(165) Android Auto destekleniyor mu?](#user-content-faq165)
+* [(166) Bir mesajı birden fazla cihazda erteleyebilir miyim?](#user-content-faq166)
 
-[I have another question.](#user-content-support)
+[Başka bir sorum daha var.](#user-content-support)
 
 <a name="faq1"></a>
-**(1) Which permissions are needed and why?**
+** (1) Hangi izinler gereklidir ve neden? **
 
-The following Android permissions are needed:
+Aşağıdaki android izinleri gereklidir:
 
-* *have full network access* (INTERNET): to send and receive email
-* *view network connections* (ACCESS_NETWORK_STATE): to monitor internet connectivity changes
-* *run at startup* (RECEIVE_BOOT_COMPLETED): to start monitoring on device start
-* *foreground service* (FOREGROUND_SERVICE): to run a foreground service on Android 9 Pie and later, see also the next question
-* *prevent device from sleeping* (WAKE_LOCK): to keep the device awake while synchronizing messages
-* *in-app billing* (BILLING): to allow in-app purchases
-* *schedule exact alarm* (SCHEDULE_EXACT_ALARM): to use exact alarm scheduling (Android 12 and later)
-* Optional: *read your contacts* (READ_CONTACTS): to auto complete addresses, to show contact photos and [to pick contacts](https://developer.android.com/guide/components/intents-common#PickContactDat)
-* Optional: *read the contents of your SD card* (READ_EXTERNAL_STORAGE): to accept files from other, outdated apps, see also [this FAQ](#user-content-faq49)
-* Optional: *use fingerprint hardware* (USE_FINGERPRINT) and use *biometric hardware* (USE_BIOMETRIC): to use biometric authentication
-* Optional: *find accounts on the device* (GET_ACCOUNTS): to select an account when using the Gmail quick setup
-* Android 5.1 Lollipop and before: *use accounts on the device* (USE_CREDENTIALS): to select an account when using the Gmail quick setup (not requested on later Android versions)
-* Android 5.1 Lollipop and before: *Read profile* (READ_PROFILE): to read your name when using the Gmail quick setup (not requested on later Android versions)
+* * tam ağ erişimine sahip * (internet): e-posta göndermek ve almak için
+* * ağ bağlantılarını görüntüle * (access_network_state): İnternet bağlantısı değişikliklerini izlemek için
+* *Başlangıçta çalıştır* (RECEIVE_BOOT_COMPLETED): Cihazda izlemeye başlamak için
+* *Ön plan hizmeti* (FOREGROUND_SERVICE): Android 9 Pie ve sonraki sürümlerde bir ön plan hizmeti çalıştırmak için, sonraki soruya da bakın
+* *Cihazın uyumasını engelle* (WAKE_LOCK): Mesajları senkronize ederken cihazı uyanık tutmak için
+* *Uygulama içi faturalandırma* (BILLING): Uygulama içi satın alma işlemlerine izin vermek için
+* *Gerçekçi alarmı programla* (SCHEDULE_EXACT_ALARM): Gerçekçi alarm zamanlamasını kullanmak için (Android 12 ve üstü)
+* İsteğe bağlı: *Kişilerinizi okuma* (READ_CONTACTS): Adresleri otomatik olarak tamamlamak, kişi fotoğraflarını göstermek ve [kişileri seçmek](https://developer.android.com/guide/components/intents-common#PickContactDat) için
+* İsteğe bağlı: *SD kartınızın içeriğini okuma* (READ_EXTERNAL_STORAGE): Diğer, tarihi geçmiş uygulamalardan dosyaları kabul etmek için. Ayrıca [SSS](#user-content-faq49)'e bakın
+* İsteğe bağlı: *Parmak izi donanımı kullan* (USE_FINGERPRINT) ve *Biyometrik donanım* kullan, (USE_BIOMETRIC): biyometrik kimlik doğrulamayı kullanmak için
+* İsteğe bağlı: * cihazdaki hesapları bulun * (GET_ACCOUNTS): Gmail hızlı kurulumunu kullanırken bir hesap seçmek için
+* Android 5.1 Lollipop ve öncesi: *cihazdaki hesapları kullan* (USE_CREDENTIALS): Gmail hızlı kurulumunu kullanırken bir hesap seçmek için (daha sonraki Android sürümlerinde istenmez)
+* Android 5.1 Lollipop ve öncesi: *Profili oku* (READ_PROFILE): Gmail hızlı kurulumunu kullanırken adınızı okumak için (sonraki Android sürümlerinde istenmez)
 
-[Optional permissions](https://developer.android.com/training/permissions/requesting) are supported on Android 6 Marshmallow and later only. On earlier Android versions you will be asked to grant the optional permissions on installing FairEmail.
+[İsteğe bağlı izinler](https://developer.android.com/training/permissions/requesting) yalnızca Android 6 Marshmallow ve sonraki sürümlerde desteklenir. Daha önceki Android sürümlerinde, FairEmail'i yüklemek için isteğe bağlı izinleri vermeniz istenecektir.
 
-The following permissions are needed to show the count of unread messages as a badge (see also [this FAQ](#user-content-faq106)):
+Okunmamış iletilerin sayısını rozet olarak göstermek için aşağıdaki izinler gereklidir. (Ayrıca [SSS](#user-content-faq106)'e bakın):
 
 * *com.sec.android.provider.badge.permission.READ*
 * *com.sec.android.provider.badge.permission.WRITE*
@@ -333,224 +344,226 @@ The following permissions are needed to show the count of unread messages as a b
 * *me.everything.badger.permission.BADGE_COUNT_READ*
 * *me.everything.badger.permission.BADGE_COUNT_WRITE*
 
-FairEmail will keep a list of addresses you receive messages from and send messages to and will use this list for contact suggestions when no contacts permissions is granted to FairEmail. This means you can use FairEmail without the Android contacts provider (address book). Note that you can still pick contacts without granting contacts permissions to FairEmail, only suggesting contacts won't work without contacts permissions.
+FairEmail, mesaj aldığınız ve mesaj gönderdiğiniz adreslerin bir listesini tutacaktır. ve FairEmail'e hiçbir kişi izni verilmediğinde bu listeyi kişi önerileri için kullanacaktır. Bu, FairEmail'i Android kişi sağlayıcısı (adres defteri) olmadan kullanabileceğiniz anlamına gelir. FairEmail'e kişi izinleri vermeden de kişileri seçebileceğinizi unutmayın. yalnızca kişileri önermek, kişi izinleri olmadan çalışmaz.
 
 <br />
 
 <a name="faq2"></a>
-**(2) Why is there a permanent notification shown?**
+**(2) Neden kalıcı bildirim gösteriliyor?**
 
-A low priority permanent status bar notification with the number of accounts being monitored and the number of operations pending (see the next question) is shown to prevent Android from killing the service that takes care of continuous receiving email. This was [already necessary](https://developer.android.com/reference/android/app/Service.html#startForeground(int,%20android.app.Notification)), but with the introduction of [doze mode](https://developer.android.com/training/monitoring-device-state/doze-standby) in Android 6 Marshmallow this is more than ever necessary. Doze mode will stop all apps when the screen is off for some time, unless the app did start a foreground service, which requires showing a status bar notification.
+İzlenen hesap sayısı ve bekleyen işlem sayısı (Bir sonraki soruya bakın) ile düşük öncelikli kalıcı durum çubuğu bildirimi gösterilir Android'in sürekli e-posta almaya özen gösteren hizmeti kapatmasını önlemek için. Bu [zaten gerekliydi](https://developer.android.com/reference/android/app/Service.html#startForeground(int,%20android.app.Notification)), ancak Android 6 Marshmallow'da [uyku modunun](https://developer.android.com/training/monitoring-device-state/doze-standby) tanıtılmasıyla bu her zamankinden fazla gerekli hale geldi. Uygulama bir durum çubuğu bildirimi gösterilmesini gerektiren bir ön plan hizmeti başlatmadıkça, ekran bir süre kapalı olduğunda Uyku modu tüm uygulamaları durduracaktır.
 
-Most, if not all, other email apps don't show a notification with the "side effect" that new messages are often not or late being reported and that messages are not or late being sent.
+Hepsi olmasa da çoğu diğer e-posta uygulamaları bildirim göstermiyor yeni mesajların genellikle bildirilmemesi veya geç bildirilmesi ve mesajların gönderilmemesi veya geç gönderilmesi "yan etkisi" ile.
 
-Android shows icons of high priority status bar notifications first and will hide the icon of FairEmail's notification if there is no space to show icons anymore. In practice this means that the status bar notification doesn't take space in the status bar, unless there is space available.
+Android, önce yüksek öncelikli durum çubuğu bildirimlerinin simgelerini gösterir ve artık simgeleri gösterecek yer kalmadığında FairEmail'in bildiriminin simgesini gizler. Pratikte bu, boş yer olmadığı sürece durum çubuğu bildiriminin durum çubuğunda yer kaplamadığı anlamına gelir.
 
-The status bar notification can be disabled via the notification settings of FairEmail:
+Durum çubuğu bildirimi, FairEmail'in bildirim ayarları aracılığıyla devre dışı bırakılabilir:
 
-* Android 8 Oreo and later: tap the *Receive channel* button and disable the channel via the Android settings (this won't disable new message notifications)
-* Android 7 Nougat and before: enabled *Use background service to synchronize messages*, but be sure to read the remark below the setting
+* Android 8 Oreo ve üstü: *Kanalı al* düğmesine dokunun ve kanalı Android ayarları aracılığıyla devre dışı bırakın (bu, yeni mesaj bildirimlerini devre dışı bırakmaz)
+* Android 7 Nougat ve öncesi: etkin * Mesajları senkronize etmek için arka plan hizmetini kullan *, ancak ayarın altındaki açıklamayı okuduğunuzdan emin olun
 
-You can switch to periodically synchronization of messages in the receive settings to remove the notification, but be aware that this might use more battery power. See [here](#user-content-faq39) for more details about battery usage.
+Bildirimi kaldırmak için alma ayarlarında mesajların periyodik senkronizasyonuna geçebilirsiniz, ancak bunun daha fazla pil gücü gerektirebileceğini unutmayın. Pil kullanımı hakkında daha fazla ayrıntı için [ buraya ](#user-content-faq39) bakın.
 
-Android 8 Oreo might also show a status bar notification with the text *Apps are running in the background*. Please see [here](https://www.reddit.com/r/Android/comments/7vw7l4/psa_turn_off_background_apps_notification/) about how you can disable this notification.
+Android 8 Oreo ayrıca * Uygulamalar arka planda çalışıyor * metniyle bir durum çubuğu bildirimi gösterebilir. Bu bildirimi nasıl devre dışı bırakabileceğinizi öğrenmek için lütfen [ buraya ](https://www.reddit.com/r/Android/comments/7vw7l4/psa_turn_off_background_apps_notification/) bakın.
 
-Some people suggested to use [Firebase Cloud Messaging](https://firebase.google.com/docs/cloud-messaging/) (FCM) instead of an Android service with a status bar notification, but this would require email providers to send FCM messages or a central server where all messages are collected sending FCM messages. The first is not going to happen and the last would have significant privacy implications.
+Bazı kişiler, durum çubuğu bildirimi olan bir Android hizmeti yerine [ Firebase Bulut Mesajlaşma ](https://firebase.google.com/docs/cloud-messaging/) (FCM) kullanılmasını önerdi, ancak bu, e-posta sağlayıcılarının FCM mesajları göndermesini veya FCM mesajları göndererek tüm mesajların toplandığı merkezi bir sunucuyu gerektirir. Birincisi gerçekleşmeyecek ve sonuncusu önemli mahremiyet etkilerine sahip olacaktır.
 
-If you came here by clicking on the notification, you should know that the next click will open the unified inbox.
+Buraya bildirime tıklayarak geldiyseniz, bir sonraki tıklamanın birleşik gelen kutusunu açacağını bilmelisiniz.
 
 <br />
 
 <a name="faq3"></a>
-**(3) What are operations and why are they pending?**
+**(3) İşlemler nelerdir ve neden beklemedeler?**
 
-The low priority status bar notification shows the number of pending operations, which can be:
+Düşük öncelikli durum çubuğu bildirimi, bekleyen işlemlerin sayısını gösterir; bunlar şunlar olabilir:
 
-* *add*: add message to remote folder
-* *move*: move message to another remote folder
-* *copy*: copy message to another remote folder
-* *fetch*: fetch changed (pushed) message
-* *delete*: delete message from remote folder
-* *seen*: mark message as read/unread in remote folder
-* *answered*: mark message as answered in remote folder
-* *flag*: add/remove star in remote folder
-* *keyword*: add/remove IMAP flag in remote folder
-* *label*: set/reset Gmail label in remote folder
-* *headers*: download message headers
-* *raw*: download raw message
-* *body*: download message text
-* *attachment*: download attachment
-* *sync*: synchronize local and remote messages
-* *subscribe*: subscribe to remote folder
-* *purge*: delete all messages from remote folder
-* *send*: send message
-* *exists*: check if message exists
-* *rule*: execute rule on body text
-* *expunge*: permanently delete messages
+* *ekle*: uzak klasöre mesaj ekle
+* *taşı*: mesajı başka bir uzak klasöre taşı
+* *kopyala*: mesajı başka bir uzak klasöre kopyala
+* *getir*: değiştirilen (gönderilen) mesajı al
+* *sil*: uzak klasörden mesajı sil
+* *görüldü*: uzak klasörde mesajı okundu/okunmadı olarak işaretle
+* *cevaplandı*: mesajı uzak klasörde cevaplandı olarak işaretle
+* *bayrak*: uzak klasöre yıldız ekle/kaldır
+* *anahtar kelime*: uzak klasöre IMAP bayrağı ekle/kaldır
+* *etiket*: uzak klasörde Gmail etiketini ayarla/sıfırla
+* *başlıklar*: mesaj üstbilgilerini indir
+* *ham*: ham mesajı indir
+* *gövde*: mesaj metnini indir
+* *ek*: eki indir
+* *senkronize et*: yerel ve uzak mesajları senkronize edin
+* *abone ol*: uzak klasöre abone ol
+* *temizleme*: uzak klasördeki tüm mesajları sil
+* *gönder*: mesaj gönder
+* *var*: mesajın var olup olmadığını kontrol edin
+* *kural*: gövde metninde kuralı yürüt
+* *silme*: iletileri kalıcı olarak sil
 
-Operations are processed only when there is a connection to the email server or when manually synchronizing. See also [this FAQ](#user-content-faq16).
+İşlemler yalnızca e-posta sunucusuna bağlantı olduğunda veya manuel olarak eşitleme yapıldığında işlenir. Ayrıca [bu SSS](#user-content-faq16)'e bakın.
 
 <br />
 
 <a name="faq4"></a>
-**(4) How can I use an invalid security certificate / empty password / plain text connection?**
+**(4) Geçersiz bir güvenlik sertifikasını / boş şifreyi / düz metin bağlantısını nasıl kullanabilirim?**
 
-*... Untrusted ... not in certificate ...*
-<br />
-*... Invalid security certificate (Can't verify identity of server) ...*
-
-This can be caused by using an incorrect host name, so first double check the host name in the advanced identity/account settings (tap Manual setup). Please see the documentation of the email provider about the right host name.
-
-You should try to fix this by contacting your provider or by getting a valid security certificate because invalid security certificates are insecure and allow [man-in-the-middle attacks](https://en.wikipedia.org/wiki/Man-in-the-middle_attack). If money is an obstacle, you can get free security certificates from [Let’s Encrypt](https://letsencrypt.org).
-
-The quick, but unsafe solution (not advised), is to enable *Insecure connections* in the advanced identity settings (navigation menu, tap *Settings*, tap *Manual setup*, tap *Identities*, tap the identity, tap *Advanced*).
-
-Alternatively, you can accept the fingerprint of invalid server certificates like this:
-
-1. Make sure you are using a trusted internet connection (no public Wi-Fi networks, etc)
-1. Go to the setup screen via the navigation menu (swipe from the left side inwards)
-1. Tap Manual setup, tap Accounts/Identities and tap the faulty account and identity
-1. Check/save the account and identity
-1. Tick the checkbox below the error message and save again
-
-This will "pin" the server certificate to prevent man-in-the-middle attacks.
-
-Note that older Android versions might not recognize newer certification authorities like Let’s Encrypt causing connections to be considered insecure, see also [here](https://developer.android.com/training/articles/security-ssl).
+*... Güvenilmeyen ... sertifikada değil ...*
 
 <br />
 
-*Trust anchor for certification path not found*
+*... Geçersiz güvenlik sertifikası (Sunucunun kimliği doğrulanamıyor) ...*
 
-*... java.security.cert.CertPathValidatorException: Trust anchor for certification path not found ...* means that the default Android trust manager was not able to verify the server certificate chain.
+Bunun nedeni yanlış bir ana bilgisayar adı kullanılması olabilir, bu nedenle önce gelişmiş kimlik/hesap ayarlarında ana bilgisayar adını iki kez kontrol edin (Manuel kurulum'a dokunun). Lütfen doğru ana bilgisayar adı hakkında e-posta sağlayıcısının belgelerine bakın.
 
-This could be due to the root certificate not being installed on your device or because intermediate certificates are missing, for example because the email server didn't send them.
+Sağlayıcınızla iletişime geçerek veya geçerli bir güvenlik sertifikası alarak bunu düzeltmeye çalışmalısınız. çünkü geçersiz güvenlik sertifikaları güvensizdir ve [ortadaki adam saldırılarına](https://en.wikipedia.org/wiki/Man-in-the-middle_attack) izin verir. Para bir engelse, [Let's Encrypt](https://letsencrypt.org)'ten ücretsiz güvenlik sertifikaları alabilirsiniz.
 
-You can fix the first problem by downloading and installing the root certificate from the website of the provider of the certificate.
+Hızlı ancak güvenli olmayan çözüm (önerilmez), gelişmiş kimlik ayarlarında *Güvenli olmayan bağlantıları* etkinleştirmektir. (gezinme menüsü, *Ayarlar*'a dokunun, *Manuel kurulum*'a dokunun, *Identiti'ye dokunun).</p> 
 
-The second problem should be fixed by changing the server configuration or by importing the intermediate certificates on your device.
+Alternatif olarak, aşağıdaki gibi geçersiz sunucu sertifikalarının parmak izini kabul edebilirsiniz:
 
-You can pin the certificate too, see above.
+1. Güvenilir bir internet bağlantısı kullandığınızdan emin olun (herkese açık Wi-Fi ağları vb. yok)
+1. Navigasyon menüsü aracılığıyla kurulum ekranına gidin (soldan içe doğru kaydırın)
+1. Manuel kurulum'a dokunun, Hesaplar/Kimlikler'e dokunun ve hatalı hesap ve kimliğe dokunun
+1. Hesabı ve kimliği kontrol edin/kaydedin
+1. Hata mesajının altındaki onay kutusunu işaretleyin ve tekrar kaydedin
+
+Bu, ortadaki adam saldırılarını önlemek için sunucu sertifikasını "sabitleyecektir".
+
+Eski Android sürümlerinin, bağlantıların güvensiz olarak değerlendirilmesine neden olan Let's Encrypt gibi daha yeni sertifika yetkililerini tanımayabileceğini unutmayın. ayrıca [buraya](https://developer.android.com/training/articles/security-ssl) bakın.
 
 <br />
 
-*Empty password*
+*Sertifika yolu için güven bağlantısı bulunamadı*
 
-Your username is likely easily guessed, so this is pretty insecure, unless the SMTP server is available via a restricted local network or a VPN only.
+* ... java.security.cert.certpathvalidatorexception: Sertifika yolu için güven bağlantısı bulunamadı ... * varsayılan Android güven yöneticisinin sunucu sertifika zincirini doğrulayamadığı anlamına gelir.
 
-*Plain text connection*
+Bunun nedeni, cihazınızda yüklü olmayan kök sertifika olabilir. veya ara sertifikalar eksik olduğundan, örneğin e-posta sunucusu bunları göndermediğinden.
 
-Your username and password and all messages will be sent and received unencrypted, which is **very insecure** because a [man-in-the-middle attack](https://en.wikipedia.org/wiki/Man-in-the-middle_attack) is very simple on an unencrypted connection.
+İlk sorunu, kök sertifikayı sertifika sağlayıcısının web sitesinden indirip yükleyerek çözebilirsiniz.
 
-If you still want to use an invalid security certificate, an empty password or a plain text connection you'll need to enable insecure connections in the account and/or identity settings. STARTTLS should be selected for plain text connections. If you enable insecure connections, you should connect via private, trusted networks only and never via public networks, like offered in hotels, airports, etc.
+İkinci sorun, sunucu yapılandırmasını değiştirerek veya ara sertifikaları cihazınıza aktararak çözülmelidir.
+
+Sertifikayı da sabitleyebilirsiniz, yukarıya bakın.
+
+<br />
+
+*Şifre boş*
+
+Kullanıcı adınız büyük olasılıkla kolayca tahmin edilebilir, bu nedenle SMTP sunucusu sınırlı bir yerel ağ veya yalnızca bir VPN aracılığıyla kullanılamıyorsa, bu oldukça güvensizdir.
+
+*Düz metin bağlantısı*
+
+Kullanıcı adınız, şifreniz ve tüm mesajlar şifrelenmemiş olarak gönderilecek ve alınacaktır, bu da ** çok güvensiz ** çünkü şifrelenmemiş bir bağlantıda [ ortadaki adam saldırısı ](https://en.wikipedia.org/wiki/Man-in-the-middle_attack) çok basittir.
+
+Yine de geçersiz bir güvenlik sertifikası, boş bir parola veya düz metin bağlantısı kullanmak istiyorsanız hesap ve/veya kimlik ayarlarında güvenli olmayan bağlantıları etkinleştirmeniz gerekir. Düz metin bağlantıları için STARTTLS seçilmelidir. Güvenli olmayan bağlantıları etkinleştirirseniz, yalnızca özel, güvenilir ağlar aracılığıyla bağlanmalı ve asla otellerde, havaalanlarında vb. sunulan gibi genel ağlar aracılığıyla bağlanmamalısınız.
 
 <br />
 
 <a name="faq5"></a>
-**(5) How can I customize the message view?**
+**(5) Mesaj görünümünü nasıl özelleştirebilirim?**
 
-In the three dot overflow menu you can enable or disable or select:
+Üç noktalı taşma menüsünde etkinleştirebilir veya devre dışı bırakabilir veya şunları seçebilirsiniz:
 
-* *text size*: for three different font sizes
-* *compact view*: for more condensed message items and a smaller message text font
+* * metin boyutu *: üç farklı yazı tipi boyutu için
+* * kompakt görünüm *: daha yoğun mesaj öğeleri ve daha küçük bir mesaj metni yazı tipi için
 
-In the display section of the settings you can enable or disable for example:
+Ayarların görüntüleme bölümünde örneğin etkinleştirebilir veya devre dışı bırakabilirsiniz:
 
-* *Unified inbox*: to disable the unified inbox and to list the folders selected for the unified inbox instead
-* *Tabular style*: to show a linear list instead of cards
-* *Group by date*: show date header above messages with the same date
-* *Conversation threading*: to disable conversation threading and to show individual messages instead
-* *Conversation action bar*: to disable the bottom navigation bar
-* *Highlight color*: to select a color for the sender of unread messages
-* *Show contact photos*: to hide contact photos
-* *Show names and email addresses*: to show names or to show names and email addresses
-* *Show subject italic*: to show the message subject as normal text
-* *Show stars*: to hide stars (favorites)
-* *Show message preview*: to show 1-4 lines of the message text
-* *Show address details by default*: to expand the addresses section by default
-* *Automatically show original message for known contacts*: to automatically show original messages for contacts on your device, please read [this FAQ](#user-content-faq35)
-* *Automatically show images for known contacts*: to automatically show images for contacts on your device, please read [this FAQ](#user-content-faq35)
+* *birleşik gelen kutusu*: birleşik gelen kutusunu devre dışı bırakmak ve bunun yerine birleşik gelen kutusu için seçilen klasörleri listelemek için
+* *Tablo stili*: kartlar yerine doğrusal bir liste göstermek için
+* *tarihe göre gruplandır*: aynı tarihe sahip mesajların üzerinde tarih başlığını göster
+* *Konuşma dizisi oluşturma*: konuşma dizisini devre dışı bırakmak ve bunun yerine bireysel mesajları göstermek için
+* *konuşma eylem çubuğu*: alt gezinme çubuğunu devre dışı bırakmak için
+* *vurgu rengi*: okunmamış mesajları gönderen için bir renk seçmek
+* *kişi fotoğraflarını göster*: kişi fotoğraflarını gizlemek için
+* *adları ve e-posta adreslerini göster*: adları veya adları ve e-posta adreslerini göstermek için
+* *konuyu italik göster*: mesaj konusunu normal metin olarak göstermek için
+* *yıldızları göster*: yıldızları gizlemek için (favoriler)
+* *mesaj önizlemesini göster*: mesaj metninin 1-4 satırını göstermek için
+* *varsayılan olarak adres ayrıntılarını göster*: varsayılan olarak adresler bölümünü genişletmek için
+* *bilinen kişiler için orijinal mesajı otomatik olarak göster*: cihazınızdaki kişiler için orijinal mesajları otomatik olarak göstermek için lütfen [bu SSS](#user-content-faq35)'i okuyun
+* *Bilinen kişiler için resimleri otomatik olarak göster*: Cihazınızdaki kişilerin resimlerini otomatik olarak göstermek için lütfen [bu SSS](#user-content-faq35)'i okuyun
 
-Note that messages can be previewed only when the message text was downloaded. Larger message texts are not downloaded by default on metered (generally mobile) networks. You can change this in the connection settings.
+Mesajların yalnızca mesaj metni indirildiğinde önizlenebileceğini unutmayın. Daha büyük mesaj metinleri, ölçülü (genellikle mobil) ağlarda varsayılan olarak indirilmez. Bunu bağlantı ayarlarından değiştirebilirsiniz.
 
-Some people ask:
+Bazı insanlar soruyor:
 
-* to show the subject bold, but bold is already being used to highlight unread messages
-* to move the star to the left, but it is much easier to operate the star on the right side
+* konuyu kalın göstermek için, ancak kalın okunmamış mesajları vurgulamak için zaten kullanılıyor
+* yıldızı sola hareket ettirmek, ancak yıldızı sağ tarafta çalıştırmak çok daha kolay
 
 <br />
 
 <a name="faq6"></a>
-**(6) How can I login to Gmail / G suite?**
+**(6) Gmail / G Suite'e nasıl giriş yapabilirim?**
 
-If you use the Play store or GitHub version of FairEmail, you can use the quick setup wizard to easily setup a Gmail account and identity. The Gmail quick setup wizard is not available for third party builds, like the F-Droid build because Google approved the use of OAuth for official builds only.
+FairEmail'in Play Store veya GitHub sürümünü kullanıyorsanız, bir Gmail hesabını ve kimliğini kolayca kurmak için hızlı kurulum sihirbazını kullanabilirsiniz. Gmail hızlı kurulum sihirbazı, F-Droid derlemesi gibi üçüncü taraf derlemeleri için kullanılamaz çünkü Google, yalnızca resmi yapılar için OAuth kullanımını onayladı.
 
-If you don't want to use or can't use an on-device Google account, for example on recent Huawei devices, you can either enable access for "less secure apps" and use your account password (not advised) or enable two factor authentication and use an app specific password. To use a password you'll need to set up an account and identity via the manual setup instead of via the quick setup wizard.
+Cihazdaki bir Google hesabını kullanmak istemiyorsanız veya kullanamıyorsanız, örneğin en son Huawei cihazlarında, "Daha az güvenli uygulamalar" için erişimi etkinleştirebilir ve hesap şifrenizi kullanabilirsiniz (önerilmez) veya iki faktörlü kimlik doğrulamayı etkinleştirin ve uygulamaya özel bir şifre kullanın. Bir parola kullanmak için hızlı kurulum sihirbazı yerine manuel kurulum yoluyla bir hesap ve kimlik oluşturmanız gerekir.
 
-**Important**: sometimes Google issues this alert:
+**Önemli**: bazen Google şu uyarıyı verir:
 
-*[ALERT] Please log in via your web browser: https://support.google.com/mail/accounts/answer/78754 (Failure)*
+*[ALERT] Lütfen web tarayıcınız üzerinden giriş yapın: https://support.google.com/mail/accounts/answer/78754 (Hata)*
 
-This Google security check is triggered more often with *less secure apps* enabled, less with an app password, and hardly when using an on-device account (OAuth).
+Bu Google güvenlik kontrolü, *daha az güvenli uygulamalar* etkinken daha sık, uygulama şifresi ile daha az ve bir cihaz hesabı (OAuth) kullanılırken zor tetiklenir.
 
-Please see [this FAQ](#user-content-faq111) on why only on-device accounts can be used.
+Lütfen neden yalnızca cihazdaki hesapların kullanılabileceğini öğrenmek için [bu SSS](#user-content-faq111)'e bakın.
 
-Note that an app specific password is required when two factor authentication is enabled.
-
-<br />
-
-*App specific password*
-
-See [here](https://support.google.com/accounts/answer/185833) about how to generate an app specific password.
+İki faktörlü kimlik doğrulama etkinleştirildiğinde uygulamaya özel bir parolanın gerekli olduğunu unutmayın.
 
 <br />
 
-*Enable "Less secure apps"*
+*Uygulamaya özel şifre*
 
-**Important**: using this method is not recommended because it is less reliable.
-
-**Important**: Gsuite accounts authorized with a username/password will stop working [in the near future](https://gsuiteupdates.googleblog.com/2019/12/less-secure-apps-oauth-google-username-password-incorrect.html).
-
-See [here](https://support.google.com/accounts/answer/6010255) about how to enable "less secure apps" or go [directy to the setting](https://www.google.com/settings/security/lesssecureapps).
-
-If you use multiple Gmail accounts, make sure you change the "less secure apps" setting of the right account(s).
-
-Be aware that you need to leave the "less secure apps" settings screen by using the back arrow to apply the setting.
-
-If you use this method, you should use a [strong password](https://en.wikipedia.org/wiki/Password_strength) for your Gmail account, which is a good idea anyway. Note that using the [standard](https://tools.ietf.org/html/rfc3501) IMAP protocol in itself is not less secure.
-
-When "less secure apps" is not enabled, you'll get the error *Authentication failed - invalid credentials* for accounts (IMAP) and *Username and Password not accepted* for identities (SMTP).
+Uygulamaya özel bir şifrenin nasıl oluşturulacağı hakkında [buraya](https://support.google.com/accounts/answer/185833) bakın.
 
 <br />
 
-*General*
+*"Daha az güvenli uygulamaları" etkinleştir*
 
-You might get the alert "*Please log in via your web browser*". This happens when Google considers the network that connects you to the internet (this could be a VPN) to be unsafe. This can be prevented by using the Gmail quick setup wizard or an app specific password.
+**önemli**: daha az güvenilir olduğu için bu yöntemin kullanılması önerilmez.
 
-See [here](https://support.google.com/mail/answer/7126229) for Google's instructions and [here](https://support.google.com/mail/accounts/answer/78754) for troubleshooting.
+**önemli**: Bir kullanıcı adı/şifre ile yetkilendirilen Gsuite hesapları [yakın gelecekte](https://gsuiteupdates.googleblog.com/2019/12/less-secure-apps-oauth-google-username-password-incorrect.html) çalışmayı durduracaktır.
+
+"Daha az güvenli uygulamaların" nasıl etkinleştirileceği hakkında [buraya](https://support.google.com/accounts/answer/6010255) bakın veya [ayar dizinine](https://www.google.com/settings/security/lesssecureapps) gidin.
+
+Birden fazla Gmail hesabı kullanıyorsanız, doğru hesapların "daha az güvenli uygulamalar" ayarını değiştirdiğinizden emin olun.
+
+Ayarı uygulamak için geri okunu kullanarak "daha az güvenli uygulamalar" ayarları ekranından çıkmanız gerektiğini unutmayın.
+
+Bu yöntemi kullanıyorsanız, Gmail hesabınız için [güçlü bir şifre](https://en.wikipedia.org/wiki/Password_strength) kullanmalısınız, ki bu yine de iyi bir fikirdir. [standart](https://tools.ietf.org/html/rfc3501) IMAP protokolünün kendi içinde kullanılmasının daha az güvenli olmadığını unutmayın.
+
+"Daha az güvenli uygulamalar" etkinleştirilmediğinde, hesaplar için *Kimlik doğrulama başarısız - geçersiz kimlik bilgileri* (IMAP) ve kimlikler (SMTP) için *Kullanıcı adı ve Şifre kabul edilmiyor* hatasını alırsınız.
+
+<br />
+
+*Genel*
+
+"*Lütfen web tarayıcınız aracılığıyla giriş yapın*" uyarısını alabilirsiniz. Bu, Google sizi internete bağlayan ağın (bu bir VPN olabilir) güvenli olmadığını düşündüğünde olur. Bu, Gmail hızlı kurulum sihirbazı veya uygulamaya özel bir şifre kullanılarak önlenebilir.
+
+Google'ın talimatları için [buraya](https://support.google.com/mail/answer/7126229) ve sorun giderme için [buraya](https://support.google.com/mail/accounts/answer/78754) bakın.
 
 <br />
 
 <a name="faq7"></a>
-**(7) Why are sent messages not appearing (directly) in the sent folder?**
+**(7) Gönderilen mesajlar neden gönderilenler klasöründe (doğrudan) görünmüyor?**
 
-Sent messages are normally moved from the outbox to the sent folder as soon as your provider adds sent messages to the sent folder. This requires a sent folder to be selected in the account settings and the sent folder to be set to synchronizing.
+Gönderilen mesajlar normalde, sağlayıcınız gönderilen mesajları gönderilenler klasörüne ekler eklemez giden kutusundan gönderilenler klasörüne taşınır. Bu, hesap ayarlarında bir gönderilen klasörün seçilmesini ve gönderilen klasörün senkronize olacak şekilde ayarlanmasını gerektirir.
 
-Some providers do not keep track of sent messages or the used SMTP server might not be related to the provider. In these cases FairEmail, will automatically add sent messages to the sent folder on synchronizing the sent folder, which will happen after a message have been sent. Note that this will result in extra internet traffic.
+Bazı sağlayıcılar gönderilen mesajları takip etmez veya kullanılan SMTP sunucusu sağlayıcıyla ilgili olmayabilir. Bu durumlarda FairEmail, bir mesaj gönderildikten sonra, gönderilen klasörünü senkronize ederken gönderilen mesajları otomatik olarak gönderilen klasörüne ekleyecektir. Bunun ekstra internet trafiğine yol açacağını unutmayın.
 
-~~If this doesn't happen, your provider might not keep track of sent messages or you might be using an SMTP server not related to the provider.~~ ~~In these cases you can enable the advanced identity setting *Store sent messages* to let FairEmail add sent messages to the sent folder right after sending a message.~~ ~~Note that enabling this setting might result in duplicate messages if your provider adds sent messages to the sent folder too.~~ ~~Also beware that enabling this setting will result in extra data usage, especially when when sending messages with large attachments.~~
+~~Bu olmazsa, sağlayıcınız gönderilen mesajları takip etmeyebilir veya sağlayıcıyla ilgili olmayan bir SMTP sunucusu kullanıyor olabilirsiniz.~~ ~~Bu durumlarda, FairEmail'in bir mesaj gönderdikten hemen sonra gönderilen mesajları gönderilmiş klasöre eklemesine izin vermek için *Gönderilmiş mesajları sakla* gelişmiş kimlik ayarını etkinleştirebilirsiniz.~~ ~~Sağlayıcınız gönderilen mesajları da gönderilenler klasörüne eklerse, bu ayarın etkinleştirilmesinin yinelenen mesajlarla sonuçlanabileceğini unutmayın.~~ ~~Ayrıca bu ayarın etkinleştirilmesinin, özellikle büyük ekleri olan iletiler gönderirken fazladan veri kullanımına neden olacağına dikkat edin.~~
 
-~~If sent messages in the outbox are not found in the sent folder on a full synchronize, they will be moved from the outbox to the sent folder too.~~ ~~A full synchronize happens when reconnecting to the server or when synchronizing periodically or manually.~~ ~~You'll likely want to enable the advanced setting *Store sent messages* instead to move messages to the sent folder sooner.~~
+Tam senkronizasyonda, giden kutusunda gönderilen mesajlar gönderilenler klasöründe bulunamazsa, giden kutusundan gönderilenler klasörüne de taşınırlar.~~ ~~Sunucuya yeniden bağlanırken veya periyodik veya manuel olarak senkronizasyon yaparken tam senkronizasyon gerçekleşir.~~ ~~Mesajları gönderilenler klasörüne daha erken taşımak yerine büyük olasılıkla *Gönderilen mesajları sakla* gelişmiş ayarını etkinleştirmek isteyeceksiniz.
 
 <br />
 
 <a name="faq8"></a>
-**(8) Can I use a Microsoft Exchange account?**
+**(8) Microsoft Exchange hesabımı kullanabilir miyim?**
 
-The Microsoft Exchange Web Services protocol [is being phased out](https://techcommunity.microsoft.com/t5/Exchange-Team-Blog/Upcoming-changes-to-Exchange-Web-Services-EWS-API-for-Office-365/ba-p/608055). So, it makes little sense to add this protocol anymore.
+Microsoft Exchange Web Hizmetleri protokolü [aşamalı olarak kaldırılıyor](https://techcommunity.microsoft.com/t5/Exchange-Team-Blog/Upcoming-changes-to-Exchange-Web-Services-EWS-API-for-Office-365/ba-p/608055). Bu nedenle, artık bu protokolü eklemek pek mantıklı değil.
 
-You can use a Microsoft Exchange account if it is accessible via IMAP, which is mostly the case. See [here](https://support.office.com/en-us/article/what-is-a-microsoft-exchange-account-47f000aa-c2bf-48ac-9bc2-83e5c6036793) for more information.
+IMAP aracılığıyla Microsoft Exchange hesabınıza erişebiliyorsanız bu hesabı kullanabilirsiniz. Daha fazla bilgi için [buraya](https://support.office.com/en-us/article/what-is-a-microsoft-exchange-account-47f000aa-c2bf-48ac-9bc2-83e5c6036793) tıklayın.
 
-Note that the desciption of FairEmail starts with the remark that non-standard protocols, like Microsoft Exchange Web Services and Microsoft ActiveSync are not supported.
+FairEmail'in açıklamasının şu sözle başladığını unutmayın. Microsoft Exchange Web Hizmetleri ve Microsoft ActiveSync gibi standart olmayan protokollerin desteklenmediğini.
 
 Please see [here](https://support.office.com/en-us/article/pop-imap-and-smtp-settings-for-outlook-com-d088b986-291d-42b8-9564-9c414e2aa040) for the Microsoft documentation about configuring an email client. There is also a section about common connection errors and solutions.
 
@@ -612,12 +625,12 @@ Communication with email servers is always encrypted, unless you explicitly turn
 
 Please [see here](https://en.wikipedia.org/wiki/Public-key_cryptography) about how public/private key encryption works.
 
-Encryption in short:
+Kısaca şifreleme:
 
-* **Outgoing** messages are encrypted with the **public key** of the recipient
-* **Incoming** messages are decrypted with the **private key** of the recipient
+* **Giden** iletiler, alıcının **genel anahtarı** ile şifrelenir
+* **Gelen** iletilerin şifresi, alıcının **özel anahtarı** ile çözülür
 
-Signing in short:
+Kısaca imzalama:
 
 * **Outgoing** messages are signed with the **private key** of the sender
 * **Incoming** messages are verified with the **public key** of the sender
@@ -636,9 +649,9 @@ The to be encrypted message text/attachments and the decrypted message text/atta
 
 *PGP*
 
-You'll need to install and configure [OpenKeychain](https://f-droid.org/en/packages/org.sufficientlysecure.keychain/) first. FairEmail was tested with OpenKeychain version 5.4. Later versions will most likely be compatible, but earlier versions might not be.
+Önce [OpenKeychain](https://f-droid.org/en/packages/org.sufficientlysecure.keychain/)'i kurmanız ve yapılandırmanız gerekecektir. FairEmail, OpenKeychain sürüm 5.4 ile test edilmiştir. Daha sonraki sürümler büyük olasılıkla uyumlu olacaktır, ancak önceki sürümler olmayabilir.
 
-**Important**: the OpenKeychain app is known to (silently) crash when the calling app (FairEmail) is not authorized yet and is getting an existing public key. You can workaround this by trying to send a signed/encrypted message to a sender with an unknown public key.
+**önemli**: OpenKeychain uygulamasının, çağıran uygulama (FairEmail) henüz yetkilendirilmediğinde ve mevcut bir ortak anahtar aldığında (sessizce) çöktüğü bilinmektedir. Bilinmeyen bir ortak anahtara sahip bir gönderene imzalı/şifreli bir mesaj göndermeye çalışarak bu sorunu çözebilirsiniz.
 
 **Important**: if the OpenKeychain app cannot find a key (anymore), you might need to reset a previously selected key. This can be done by long pressing an identity in the list of identities (Settings, tap Manual setup, tap Identities).
 
@@ -664,7 +677,7 @@ Signed-only or encrypted-only messages are not a good idea, please see here abou
 
 Signed-only messages are supported, encrypted-only messages are not supported.
 
-Common errors:
+Genel hatalar:
 
 * *No key*: there is no PGP key available for one of the listed email addresses
 * *Missing key for encryption*: there is probably a key selected in FairEmail that does not exist in the OpenKeychain app anymore. Resetting the key (see above) will probably fix this problem.
@@ -672,7 +685,7 @@ Common errors:
 
 <br />
 
-*S/MIME*
+*S/MIME (Secure/Multipurpose Internet Mail Extensions, Güvenli/Çok Amaçlı İnternet Posta Uzantıları) *
 
 Encrypting a message requires the public key(s) of the recipient(s). Signing a message requires your private key.
 
@@ -701,9 +714,12 @@ In case the certificate chain is incorrect, you can tap on the little info butto
 
 A valid chain looks like this:
 
+
+
 ```
 Your certificate > zero or more intermediate certificates > CA (root) certificate marked with "Android"
 ```
+
 
 Note that a certificate chain will always be invalid when no anchor certificate can be found in the Android key store, which is fundamental to S/MIME certificate validation.
 
@@ -715,9 +731,12 @@ If you are looking for a free (test) S/MIME certificate, see [here](http://kb.mo
 
 How to extract a public key from a S/MIME certificate:
 
+
+
 ```
 openssl pkcs12 -in filename.pfx/p12 -clcerts -nokeys -out cert.pem
 ```
+
 
 You can decode S/MIME signatures, etc, [here](https://lapo.it/asn1js/).
 
@@ -766,15 +785,21 @@ In the *miscellaneous settings* you can enable *Build search index* to significa
 
 From version 1.1315 it is possible to use search expressions like this:
 
+
+
 ```
 apple +banana -cherry ?nuts
 ```
 
+
 This will result in searching like this:
+
+
 
 ```
 ("apple" AND "banana" AND NOT "cherry") OR "nuts"
 ```
+
 
 Search expressions can be used for searching on the device via the search index and for searching on the email server, but not for searching on the device without search index for performance reasons.
 
@@ -1064,9 +1089,12 @@ The storage access framework is provided by the package *com.android.documentsui
 
 You can enable the storage access framework (again) with this adb command:
 
+
+
 ```
 pm install -k --user 0 com.android.documentsui
 ```
+
 
 Alternatively, you might be able to enable the *Files* app again using the Android app settings.
 
@@ -1167,10 +1195,13 @@ Most providers accept validated addresses only when sending messages to prevent 
 
 For example Google modifies the message headers like this for *unverified* addresses:
 
+
+
 ```
 From: Somebody <somebody@example.org>
 X-Google-Original-From: Somebody <somebody+extra@example.org>
 ```
+
 
 This means that the edited sender address was automatically replaced by a verified address before sending the message.
 
@@ -1195,9 +1226,12 @@ Note that the domain name (the parts after the @ sign) always needs to be equal 
 
 If you like to match a catch-all email address, this regex is mostly okay:
 
+
+
 ```
 .*
 ```
+
 
 If you like to match the special purpose email addresses abc@example.com and xyx@example.com and like to have a fallback email address main@example.com as well, you could do something like this:
 
@@ -1352,6 +1386,8 @@ If the provider is used by more than a few people, yes, with pleasure.
 
 The following information is needed:
 
+
+
 ```
 <provider
     name="Gmail"
@@ -1367,6 +1403,7 @@ The following information is needed:
         starttls="false" />
 </provider>
 ```
+
 
 The EFF [writes](https://www.eff.org/nl/deeplinks/2018/06/announcing-starttls-everywhere-securing-hop-hop-email-delivery): "*Additionally, even if you configure STARTTLS perfectly and use a valid certificate, there’s still no guarantee your communication will be encrypted.*"
 
@@ -1480,9 +1517,12 @@ Note that there are not many, if any, email apps that display a conversation as 
 
 ~~For example the Gmail spam folder is called:~~
 
+
+
 ```
 [Gmail]/Spam
 ```
+
 
 ~~By setting the namespace prefix to *[Gmail]* FairEmail will automatically remove *[Gmail]/* from all folder names.~~
 
@@ -1511,6 +1551,8 @@ Note that if you switch back to the text editor that not all HTML might be rende
 
 If you want to use preformatted text, like [ASCII art](https://en.wikipedia.org/wiki/ASCII_art), you should wrap the text in a *pre* element, like this:
 
+
+
 ```
 <pre>
   |\_/|
@@ -1520,6 +1562,7 @@ If you want to use preformatted text, like [ASCII art](https://en.wikipedia.org/
  /  O  \
  </pre>
 ```
+
 
 <br />
 
@@ -1841,41 +1884,58 @@ Note that recent Android versions allow overriding DND (Do Not Disturb) per noti
 
 For more complex schemes you could set one or more accounts to manual synchronization and send this command to FairEmail to check for new messages:
 
+
+
 ```
 (adb shell) am start-foreground-service -a eu.faircode.email.POLL
 ```
 
+
 For a specific account:
+
+
 
 ```
 (adb shell) am start-foreground-service -a eu.faircode.email.POLL --es account Gmail
 ```
 
+
 You can also automate turning receiving messages on and off by sending these commands to FairEmail:
+
+
 
 ```
 (adb shell) am start-foreground-service -a eu.faircode.email.ENABLE
 (adb shell) am start-foreground-service -a eu.faircode.email.DISABLE
 ```
 
+
 To enable/disable a specific account:
+
+
 
 ```
 (adb shell) am start-foreground-service -a eu.faircode.email.ENABLE --es account Gmail
 (adb shell) am start-foreground-service -a eu.faircode.email.DISABLE --es account Gmail
 ```
 
+
 Note that disabling an account will hide the account and all associated folders and messages.
 
 To set the poll interval:
+
+
 
 ```
 (adb shell) adb shell am start-foreground-service -a eu.faircode.email.INTERVAL --ei minutes nnn
 ```
 
+
 Where *nnn* is one of 0, 15, 30, 60, 120, 240, 480, 1440. A value of 0 means push messages.
 
 You can automatically send commands with for example [Tasker](https://tasker.joaoapps.com/userguide/en/intents.html):
+
+
 
 ```
 New task: Something recognizable
@@ -1884,11 +1944,15 @@ Action: eu.faircode.email.ENABLE
 Target: Service
 ```
 
+
 To enable/disable an account with the name *Gmail*:
+
+
 
 ```
 Extras: account:Gmail
 ```
+
 
 Account names are case sensitive.
 
@@ -2006,11 +2070,14 @@ Note that Yahoo, AOL, and Sky do not support standard push messages. The Yahoo e
 
 Push messages require [IMAP IDLE](https://en.wikipedia.org/wiki/IMAP_IDLE) and the Yahoo email server does not report IDLE as capability:
 
+
+
 ```
 Y1 CAPABILITY
 * CAPABILITY IMAP4rev1 ID MOVE NAMESPACE XYMHIGHESTMODSEQ UIDPLUS LITERAL+ CHILDREN X-MSG-EXT UNSELECT OBJECTID
 Y1 OK CAPABILITY completed
 ```
+
 
 <br />
 
@@ -2148,12 +2215,15 @@ You can synchronize Gmail categories by creating filters to label categorized me
 
 Possible categories:
 
+
+
 ```
 category:social
 category:updates
 category:forums
 category:promotions
 ```
+
 
 Unfortunately, this is not possible for snoozed messages folder.
 
@@ -2221,9 +2291,12 @@ Some launchers display a dot or a '1' for [the monitoring notification](#user-co
 
 FairEmail does send a new message count intent as well:
 
+
+
 ```
 eu.faircode.email.NEW_MESSAGE_COUNT
 ```
+
 
 The number of new, unread messages will be in an integer "*count*" parameter.
 
@@ -2622,9 +2695,12 @@ The error *User is authenticated but not connected* might occur if:
 
 The shared mailbox alias will mostly be the email address of the shared account, like this:
 
+
+
 ```
 you@example.com\shared@example.com
 ```
+
 
 Note that it should be a backslash and not a forward slash.
 
@@ -2823,9 +2899,12 @@ Some background: Gmail seems to have an additional message view for IMAP, which 
 
 Another oddity is that a star (favorite message) set via the web interface cannot be removed with the IMAP command
 
+
+
 ```
 STORE <message number> -FLAGS (\Flagged)
 ```
+
 
 On the other hand, a star set via IMAP is being shown in the web interface and can be removed via IMAP.
 
@@ -2900,9 +2979,12 @@ Tracking images will not be recognized when the domain is classified as '*Conten
 
 This command can be sent to FairEmail from an automation app to update the protection lists:
 
+
+
 ```
 (adb shell) am start-foreground-service -a eu.faircode.email.DISCONNECT.ME
 ```
+
 
 Updating once a week will probably be sufficient, please see [here](https://github.com/disconnectme/disconnect-tracking-protection/commits/master) for recent lists changes.
 
@@ -3025,9 +3107,9 @@ To prevent these issues, snoozing is done locally on the device by hiding the me
 
 <h2><a name="get-support"></a>Destek alın</h2>
 
-FairEmail is supported on Android smartphones and tablets and ChromeOS only.
+FairEmail, yalnızca Android akıllı telefonlarda ve tabletlerde ve ChromeOS'ta desteklenir.
 
-Only the latest Play store version and latest GitHub release are supported. The F-Droid build is supported only if the version number is the same as the version number of the latest GitHub release. This also means that downgrading is not supported.
+Yalnızca en son Play Store sürümü ve en son GitHub sürümü desteklenir. F-Droid derlemesi, yalnızca sürüm numarası en son GitHub sürümünün sürüm numarasıyla aynıysa desteklenir. This also means that downgrading is not supported.
 
 There is no support on things that are not directly related to FairEmail.
 
@@ -3044,8 +3126,8 @@ Features not fulfilling these requirements will likely be rejected. This is also
 
 If you have a question, want to request a feature or report a bug, **please use [this form](https://contact.faircode.eu/?product=fairemailsupport)**.
 
-GitHub issues are disabled due to frequent misusage.
+GitHub sorunları, sık sık yanlış kullanım nedeniyle devre dışı bırakıldı.
 
 <br />
 
-Copyright &copy; 2018-2021 Marcel Bokhorst.
+Telif hakkı &copy; 2018-2021 M. Bokhorst'a aittir.

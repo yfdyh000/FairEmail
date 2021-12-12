@@ -19,6 +19,8 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static androidx.room.ForeignKey.CASCADE;
+
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.text.TextUtils;
@@ -43,8 +45,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-
-import static androidx.room.ForeignKey.CASCADE;
 
 @Entity(
         tableName = EntityOperation.TABLE_NAME,
@@ -103,6 +103,7 @@ public class EntityOperation {
     static final String EXPUNGE = "expunge";
 
     private static final int MAX_FETCH = 100; // operations
+    private static final long FORCE_WITHIN = 30 * 1000; // milliseconds
 
     static void queue(Context context, EntityMessage message, String name, Object... values) {
         DB db = DB.getInstance(context);
@@ -116,7 +117,7 @@ public class EntityOperation {
                 boolean seen = jargs.getBoolean(0);
                 boolean ignore = jargs.optBoolean(1, true);
                 for (EntityMessage similar : db.message().getMessagesBySimilarity(message.account, message.id, message.msgid))
-                    if (message.ui_seen != seen || message.ui_ignored != ignore) {
+                    if (similar.ui_seen != seen || similar.ui_ignored != ignore) {
                         db.message().setMessageUiSeen(similar.id, seen);
                         db.message().setMessageUiIgnored(similar.id, ignore);
                         queue(context, similar.account, similar.folder, similar.id, name, jargs);
@@ -127,7 +128,7 @@ public class EntityOperation {
                 boolean flagged = jargs.getBoolean(0);
                 Integer color = (jargs.length() > 1 && !jargs.isNull(1) ? jargs.getInt(1) : null);
                 for (EntityMessage similar : db.message().getMessagesBySimilarity(message.account, message.id, message.msgid))
-                    if (message.ui_flagged != flagged || !Objects.equals(message.color, color)) {
+                    if (similar.ui_flagged != flagged || !Objects.equals(similar.color, color)) {
                         db.message().setMessageUiFlagged(similar.id, flagged, flagged ? color : null);
                         queue(context, similar.account, similar.folder, similar.id, name, jargs);
                     }
@@ -205,15 +206,20 @@ public class EntityOperation {
                         EntityFolder.TRASH.equals(target.type))
                     autoread = true;
 
+                if (EntityFolder.JUNK.equals(source.type) &&
+                        EntityFolder.INBOX.equals(target.type))
+                    autoread = false;
+
                 jargs.put(1, autoread);
                 jargs.put(3, autounflag);
 
-                EntityLog.log(context, "Move message=" + message.id +
-                        "@" + new Date(message.received) +
-                        ":" + message.subject +
-                        " source=" + source.id + ":" + source.type + ":" + source.name + "" +
-                        " target=" + target.id + ":" + target.type + ":" + target.name +
-                        " auto read=" + autoread + " flag=" + autounflag + " importance=" + reset_importance);
+                EntityLog.log(context, EntityLog.Type.General, message,
+                        "Move message=" + message.id +
+                                "@" + new Date(message.received) +
+                                ":" + message.subject +
+                                " source=" + source.id + ":" + source.type + ":" + source.name + "" +
+                                " target=" + target.id + ":" + target.type + ":" + target.name +
+                                " auto read=" + autoread + " flag=" + autounflag + " importance=" + reset_importance);
 
                 if (autoread || autounflag || reset_importance)
                     for (EntityMessage similar : db.message().getMessagesBySimilarity(message.account, message.id, message.msgid)) {
@@ -225,30 +231,40 @@ public class EntityOperation {
                             db.message().setMessageImportance(similar.id, null);
                     }
 
-                EntityAccount account = db.account().getAccount(message.account);
-                if ((account != null && !account.isGmail()) ||
-                        !EntityFolder.ARCHIVE.equals(source.type) ||
-                        EntityFolder.TRASH.equals(target.type) || EntityFolder.JUNK.equals(target.type))
-                    if (!message.ui_deleted)
-                        db.message().setMessageUiHide(message.id, true);
+                if (source.account.equals(target.account)) {
+                    EntityAccount account = db.account().getAccount(message.account);
+                    if ((account != null && !account.isGmail()) ||
+                            !EntityFolder.ARCHIVE.equals(source.type) ||
+                            EntityFolder.TRASH.equals(target.type) || EntityFolder.JUNK.equals(target.type))
+                        if (!message.ui_deleted)
+                            db.message().setMessageUiHide(message.id, true);
 
-                if (account != null && account.isGmail() &&
-                        EntityFolder.ARCHIVE.equals(source.type) &&
-                        !(EntityFolder.TRASH.equals(target.type) || EntityFolder.JUNK.equals(target.type)))
-                    name = COPY;
+                    if (account != null && account.isGmail() &&
+                            EntityFolder.ARCHIVE.equals(source.type) &&
+                            !(EntityFolder.TRASH.equals(target.type) || EntityFolder.JUNK.equals(target.type)))
+                        name = COPY;
+                }
 
                 if (message.ui_snoozed != null &&
-                        (EntityFolder.ARCHIVE.equals(target.type) || EntityFolder.TRASH.equals(target.type))) {
+                        (EntityFolder.ARCHIVE.equals(target.type) ||
+                                EntityFolder.TRASH.equals(target.type) ||
+                                EntityFolder.JUNK.equals(target.type))) {
                     message.ui_snoozed = null;
                     EntityMessage.snooze(context, message.id, null);
                 }
 
-                if (EntityFolder.JUNK.equals(source.type) && EntityFolder.INBOX.equals(target.type)) {
+                if (EntityFolder.JUNK.equals(source.type)) {
                     List<EntityRule> rules = db.rule().getRules(target.id);
                     for (EntityRule rule : rules)
                         if (rule.isBlockingSender(message, source))
                             db.rule().deleteRule(rule.id);
+
+                    EntityContact.delete(context, message.account, message.from, EntityContact.TYPE_JUNK);
+                    EntityContact.update(context, message.account, message.from, EntityContact.TYPE_NO_JUNK, message.received);
                 }
+
+                if (EntityFolder.JUNK.equals(target.type))
+                    EntityContact.delete(context, message.account, message.from, EntityContact.TYPE_NO_JUNK);
 
                 // Create copy without uid in target folder
                 // Message with same msgid can be in archive
@@ -354,6 +370,26 @@ public class EntityOperation {
                 }
 
                 return;
+            } else if (COPY.equals(name)) {
+                // Parameters in:
+                // 0: target folder
+                // 1: mark seen
+
+                EntityFolder source = db.folder().getFolder(message.folder);
+                EntityFolder target = db.folder().getFolder(jargs.getLong(0));
+                if (source == null || target == null)
+                    return;
+
+                // Cross account copy
+                if (!source.account.equals(target.account)) {
+                    jargs.put(2, true); // copy
+                    if (message.raw != null && message.raw)
+                        queue(context, target.account, target.id, message.id, ADD, jargs);
+                    else
+                        queue(context, source.account, source.id, message.id, RAW, jargs);
+                    return;
+                }
+
             } else if (DELETE.equals(name)) {
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
                 boolean perform_expunge = prefs.getBoolean("perform_expunge", true);
@@ -425,6 +461,29 @@ public class EntityOperation {
         Log.breadcrumb("queued", crumb);
     }
 
+    static void poll(Context context, long fid) throws JSONException {
+        DB db = DB.getInstance(context);
+
+        boolean force = false;
+        List<EntityOperation> ops = db.operation().getOperationsByFolder(fid, SYNC);
+        if (ops != null)
+            for (EntityOperation op : ops)
+                if (EntityFolder.isSyncForced(op.args)) {
+                    force = true;
+                    break;
+                }
+
+        int count = db.operation().deleteOperation(fid, SYNC);
+
+        Map<String, String> crumb = new HashMap<>();
+        crumb.put("folder", Long.toString(fid));
+        crumb.put("stale", Integer.toString(count));
+        crumb.put("force", Boolean.toString(force));
+        Log.breadcrumb("Poll", crumb);
+
+        sync(context, fid, false, force);
+    }
+
     static void sync(Context context, long fid, boolean foreground) {
         sync(context, fid, foreground, false);
     }
@@ -435,6 +494,16 @@ public class EntityOperation {
         EntityFolder folder = db.folder().getFolder(fid);
         if (folder == null)
             return;
+
+        if (foreground) {
+            long now = new Date().getTime();
+            if (folder.last_sync_foreground != null &&
+                    now - folder.last_sync_foreground < FORCE_WITHIN) {
+                Log.i(folder.name + " Auto force");
+                force = true;
+            }
+            db.folder().setFolderLastSyncForeground(folder.id, now);
+        }
 
         if (force)
             db.operation().deleteOperation(fid, SYNC);
@@ -450,7 +519,7 @@ public class EntityOperation {
             operation.created = new Date().getTime();
             operation.id = db.operation().insertOperation(operation);
 
-            Log.i("Queued sync folder=" + folder);
+            Log.i("Queued sync folder=" + folder + " force=" + force);
         }
 
         if (foreground && folder.sync_state == null) // Show spinner

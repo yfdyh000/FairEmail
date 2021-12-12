@@ -223,6 +223,26 @@ public class FixedEditText extends AppCompatEditText {
     }
 
     @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        try {
+            return super.onKeyUp(keyCode, event);
+        } catch (Throwable ex) {
+            Log.w(ex);
+            return true;
+        }
+    }
+
+    @Override
+    public boolean performClick() {
+        try {
+            return super.performClick();
+        } catch (Throwable ex) {
+            Log.w(ex);
+            return false;
+        }
+    }
+
+    @Override
     public boolean performLongClick() {
         try {
             return super.performLongClick();
@@ -274,5 +294,15 @@ public class FixedEditText extends AppCompatEditText {
             return TextClassifier.NO_OP;
         else
             return super.getTextClassifier();
+    }
+
+    @Override
+    public boolean onTextContextMenuItem(int id) {
+        try {
+            return super.onTextContextMenuItem(id);
+        } catch (Throwable ex) {
+            Log.e(ex);
+            return false;
+        }
     }
 }

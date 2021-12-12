@@ -24,12 +24,14 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.icu.text.Transliterator;
 import android.os.Build;
+import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.textclassifier.ConversationAction;
 import android.view.textclassifier.ConversationActions;
 import android.view.textclassifier.TextClassificationManager;
 import android.view.textclassifier.TextClassifier;
 
+import androidx.annotation.RequiresApi;
 import androidx.preference.PreferenceManager;
 
 import java.time.ZoneId;
@@ -42,11 +44,21 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class TextHelper {
-    private static final int MAX_SAMPLE_SIZE = 8192;
-    private static final float MIN_PROBABILITY = 0.80f;
+    private static final int MAX_DETECT_SAMPLE_SIZE = 8192;
+    private static final float MIN_DETECT_PROBABILITY = 0.80f;
     private static final String TRANSLITERATOR = "Any-Latin; Latin-ASCII";
+    private static final int MAX_CONVERSATION_SAMPLE_SIZE = 8192;
+    private static final long MAX_CONVERSATION_DURATION = 5000; // milliseconds
+
+    private static final ExecutorService executor =
+            Helper.getBackgroundExecutor(0, "text");
 
     static {
         System.loadLibrary("fairemail");
@@ -63,11 +75,11 @@ public class TextHelper {
 
         byte[] octets = text.getBytes();
         byte[] sample;
-        if (octets.length < MAX_SAMPLE_SIZE)
+        if (octets.length < MAX_DETECT_SAMPLE_SIZE)
             sample = octets;
         else {
-            sample = new byte[MAX_SAMPLE_SIZE];
-            System.arraycopy(octets, 0, sample, 0, MAX_SAMPLE_SIZE);
+            sample = new byte[MAX_DETECT_SAMPLE_SIZE];
+            System.arraycopy(octets, 0, sample, 0, MAX_DETECT_SAMPLE_SIZE);
         }
 
         long start = new Date().getTime();
@@ -76,7 +88,7 @@ public class TextHelper {
         long elapse = new Date().getTime() - start;
         Log.i("cld3 language=" + result + " elapse=" + elapse);
 
-        if (result.probability < MIN_PROBABILITY)
+        if (result.probability < MIN_DETECT_PROBABILITY)
             return null;
 
         try {
@@ -139,10 +151,14 @@ public class TextHelper {
                 .atZone(ZoneId.systemDefault());
         List<ConversationActions.Message> input = new ArrayList<>();
         for (String text : texts)
-            input.add(new ConversationActions.Message.Builder(author)
-                    .setReferenceTime(dt)
-                    .setText(text)
-                    .build());
+            if (!TextUtils.isEmpty(text)) {
+                if (text.length() > MAX_CONVERSATION_SAMPLE_SIZE)
+                    text = text.substring(0, MAX_CONVERSATION_SAMPLE_SIZE);
+                input.add(new ConversationActions.Message.Builder(author)
+                        .setReferenceTime(dt)
+                        .setText(text)
+                        .build());
+            }
 
         Set<String> excluded = new HashSet<>(Arrays.asList(
                 ConversationAction.TYPE_OPEN_URL,
@@ -164,7 +180,31 @@ public class TextHelper {
                         .setHints(hints)
                         .build();
 
-        return tcm.getTextClassifier().suggestConversationActions(request);
+        Future<ConversationActions> future = executor.submit(new Callable<ConversationActions>() {
+            @Override
+            @RequiresApi(api = Build.VERSION_CODES.Q)
+            public ConversationActions call() throws Exception {
+                long start = SystemClock.elapsedRealtime();
+                try {
+                    return tcm.getTextClassifier().suggestConversationActions(request);
+                } finally {
+                    long elapse = SystemClock.elapsedRealtime() - start;
+                    Log.i("Conversation actions=" + elapse + " ms");
+                }
+            }
+        });
+
+        try {
+            return future.get(MAX_CONVERSATION_DURATION, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException ex) {
+            Log.e(ex);
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+            prefs.edit().putBoolean("conversation_actions", false);
+            return null;
+        } catch (Throwable ex) {
+            Log.e(ex);
+            return null;
+        }
     }
 
     private static class DetectResult {

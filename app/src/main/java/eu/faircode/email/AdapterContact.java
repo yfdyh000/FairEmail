@@ -20,11 +20,9 @@ package eu.faircode.email;
 */
 
 import android.Manifest;
-import android.app.Dialog;
 import android.content.ActivityNotFoundException;
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.BitmapFactory;
@@ -42,13 +40,10 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.core.content.pm.ShortcutInfoCompat;
 import androidx.core.content.pm.ShortcutManagerCompat;
@@ -65,6 +60,7 @@ import java.io.InputStream;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 public class AdapterContact extends RecyclerView.Adapter<AdapterContact.ViewHolder> {
     private Fragment parentFragment;
@@ -77,10 +73,15 @@ public class AdapterContact extends RecyclerView.Adapter<AdapterContact.ViewHold
     private int textColorSecondary;
 
     private String search = null;
+    private List<Integer> types = new ArrayList<>();
+
     private List<TupleContactEx> all = new ArrayList<>();
     private List<TupleContactEx> selected = new ArrayList<>();
 
     private NumberFormat NF = NumberFormat.getNumberInstance();
+
+    private static final ExecutorService executor =
+            Helper.getBackgroundExecutor(1, "contacts");
 
     public class ViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener, View.OnLongClickListener {
         private View view;
@@ -126,10 +127,19 @@ public class AdapterContact extends RecyclerView.Adapter<AdapterContact.ViewHold
             } else if (contact.type == EntityContact.TYPE_TO) {
                 ivType.setImageResource(R.drawable.twotone_call_made_24);
                 ivType.setContentDescription(context.getString(R.string.title_accessibility_to));
+            } else if (contact.type == EntityContact.TYPE_JUNK) {
+                ivType.setImageResource(R.drawable.twotone_report_24);
+                ivType.setContentDescription(context.getString(R.string.title_legend_junk));
+            } else if (contact.type == EntityContact.TYPE_NO_JUNK) {
+                ivType.setImageResource(R.drawable.twotone_report_off_24);
+                ivType.setContentDescription(context.getString(R.string.title_no_junk));
             } else {
                 ivType.setImageDrawable(null);
                 ivType.setContentDescription(null);
             }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                ivType.setTooltipText(ivType.getContentDescription());
 
             if (contact.avatar == null || !contacts)
                 ivAvatar.setImageDrawable(null);
@@ -151,7 +161,7 @@ public class AdapterContact extends RecyclerView.Adapter<AdapterContact.ViewHold
                     : Helper.getRelativeTimeSpanString(context, contact.last_contacted));
 
             ivFavorite.setImageResource(contact.state == EntityContact.STATE_FAVORITE
-                    ? R.drawable.twotone_star_24 : R.drawable.twotone_star_border_24);
+                    ? R.drawable.baseline_star_24 : R.drawable.twotone_star_border_24);
             ivFavorite.setImageTintList(ColorStateList.valueOf(
                     contact.state == EntityContact.STATE_FAVORITE ? colorAccent : textColorSecondary));
             ivFavorite.setContentDescription(contact.state == EntityContact.STATE_FAVORITE
@@ -169,6 +179,8 @@ public class AdapterContact extends RecyclerView.Adapter<AdapterContact.ViewHold
             TupleContactEx contact = selected.get(pos);
             if (contact.state == EntityContact.STATE_DEFAULT)
                 contact.state = EntityContact.STATE_FAVORITE;
+            else if (contact.state == EntityContact.STATE_FAVORITE)
+                contact.state = EntityContact.STATE_IGNORE;
             else
                 contact.state = EntityContact.STATE_DEFAULT;
 
@@ -217,20 +229,20 @@ public class AdapterContact extends RecyclerView.Adapter<AdapterContact.ViewHold
 
             PopupMenuLifecycle popupMenu = new PopupMenuLifecycle(context, powner, view);
 
+            int order = 0;
             SpannableString ss = new SpannableString(contact.email);
             ss.setSpan(new StyleSpan(Typeface.ITALIC), 0, ss.length(), 0);
             ss.setSpan(new RelativeSizeSpan(0.9f), 0, ss.length(), 0);
-            popupMenu.getMenu().add(Menu.NONE, 0, 0, ss).setEnabled(false);
+            popupMenu.getMenu().add(Menu.NONE, 0, order++, ss).setEnabled(false);
 
             if (contact.state != EntityContact.STATE_IGNORE)
-                popupMenu.getMenu().add(Menu.NONE, R.string.title_advanced_never_favorite, 1, R.string.title_advanced_never_favorite);
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && // should be system whitelisted
-                    share.resolveActivity(context.getPackageManager()) != null)
-                popupMenu.getMenu().add(Menu.NONE, R.string.title_share, 2, R.string.title_share);
+                popupMenu.getMenu().add(Menu.NONE, R.string.title_advanced_never_favorite, order++, R.string.title_advanced_never_favorite);
+            popupMenu.getMenu().add(Menu.NONE, R.string.title_share, order++, R.string.title_share); // should be system whitelisted
             if (Shortcuts.can(context))
-                popupMenu.getMenu().add(Menu.NONE, R.string.title_pin, 3, R.string.title_pin);
-            popupMenu.getMenu().add(Menu.NONE, R.string.title_advanced_edit_name, 4, R.string.title_advanced_edit_name);
-            popupMenu.getMenu().add(Menu.NONE, R.string.title_delete, 5, R.string.title_delete);
+                popupMenu.getMenu().add(Menu.NONE, R.string.title_pin, order++, R.string.title_pin);
+            popupMenu.getMenu().add(Menu.NONE, R.string.title_advanced_edit_name, order++, R.string.title_advanced_edit_name);
+            popupMenu.getMenu().add(Menu.NONE, R.string.title_search, order++, R.string.title_search);
+            popupMenu.getMenu().add(Menu.NONE, R.string.title_delete, order++, R.string.title_delete);
 
             popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
                 @Override
@@ -247,6 +259,9 @@ public class AdapterContact extends RecyclerView.Adapter<AdapterContact.ViewHold
                         return true;
                     } else if (itemId == R.string.title_advanced_edit_name) {
                         onActionEdit();
+                        return true;
+                    } else if (itemId == R.string.title_search) {
+                        onActionSearch();
                         return true;
                     } else if (itemId == R.string.title_delete) {
                         onActionDelete();
@@ -301,9 +316,16 @@ public class AdapterContact extends RecyclerView.Adapter<AdapterContact.ViewHold
                     args.putLong("id", contact.id);
                     args.putString("name", contact.name);
 
-                    FragmentEditName fragment = new FragmentEditName();
+                    FragmentDialogEditName fragment = new FragmentDialogEditName();
                     fragment.setArguments(args);
-                    fragment.show(parentFragment.getParentFragmentManager(), "contact:edit");
+                    fragment.setTargetFragment(parentFragment, FragmentContacts.REQUEST_EDIT_NAME);
+                    fragment.show(parentFragment.getParentFragmentManager(), "contact:name");
+                }
+
+                private void onActionSearch() {
+                    Intent search = new Intent(context, ActivitySearch.class);
+                    search.putExtra(Intent.EXTRA_PROCESS_TEXT, contact.email);
+                    context.startActivity(search);
                 }
 
                 private void onActionDelete() {
@@ -358,58 +380,90 @@ public class AdapterContact extends RecyclerView.Adapter<AdapterContact.ViewHold
             public void onDestroyed() {
                 Log.d(AdapterContact.this + " parent destroyed");
                 AdapterContact.this.parentFragment = null;
+                owner.getLifecycle().removeObserver(this);
             }
         });
     }
 
     public void set(@NonNull List<TupleContactEx> contacts) {
-        Log.i("Set contacts=" + contacts.size() + " search=" + search);
+        Log.i("Set contacts=" + contacts.size() +
+                " search=" + search + " types=" + types.size());
 
         all = contacts;
 
-        List<TupleContactEx> items;
-        if (TextUtils.isEmpty(search))
-            items = all;
-        else {
-            items = new ArrayList<>();
-            String query = search.toLowerCase().trim();
-            for (TupleContactEx contact : contacts)
-                if (contact.email.toLowerCase().contains(query) ||
-                        (contact.name != null && contact.name.toLowerCase().contains(query)))
-                    items.add(contact);
-        }
-
-        DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffCallback(selected, items), false);
-
-        selected = items;
-
-        diff.dispatchUpdatesTo(new ListUpdateCallback() {
+        new SimpleTask<List<TupleContactEx>>() {
             @Override
-            public void onInserted(int position, int count) {
-                Log.d("Inserted @" + position + " #" + count);
+            protected List<TupleContactEx> onExecute(Context context, Bundle args) throws Throwable {
+                List<TupleContactEx> filtered;
+                if (types.size() == 0)
+                    filtered = contacts;
+                else {
+                    filtered = new ArrayList<>();
+                    for (TupleContactEx contact : contacts)
+                        if (types.contains(contact.type))
+                            filtered.add(contact);
+                }
+
+                List<TupleContactEx> items;
+                if (TextUtils.isEmpty(search))
+                    items = filtered;
+                else {
+                    items = new ArrayList<>();
+                    String query = search.toLowerCase().trim();
+                    for (TupleContactEx contact : filtered)
+                        if (contact.email.toLowerCase().contains(query) ||
+                                (contact.name != null && contact.name.toLowerCase().contains(query)))
+                            items.add(contact);
+                }
+
+                return items;
             }
 
             @Override
-            public void onRemoved(int position, int count) {
-                Log.d("Removed @" + position + " #" + count);
+            protected void onExecuted(Bundle args, List<TupleContactEx> items) {
+                DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffCallback(selected, items), false);
+
+                selected = items;
+
+                diff.dispatchUpdatesTo(new ListUpdateCallback() {
+                    @Override
+                    public void onInserted(int position, int count) {
+                        Log.d("Inserted @" + position + " #" + count);
+                    }
+
+                    @Override
+                    public void onRemoved(int position, int count) {
+                        Log.d("Removed @" + position + " #" + count);
+                    }
+
+                    @Override
+                    public void onMoved(int fromPosition, int toPosition) {
+                        Log.d("Moved " + fromPosition + ">" + toPosition);
+                    }
+
+                    @Override
+                    public void onChanged(int position, int count, Object payload) {
+                        Log.d("Changed @" + position + " #" + count);
+                    }
+                });
+                diff.dispatchUpdatesTo(AdapterContact.this);
             }
 
             @Override
-            public void onMoved(int fromPosition, int toPosition) {
-                Log.d("Moved " + fromPosition + ">" + toPosition);
+            protected void onException(Bundle args, Throwable ex) {
+                Log.unexpectedError(parentFragment.getParentFragmentManager(), ex);
             }
-
-            @Override
-            public void onChanged(int position, int count, Object payload) {
-                Log.d("Changed @" + position + " #" + count);
-            }
-        });
-        diff.dispatchUpdatesTo(this);
+        }.setExecutor(executor).execute(context, owner, new Bundle(), "contacts:filter");
     }
 
     public void search(String query) {
         Log.i("Contacts query=" + query);
         search = query;
+        set(all);
+    }
+
+    public void filter(List<Integer> types) {
+        this.types = types;
         set(all);
     }
 
@@ -471,49 +525,5 @@ public class AdapterContact extends RecyclerView.Adapter<AdapterContact.ViewHold
         holder.unwire();
         holder.bindTo(contact);
         holder.wire();
-    }
-
-    public static class FragmentEditName extends FragmentDialogBase {
-        @NonNull
-        @Override
-        public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-            View view = LayoutInflater.from(getContext()).inflate(R.layout.dialog_edit_name, null);
-            final EditText etName = view.findViewById(R.id.etName);
-            etName.setText(getArguments().getString("name"));
-
-            return new AlertDialog.Builder(getContext())
-                    .setView(view)
-                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            Bundle args = new Bundle();
-                            args.putLong("id", getArguments().getLong("id"));
-                            args.putString("name", etName.getText().toString());
-
-                            new SimpleTask<Void>() {
-                                @Override
-                                protected Void onExecute(Context context, Bundle args) {
-                                    long id = args.getLong("id");
-                                    String name = args.getString("name");
-
-                                    if (TextUtils.isEmpty(name))
-                                        name = null;
-
-                                    DB db = DB.getInstance(context);
-                                    db.contact().setContactName(id, name);
-
-                                    return null;
-                                }
-
-                                @Override
-                                protected void onException(Bundle args, Throwable ex) {
-                                    Log.unexpectedError(getParentFragmentManager(), ex);
-                                }
-                            }.execute(getContext(), getActivity(), args, "edit:name");
-                        }
-                    })
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .create();
-        }
     }
 }

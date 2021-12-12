@@ -19,8 +19,27 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import java.util.Objects;
+
 public class TupleFolderUnified {
     public String type;
     public int messages;
     public int unseen;
+    public String sync_state;
+    public Integer color;
+    public int colorCount;
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof TupleFolderUnified) {
+            TupleFolderUnified other = (TupleFolderUnified) obj;
+            return (Objects.equals(this.type, other.type) &&
+                    this.messages == other.messages &&
+                    this.unseen == other.unseen &&
+                    Objects.equals(this.sync_state, other.sync_state) &&
+                    Objects.equals(this.color, other.color) &&
+                    this.colorCount == other.colorCount);
+        } else
+            return false;
+    }
 }

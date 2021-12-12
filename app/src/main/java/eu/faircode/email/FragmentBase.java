@@ -19,6 +19,9 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static android.app.ActionBar.DISPLAY_SHOW_CUSTOM;
+import static android.app.Activity.RESULT_OK;
+
 import android.app.RecoverableSecurityException;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
@@ -65,12 +68,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static android.app.ActionBar.DISPLAY_SHOW_CUSTOM;
-import static android.app.Activity.RESULT_OK;
-
 public class FragmentBase extends Fragment {
-    private String title = null;
-    private String subtitle = " ";
+    private CharSequence title = null;
+    private CharSequence subtitle = " ";
     private boolean finish = false;
     private boolean finished = false;
     private String requestKey = null;
@@ -91,7 +91,7 @@ public class FragmentBase extends Fragment {
         setTitle(getString(resid));
     }
 
-    protected void setTitle(String title) {
+    protected void setTitle(CharSequence title) {
         this.title = title;
         updateSubtitle();
     }
@@ -100,9 +100,15 @@ public class FragmentBase extends Fragment {
         setSubtitle(getString(resid));
     }
 
-    protected void setSubtitle(String subtitle) {
+    protected void setSubtitle(CharSequence subtitle) {
         this.subtitle = subtitle;
         updateSubtitle();
+    }
+
+    void invalidateOptionsMenu() {
+        FragmentActivity activity = getActivity();
+        if (activity != null)
+            activity.invalidateOptionsMenu();
     }
 
     void scrollTo(int resid, int offset) {
@@ -133,13 +139,17 @@ public class FragmentBase extends Fragment {
         scroll.post(new Runnable() {
             @Override
             public void run() {
-                Rect rect = new Rect();
-                child.getDrawingRect(rect);
-                scroll.offsetDescendantRectToMyCoords(child, rect);
-                int y = rect.top - scroll.getPaddingTop() + dy;
-                if (y < 0)
-                    y = 0;
-                scroll.scrollTo(0, y);
+                try {
+                    Rect rect = new Rect();
+                    child.getDrawingRect(rect);
+                    scroll.offsetDescendantRectToMyCoords(child, rect);
+                    int y = rect.top - scroll.getPaddingTop() + dy;
+                    if (y < 0)
+                        y = 0;
+                    scroll.scrollTo(0, y);
+                } catch (Throwable ex) {
+                    Log.e(ex);
+                }
             }
         });
     }
@@ -189,7 +199,8 @@ public class FragmentBase extends Fragment {
     public void onSaveInstanceState(Bundle outState) {
         Log.d("Save instance " + this);
         int before = Helper.getSize(outState);
-        outState.putString("fair:subtitle", subtitle);
+        outState.putCharSequence("fair:title", title);
+        outState.putCharSequence("fair:subtitle", subtitle);
         outState.putString("fair:requestKey", requestKey);
         super.onSaveInstanceState(outState);
         int after = Helper.getSize(outState);
@@ -221,12 +232,13 @@ public class FragmentBase extends Fragment {
         Log.i("Create " + this + " saved=" + (savedInstanceState != null));
         super.onCreate(savedInstanceState);
 
-        Bundle args = getArguments();
-        if (args == null)
-            setArguments(new Bundle());
-
-        if (savedInstanceState != null) {
-            subtitle = savedInstanceState.getString("fair:subtitle");
+        if (savedInstanceState == null) {
+            Bundle args = getArguments();
+            if (args == null)
+                setArguments(new Bundle());
+        } else {
+            title = savedInstanceState.getCharSequence("fair:title");
+            subtitle = savedInstanceState.getCharSequence("fair:subtitle");
             requestKey = savedInstanceState.getString("fair:requestKey");
         }
 
@@ -303,12 +315,12 @@ public class FragmentBase extends Fragment {
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        String action = (data == null ? null : data.getAction());
-        Log.i("Result class=" + this.getClass().getSimpleName() +
-                " action=" + action + " request=" + requestCode + " result=" + resultCode);
-        Log.logExtras(data);
-        if (data != null)
-            Log.i("data=" + data.getData());
+        EntityLog.log(getContext(), "Result class=" + this.getClass().getSimpleName() +
+                " action=" + (data == null ? null : data.getAction()) +
+                " request=" + requestCode +
+                " result=" + resultCode + " ok=" + (resultCode == RESULT_OK) +
+                " data=" + (data == null ? null : data.getData()) +
+                (data == null ? "" : " " + TextUtils.join(" ", Log.getExtras(data.getExtras()))));
         super.onActivityResult(requestCode, resultCode, data);
 
         try {
@@ -473,6 +485,9 @@ public class FragmentBase extends Fragment {
                 long id = args.getLong("id");
                 Uri uri = args.getParcelable("uri");
 
+                if (uri == null)
+                    throw new FileNotFoundException();
+
                 if (!"content".equals(uri.getScheme())) {
                     Log.w("Save attachment uri=" + uri);
                     throw new IllegalArgumentException(context.getString(R.string.title_no_stream));
@@ -547,6 +562,9 @@ public class FragmentBase extends Fragment {
             protected Void onExecute(Context context, Bundle args) throws Throwable {
                 long id = args.getLong("id");
                 Uri uri = args.getParcelable("uri");
+
+                if (uri == null)
+                    throw new FileNotFoundException();
 
                 if (!"content".equals(uri.getScheme())) {
                     Log.w("Save attachment uri=" + uri);

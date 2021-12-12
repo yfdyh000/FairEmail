@@ -27,6 +27,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
@@ -53,7 +54,9 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.cardview.widget.CardView;
 import androidx.constraintlayout.widget.Group;
+import androidx.core.view.MenuCompat;
 import androidx.fragment.app.FragmentActivity;
+import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.Observer;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.PreferenceManager;
@@ -64,6 +67,10 @@ public class FragmentSetup extends FragmentBase {
     private ViewGroup view;
 
     private TextView tvPrivacy;
+    private TextView tvSupport;
+
+    private ImageButton ibWelcome;
+    private Group grpWelcome;
 
     private TextView tvNoInternet;
     private ImageButton ibHelp;
@@ -84,18 +91,24 @@ public class FragmentSetup extends FragmentBase {
 
     private TextView tvPermissionsDone;
     private Button btnPermissions;
+    private TextView tvImportContacts;
 
     private TextView tvDozeDone;
     private Button btnDoze;
+    private TextView tvDoze12;
+    private ImageButton ibDoze;
 
+    private Button btnInexactAlarms;
     private Button btnBackgroundRestricted;
     private Button btnDataSaver;
+    private TextView tvStamina;
 
     private TextView tvBatteryUsage;
     private TextView tvSyncStopped;
 
     private Button btnInbox;
 
+    private Group grpInexactAlarms;
     private Group grpBackgroundRestricted;
     private Group grpDataSaver;
 
@@ -122,6 +135,9 @@ public class FragmentSetup extends FragmentBase {
         // Get controls
 
         tvPrivacy = view.findViewById(R.id.tvPrivacy);
+        tvSupport = view.findViewById(R.id.tvSupport);
+        ibWelcome = view.findViewById(R.id.ibWelcome);
+        grpWelcome = view.findViewById(R.id.grpWelcome);
 
         tvNoInternet = view.findViewById(R.id.tvNoInternet);
         ibHelp = view.findViewById(R.id.ibHelp);
@@ -142,18 +158,24 @@ public class FragmentSetup extends FragmentBase {
 
         tvPermissionsDone = view.findViewById(R.id.tvPermissionsDone);
         btnPermissions = view.findViewById(R.id.btnPermissions);
+        tvImportContacts = view.findViewById(R.id.tvImportContacts);
 
         tvDozeDone = view.findViewById(R.id.tvDozeDone);
         btnDoze = view.findViewById(R.id.btnDoze);
+        tvDoze12 = view.findViewById(R.id.tvDoze12);
+        ibDoze = view.findViewById(R.id.ibDoze);
 
+        btnInexactAlarms = view.findViewById(R.id.btnInexactAlarms);
         btnBackgroundRestricted = view.findViewById(R.id.btnBackgroundRestricted);
         btnDataSaver = view.findViewById(R.id.btnDataSaver);
+        tvStamina = view.findViewById(R.id.tvStamina);
 
         tvBatteryUsage = view.findViewById(R.id.tvBatteryUsage);
         tvSyncStopped = view.findViewById(R.id.tvSyncStopped);
 
         btnInbox = view.findViewById(R.id.btnInbox);
 
+        grpInexactAlarms = view.findViewById(R.id.grpInexactAlarms);
         grpBackgroundRestricted = view.findViewById(R.id.grpBackgroundRestricted);
         grpDataSaver = view.findViewById(R.id.grpDataSaver);
 
@@ -163,7 +185,29 @@ public class FragmentSetup extends FragmentBase {
         tvPrivacy.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Helper.view(v.getContext(), Uri.parse(Helper.PRIVACY_URI), false);
+                Helper.view(v.getContext(), Helper.getPrivacyUri(v.getContext()), false);
+            }
+        });
+
+        tvSupport.setPaintFlags(tvPrivacy.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
+        tvSupport.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent view = new Intent(Intent.ACTION_VIEW)
+                        .setData(Helper.getSupportUri(v.getContext()));
+                v.getContext().startActivity(view);
+            }
+        });
+
+        updateWelcome();
+
+        ibWelcome.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(view.getContext());
+                boolean setup_welcome = !prefs.getBoolean("setup_welcome", true);
+                prefs.edit().putBoolean("setup_welcome", setup_welcome).apply();
+                updateWelcome();
             }
         });
 
@@ -185,28 +229,37 @@ public class FragmentSetup extends FragmentBase {
                 PopupMenuLifecycle popupMenu = new PopupMenuLifecycle(context, getViewLifecycleOwner(), btnQuick);
                 Menu menu = popupMenu.getMenu();
 
+                Resources res = context.getResources();
+                String pkg = context.getPackageName();
+
                 int order = 1;
                 String gmail = getString(R.string.title_setup_oauth, getString(R.string.title_setup_gmail));
-                menu.add(Menu.NONE, R.string.title_setup_gmail, order++, gmail);
+                MenuItem item = menu.add(Menu.FIRST, R.string.title_setup_gmail, order++, gmail);
+                int resid = res.getIdentifier("provider_gmail", "drawable", pkg);
+                if (resid != 0)
+                    item.setIcon(resid);
 
                 for (EmailProvider provider : EmailProvider.loadProfiles(context))
                     if (provider.oauth != null &&
                             (provider.oauth.enabled || BuildConfig.DEBUG)) {
-                        MenuItem item = menu
-                                .add(Menu.NONE, -1, order++, getString(R.string.title_setup_oauth, provider.description))
+                        item = menu
+                                .add(Menu.FIRST, -1, order++, getString(R.string.title_setup_oauth, provider.description))
                                 .setIntent(new Intent(ActivitySetup.ACTION_QUICK_OAUTH)
                                         .putExtra("id", provider.id)
                                         .putExtra("name", provider.description)
                                         .putExtra("privacy", provider.oauth.privacy)
                                         .putExtra("askAccount", provider.oauth.askAccount));
-                        int resid = context.getResources()
-                                .getIdentifier("provider_" + provider.id, "drawable", context.getPackageName());
+                        resid = res.getIdentifier("provider_" + provider.id, "drawable", pkg);
                         if (resid != 0)
                             item.setIcon(resid);
                     }
 
                 menu.add(Menu.NONE, R.string.title_setup_other, order++, R.string.title_setup_other)
                         .setIcon(R.drawable.twotone_auto_fix_high_24);
+
+                menu.add(Menu.NONE, R.string.title_setup_classic, order++, R.string.title_setup_classic)
+                        .setIcon(R.drawable.twotone_settings_24)
+                        .setVisible(false);
 
                 SpannableString ss = new SpannableString(getString(R.string.title_setup_pop3));
                 ss.setSpan(new RelativeSizeSpan(0.9f), 0, ss.length(), 0);
@@ -217,6 +270,8 @@ public class FragmentSetup extends FragmentBase {
                         .setVisible(false);
 
                 popupMenu.insertIcons(context);
+
+                MenuCompat.setGroupDividerEnabled(menu, true);
 
                 popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
                     @Override
@@ -229,6 +284,7 @@ public class FragmentSetup extends FragmentBase {
                                 lbm.sendBroadcast(new Intent(ActivitySetup.ACTION_QUICK_GMAIL));
                             else
                                 new AlertDialog.Builder(getContext())
+                                        .setIcon(R.drawable.twotone_info_24)
                                         .setTitle(item.getTitle())
                                         .setMessage(R.string.title_setup_gmail_support)
                                         .setNeutralButton(R.string.title_info, new DialogInterface.OnClickListener() {
@@ -242,6 +298,22 @@ public class FragmentSetup extends FragmentBase {
                             return true;
                         } else if (itemId == R.string.title_setup_other) {
                             lbm.sendBroadcast(new Intent(ActivitySetup.ACTION_QUICK_SETUP));
+                            return true;
+                        } else if (itemId == R.string.title_setup_classic) {
+                            ibManual.setPressed(true);
+                            ibManual.setPressed(false);
+                            manual = true;
+                            updateManual();
+                            view.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    try {
+                                        scrollTo(R.id.ibManual, 0);
+                                    } catch (Throwable ex) {
+                                        Log.e(ex);
+                                    }
+                                }
+                            });
                             return true;
                         } else if (itemId == R.string.title_setup_pop3) {
                             lbm.sendBroadcast(new Intent(ActivitySetup.ACTION_QUICK_POP3));
@@ -258,6 +330,7 @@ public class FragmentSetup extends FragmentBase {
                                 lbm.sendBroadcast(item.getIntent());
                             else
                                 new AlertDialog.Builder(getContext())
+                                        .setIcon(R.drawable.twotone_info_24)
                                         .setTitle(item.getTitle())
                                         .setMessage(R.string.title_setup_oauth_permission)
                                         .setNeutralButton(R.string.title_info, new DialogInterface.OnClickListener() {
@@ -371,10 +444,33 @@ public class FragmentSetup extends FragmentBase {
             }
         });
 
+        tvImportContacts.setPaintFlags(tvImportContacts.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
+        tvImportContacts.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Helper.viewFAQ(v.getContext(), 172, true);
+            }
+        });
+
         btnDoze.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 new FragmentDialogDoze().show(getParentFragmentManager(), "setup:doze");
+            }
+        });
+
+        ibDoze.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Helper.viewFAQ(v.getContext(), 175, true);
+            }
+        });
+
+        tvStamina.setPaintFlags(tvStamina.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
+        tvStamina.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Helper.view(v.getContext(), Uri.parse(Helper.DONTKILL_URI + "sony"), true);
             }
         });
 
@@ -395,6 +491,20 @@ public class FragmentSetup extends FragmentBase {
         });
 
         PackageManager pm = getContext().getPackageManager();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            final Intent settings = new Intent(
+                    Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                    Uri.parse("package:" + BuildConfig.APPLICATION_ID));
+
+            btnInexactAlarms.setEnabled(settings.resolveActivity(pm) != null); // system whitelisted
+            btnInexactAlarms.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    startActivity(settings);
+                }
+            });
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             final Intent settings = new Intent(
@@ -444,11 +554,14 @@ public class FragmentSetup extends FragmentBase {
         tvDozeDone.setText(null);
         tvDozeDone.setCompoundDrawables(null, null, null, null);
         btnDoze.setEnabled(false);
+        tvDoze12.setVisibility(View.GONE);
 
         btnInbox.setEnabled(false);
 
+        grpInexactAlarms.setVisibility(View.GONE);
         grpBackgroundRestricted.setVisibility(View.GONE);
         grpDataSaver.setVisibility(View.GONE);
+        tvStamina.setVisibility(View.GONE);
 
         setContactsPermission(hasPermission(Manifest.permission.READ_CONTACTS));
 
@@ -505,6 +618,7 @@ public class FragmentSetup extends FragmentBase {
 
                 btnIdentity.setEnabled(done);
                 btnInbox.setEnabled(done);
+                btnInbox.setTypeface(done ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
 
                 prefs.edit().putBoolean("has_accounts", done).apply();
             }
@@ -513,8 +627,27 @@ public class FragmentSetup extends FragmentBase {
         db.identity().liveComposableIdentities().observe(getViewLifecycleOwner(), new Observer<List<TupleIdentityEx>>() {
             @Override
             public void onChanged(@Nullable List<TupleIdentityEx> identities) {
-                boolean done = (identities != null && identities.size() > 0);
-                tvNoComposable.setVisibility(done ? View.GONE : View.VISIBLE);
+                Bundle args = new Bundle();
+
+                new SimpleTask<List<EntityAccount>>() {
+                    @Override
+                    protected List<EntityAccount> onExecute(Context context, Bundle args) throws Throwable {
+                        DB db = DB.getInstance(context);
+                        return db.account().getSynchronizingAccounts();
+                    }
+
+                    @Override
+                    protected void onExecuted(Bundle args, List<EntityAccount> accounts) {
+                        boolean done = ((accounts == null || accounts.size() == 0) ||
+                                (identities != null && identities.size() > 0));
+                        tvNoComposable.setVisibility(done ? View.GONE : View.VISIBLE);
+                    }
+
+                    @Override
+                    protected void onException(Bundle args, Throwable ex) {
+                        // Ignored
+                    }
+                }.execute(FragmentSetup.this, args, "setup:accounts");
             }
         });
     }
@@ -548,6 +681,11 @@ public class FragmentSetup extends FragmentBase {
         tvDozeDone.setTextColor(ignoring == null || ignoring ? textColorPrimary : colorWarning);
         tvDozeDone.setTypeface(null, ignoring == null || ignoring ? Typeface.NORMAL : Typeface.BOLD);
         tvDozeDone.setCompoundDrawablesWithIntrinsicBounds(ignoring == null || ignoring ? check : null, null, null, null);
+        tvDoze12.setVisibility(Helper.isOptimizing12(getContext()) ? View.VISIBLE : View.GONE);
+
+        grpInexactAlarms.setVisibility(
+                !AlarmManagerCompatEx.canScheduleExactAlarms(getContext()) || BuildConfig.DEBUG
+                        ? View.VISIBLE : View.GONE);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             ActivityManager am =
@@ -557,6 +695,9 @@ public class FragmentSetup extends FragmentBase {
         }
 
         grpDataSaver.setVisibility(ConnectionHelper.isDataSaving(getContext())
+                ? View.VISIBLE : View.GONE);
+
+        tvStamina.setVisibility(Helper.isStaminaEnabled(getContext())
                 ? View.VISIBLE : View.GONE);
     }
 
@@ -568,6 +709,13 @@ public class FragmentSetup extends FragmentBase {
             ConnectivityManager cm = (ConnectivityManager) getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
             cm.unregisterNetworkCallback(networkCallback);
         }
+    }
+
+    private void updateWelcome() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+        boolean setup_welcome = prefs.getBoolean("setup_welcome", true);
+        ibWelcome.setImageLevel(setup_welcome ? 0 /* less */ : 1 /* more */);
+        grpWelcome.setVisibility(setup_welcome ? View.VISIBLE : View.GONE);
     }
 
     private void updateManual() {
@@ -609,7 +757,7 @@ public class FragmentSetup extends FragmentBase {
             view.post(new Runnable() {
                 @Override
                 public void run() {
-                    tvNoInternet.setVisibility(View.GONE);
+                    updateInternet(true);
                 }
             });
         }
@@ -619,9 +767,15 @@ public class FragmentSetup extends FragmentBase {
             view.post(new Runnable() {
                 @Override
                 public void run() {
-                    tvNoInternet.setVisibility(View.VISIBLE);
+                    updateInternet(false);
                 }
             });
+        }
+
+        private void updateInternet(boolean available) {
+            if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                return;
+            tvNoInternet.setVisibility(available ? View.GONE : View.VISIBLE);
         }
     };
 
@@ -630,6 +784,8 @@ public class FragmentSetup extends FragmentBase {
         @Override
         public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
             return new AlertDialog.Builder(getContext())
+                    .setIcon(R.drawable.twotone_info_24)
+                    .setTitle(R.string.title_setup_doze)
                     .setMessage(R.string.title_setup_doze_instructions)
                     .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                         @Override

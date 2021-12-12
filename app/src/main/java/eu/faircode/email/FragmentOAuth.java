@@ -19,6 +19,9 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static android.app.Activity.RESULT_OK;
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_OAUTH;
+
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
@@ -47,6 +50,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.constraintlayout.widget.Group;
+import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceManager;
 
 import net.openid.appauth.AppAuthConfiguration;
@@ -60,8 +64,10 @@ import net.openid.appauth.AuthorizationServiceConfiguration;
 import net.openid.appauth.ClientAuthentication;
 import net.openid.appauth.ClientSecretPost;
 import net.openid.appauth.CodeVerifierUtil;
+import net.openid.appauth.GrantTypeValues;
 import net.openid.appauth.NoClientAuthentication;
 import net.openid.appauth.ResponseTypeValues;
+import net.openid.appauth.TokenRequest;
 import net.openid.appauth.TokenResponse;
 import net.openid.appauth.browser.BrowserDescriptor;
 import net.openid.appauth.browser.BrowserMatcher;
@@ -75,6 +81,7 @@ import org.json.JSONObject;
 import java.io.FileNotFoundException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -84,14 +91,15 @@ import java.util.Map;
 import javax.mail.AuthenticationFailedException;
 import javax.net.ssl.HttpsURLConnection;
 
-import static android.app.Activity.RESULT_OK;
-import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_OAUTH;
-
 public class FragmentOAuth extends FragmentBase {
     private String id;
     private String name;
     private String privacy;
     private boolean askAccount;
+
+    private String personal;
+    private String address;
+    private boolean update;
 
     private ViewGroup view;
     private ScrollView scroll;
@@ -110,6 +118,7 @@ public class FragmentOAuth extends FragmentBase {
     private TextView tvGmailDraftsHint;
     private TextView tvOfficeAuthHint;
     private Button btnSupport;
+    private Button btnHelp;
 
     private Group grpError;
 
@@ -124,6 +133,10 @@ public class FragmentOAuth extends FragmentBase {
         name = args.getString("name");
         privacy = args.getString("privacy");
         askAccount = args.getBoolean("askAccount", false);
+
+        personal = args.getString("personal");
+        address = args.getString("address");
+        update = args.getBoolean("update");
     }
 
     @Override
@@ -150,6 +163,7 @@ public class FragmentOAuth extends FragmentBase {
         tvGmailDraftsHint = view.findViewById(R.id.tvGmailDraftsHint);
         tvOfficeAuthHint = view.findViewById(R.id.tvOfficeAuthHint);
         btnSupport = view.findViewById(R.id.btnSupport);
+        btnHelp = view.findViewById(R.id.btnHelp);
 
         grpError = view.findViewById(R.id.grpError);
 
@@ -178,6 +192,18 @@ public class FragmentOAuth extends FragmentBase {
             }
         });
 
+        btnHelp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
+                    EmailProvider provider = EmailProvider.getProvider(v.getContext(), id);
+                    Helper.view(v.getContext(), Uri.parse(provider.link), false);
+                } catch (Throwable ex) {
+                    Log.e(ex);
+                }
+            }
+        });
+
         // Initialize
         tvTitle.setText(getString(R.string.title_setup_oauth_rationale, name));
         etName.setVisibility(askAccount ? View.VISIBLE : View.GONE);
@@ -186,6 +212,10 @@ public class FragmentOAuth extends FragmentBase {
         tvConfiguring.setVisibility(View.GONE);
         tvGmailHint.setVisibility("gmail".equals(id) ? View.VISIBLE : View.GONE);
         hideError();
+
+        etName.setText(personal);
+        etEmail.setText(address);
+        cbUpdate.setChecked(update);
 
         return view;
     }
@@ -222,9 +252,18 @@ public class FragmentOAuth extends FragmentBase {
 
                 if (TextUtils.isEmpty(email))
                     throw new IllegalArgumentException(getString(R.string.title_no_email));
+
+                int backslash = email.indexOf('\\');
+                if (backslash > 0)
+                    email = email.substring(0, backslash);
+
                 if (!Helper.EMAIL_ADDRESS.matcher(email).matches())
                     throw new IllegalArgumentException(getString(R.string.title_email_invalid, email));
             }
+
+            etName.clearFocus();
+            etEmail.clearFocus();
+            Helper.hideKeyboard(view);
 
             etName.setEnabled(false);
             etEmail.setEnabled(false);
@@ -328,8 +367,14 @@ public class FragmentOAuth extends FragmentBase {
                             .setState(provider.id)
                             .setAdditionalParameters(params);
 
-            if (askAccount)
-                authRequestBuilder.setLoginHint(etEmail.getText().toString().trim());
+            if (askAccount) {
+                String address = etEmail.getText().toString().trim();
+                int backslash = address.indexOf('\\');
+                if (backslash > 0)
+                    authRequestBuilder.setLoginHint(address.substring(0, backslash));
+                else
+                    authRequestBuilder.setLoginHint(address);
+            }
 
             if (provider.oauth.pcke)
                 authRequestBuilder.setCodeVerifier(CodeVerifierUtil.generateRandomCodeVerifier());
@@ -338,8 +383,11 @@ public class FragmentOAuth extends FragmentBase {
             if ("gmail".equals(provider.id))
                 authRequestBuilder.setPrompt("consent");
 
+            // https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-auth-code-flow
             if ("office365".equals(provider.id))
                 authRequestBuilder.setPrompt("select_account");
+            if ("outlook".equals(provider.id))
+                authRequestBuilder.setPrompt("consent");
 
             AuthorizationRequest authRequest = authRequestBuilder.build();
 
@@ -392,8 +440,23 @@ public class FragmentOAuth extends FragmentBase {
             else
                 clientAuth = new ClientSecretPost(provider.oauth.clientSecret);
 
+            TokenRequest.Builder builder = new TokenRequest.Builder(
+                    auth.request.configuration,
+                    auth.request.clientId)
+                    .setGrantType(GrantTypeValues.AUTHORIZATION_CODE)
+                    .setRedirectUri(auth.request.redirectUri)
+                    .setCodeVerifier(auth.request.codeVerifier)
+                    .setAuthorizationCode(auth.authorizationCode)
+                    .setAdditionalParameters(Collections.<String, String>emptyMap())
+                    .setNonce(auth.request.nonce);
+
+            if ("office365".equals(provider.id) || "outlook".equals(provider.id))
+                builder.setScope(TextUtils.join(" ", provider.oauth.scopes));
+
+            TokenRequest request = builder.build();
+
             authService.performTokenRequest(
-                    auth.createTokenExchangeRequest(),
+                    request,
                     clientAuth,
                     new AuthorizationService.TokenResponseCallback() {
                         @Override
@@ -424,6 +487,9 @@ public class FragmentOAuth extends FragmentBase {
     }
 
     private void onOAuthorized(String accessToken, String idToken, AuthState state) {
+        if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+            return;
+
         Bundle args = new Bundle();
         args.putString("id", id);
         args.putString("name", name);
@@ -463,12 +529,75 @@ public class FragmentOAuth extends FragmentBase {
                 String iprotocol = (provider.smtp.starttls ? "smtp" : "smtps");
                 int iencryption = (provider.smtp.starttls ? EmailService.ENCRYPTION_STARTTLS : EmailService.ENCRYPTION_SSL);
 
-                String username = address;
+                if ("outlook".equals(id) && BuildConfig.DEBUG) {
+                    DB db = DB.getInstance(context);
+
+                    // Create account
+                    EntityAccount account = new EntityAccount();
+
+                    account.host = provider.imap.host;
+                    account.encryption = aencryption;
+                    account.port = provider.imap.port;
+                    account.auth_type = AUTH_TYPE_OAUTH;
+                    account.provider = provider.id;
+                    account.user = address;
+                    account.password = state;
+
+                    int at = account.user.indexOf('@');
+                    String user = account.user.substring(0, at);
+
+                    account.name = provider.name + "/" + user;
+
+                    account.synchronize = true;
+                    account.primary = false;
+
+                    if (provider.keepalive > 0)
+                        account.poll_interval = provider.keepalive;
+
+                    account.partial_fetch = provider.partial;
+
+                    account.created = new Date().getTime();
+                    account.last_connected = account.created;
+
+                    account.id = db.account().insertAccount(account);
+                    args.putLong("account", account.id);
+                    EntityLog.log(context, "OAuth account=" + account.name);
+
+                    EntityFolder folder = new EntityFolder("INBOX", EntityFolder.INBOX);
+                    folder.account = account.id;
+                    folder.setProperties();
+                    folder.setSpecials(account);
+                    folder.id = db.folder().insertFolder(folder);
+                    EntityLog.log(context, "OAuth folder=" + folder.name + " type=" + folder.type);
+                    if (folder.synchronize)
+                        EntityOperation.sync(context, folder.id, true);
+
+                    return null;
+                }
+
+                /*
+                 * Outlook shared mailbox
+                 * Authenticate: main/shared account
+                 * IMAP: shared account
+                 * SMTP: main account
+                 * https://docs.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth#sasl-xoauth2-authentication-for-shared-mailboxes-in-office-365
+                 */
+
+                String username;
+                String sharedname;
+                int backslash = address.indexOf('\\');
+                if (backslash > 0) {
+                    username = address.substring(0, backslash);
+                    sharedname = address.substring(backslash + 1);
+                } else {
+                    username = address;
+                    sharedname = null;
+                }
 
                 List<String> usernames = new ArrayList<>();
-                usernames.add(address);
+                usernames.add(sharedname == null ? username : sharedname);
 
-                if (token != null) {
+                if (token != null && sharedname == null) {
                     // https://docs.microsoft.com/en-us/azure/active-directory/develop/access-tokens
                     String[] segments = token.split("\\.");
                     if (segments.length > 1)
@@ -499,7 +628,7 @@ public class FragmentOAuth extends FragmentBase {
                         }
                 }
 
-                if (jwt != null) {
+                if (jwt != null && sharedname == null) {
                     // https://docs.microsoft.com/en-us/azure/active-directory/develop/id-tokens
                     String[] segments = jwt.split("\\.");
                     if (segments.length > 1)
@@ -584,7 +713,7 @@ public class FragmentOAuth extends FragmentBase {
                 List<Pair<String, String>> identities = new ArrayList<>();
 
                 if (askAccount)
-                    identities.add(new Pair<>(address, personal));
+                    identities.add(new Pair<>(username, personal));
                 else if ("mailru".equals(id)) {
                     URL url = new URL("https://oauth.mail.ru/userinfo?access_token=" + token);
                     Log.i("GET " + url);
@@ -598,15 +727,14 @@ public class FragmentOAuth extends FragmentBase {
                     try {
                         int status = connection.getResponseCode();
                         if (status != HttpsURLConnection.HTTP_OK)
-                            throw new FileNotFoundException("Error " + status + ":" + connection.getResponseMessage());
+                            throw new FileNotFoundException("Error " + status + ": " + connection.getResponseMessage());
 
                         String json = Helper.readStream(connection.getInputStream());
                         Log.i("json=" + json);
                         JSONObject data = new JSONObject(json);
                         name = data.getString("name");
-                        address = data.getString("email");
-                        username = address;
-                        identities.add(new Pair<>(address, name));
+                        username = data.getString("email");
+                        identities.add(new Pair<>(username, name));
                     } finally {
                         connection.disconnect();
                     }
@@ -632,7 +760,7 @@ public class FragmentOAuth extends FragmentBase {
                     aservice.connect(
                             provider.imap.host, provider.imap.port,
                             AUTH_TYPE_OAUTH, provider.id,
-                            username, state,
+                            sharedname == null ? username : sharedname, state,
                             null, null);
 
                     folders = aservice.getFolders();
@@ -654,13 +782,18 @@ public class FragmentOAuth extends FragmentBase {
 
                 Log.i("OAuth passed provider=" + provider.id);
 
+                EntityAccount update = null;
                 DB db = DB.getInstance(context);
                 try {
                     db.beginTransaction();
 
-                    EntityAccount update = null;
-                    if (args.getBoolean("update"))
-                        update = db.account().getAccount(username, AUTH_TYPE_OAUTH);
+                    if (args.getBoolean("update")) {
+                        List<EntityAccount> accounts =
+                                db.account().getAccounts(username, AUTH_TYPE_OAUTH);
+                        if (accounts != null && accounts.size() == 1)
+                            update = accounts.get(0);
+                    }
+
                     if (update == null) {
                         EntityAccount primary = db.account().getPrimaryAccount();
 
@@ -672,11 +805,11 @@ public class FragmentOAuth extends FragmentBase {
                         account.port = provider.imap.port;
                         account.auth_type = AUTH_TYPE_OAUTH;
                         account.provider = provider.id;
-                        account.user = username;
+                        account.user = (sharedname == null ? username : sharedname);
                         account.password = state;
 
-                        int at = address.indexOf('@');
-                        String user = address.substring(0, at);
+                        int at = account.user.indexOf('@');
+                        String user = account.user.substring(0, at);
 
                         account.name = provider.name + "/" + user;
 
@@ -731,6 +864,7 @@ public class FragmentOAuth extends FragmentBase {
                             ident.provider = provider.id;
                             ident.user = username;
                             ident.password = state;
+                            ident.use_ip = provider.useip;
                             ident.synchronize = true;
                             ident.primary = ident.user.equals(ident.email);
                             ident.max_size = max_size;
@@ -739,8 +873,9 @@ public class FragmentOAuth extends FragmentBase {
                             EntityLog.log(context, "OAuth identity=" + ident.name + " email=" + ident.email);
                         }
                     } else {
-                        args.putLong("account", -1);
+                        args.putLong("account", update.id);
                         EntityLog.log(context, "OAuth update account=" + update.name);
+                        db.account().setAccountSynchronize(update.id, true);
                         db.account().setAccountPassword(update.id, state);
                         db.identity().setIdentityPassword(update.id, update.user, state, update.auth_type);
                     }
@@ -750,7 +885,12 @@ public class FragmentOAuth extends FragmentBase {
                     db.endTransaction();
                 }
 
-                ServiceSynchronize.eval(context, "OAuth");
+                if (update == null)
+                    ServiceSynchronize.eval(context, "OAuth");
+                else {
+                    args.putBoolean("updated", true);
+                    ServiceSynchronize.reload(context, update.id, true, "OAuth");
+                }
 
                 return null;
             }
@@ -759,7 +899,8 @@ public class FragmentOAuth extends FragmentBase {
             protected void onExecuted(Bundle args, Void data) {
                 pbOAuth.setVisibility(View.GONE);
 
-                if (args.getLong("account") < 0) {
+                boolean updated = args.getBoolean("updated");
+                if (updated) {
                     finish();
                     ToastEx.makeText(getContext(), R.string.title_setup_oauth_updated, Toast.LENGTH_LONG).show();
                 } else {
@@ -788,6 +929,9 @@ public class FragmentOAuth extends FragmentBase {
     private void showError(Throwable ex) {
         Log.e(ex);
 
+        if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+            return;
+
         if (ex instanceof IllegalArgumentException)
             tvError.setText(ex.getMessage());
         else
@@ -798,10 +942,20 @@ public class FragmentOAuth extends FragmentBase {
         if ("gmail".equals(id))
             tvGmailDraftsHint.setVisibility(View.VISIBLE);
 
-        if ("office365".equals(id)) {
+        if ("office365".equals(id) || "outlook".equals(id)) {
             if (ex instanceof AuthenticationFailedException)
                 tvOfficeAuthHint.setVisibility(View.VISIBLE);
         }
+
+        EmailProvider provider;
+        try {
+            provider = EmailProvider.getProvider(getContext(), id);
+        } catch (Throwable exex) {
+            Log.e(exex);
+            provider = null;
+        }
+
+        btnHelp.setVisibility((provider != null && provider.link != null ? View.VISIBLE : View.GONE));
 
         etName.setEnabled(true);
         etEmail.setEnabled(true);
@@ -812,12 +966,15 @@ public class FragmentOAuth extends FragmentBase {
         getMainHandler().post(new Runnable() {
             @Override
             public void run() {
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return;
                 scroll.smoothScrollTo(0, tvError.getBottom());
             }
         });
     }
 
     private void hideError() {
+        btnHelp.setVisibility(View.GONE);
         grpError.setVisibility(View.GONE);
         tvGmailDraftsHint.setVisibility(View.GONE);
         tvOfficeAuthHint.setVisibility(View.GONE);

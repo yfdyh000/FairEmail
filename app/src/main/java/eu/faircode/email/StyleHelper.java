@@ -40,6 +40,7 @@ import android.text.style.QuoteSpan;
 import android.text.style.RelativeSizeSpan;
 import android.text.style.StrikethroughSpan;
 import android.text.style.StyleSpan;
+import android.text.style.SuggestionSpan;
 import android.text.style.TypefaceSpan;
 import android.text.style.URLSpan;
 import android.text.style.UnderlineSpan;
@@ -59,12 +60,28 @@ import com.flask.colorpicker.builder.ColorPickerClickListener;
 import com.flask.colorpicker.builder.ColorPickerDialogBuilder;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 public class StyleHelper {
+    private static final List<Class> CLEAR_STYLES = Collections.unmodifiableList(Arrays.asList(
+            StyleSpan.class,
+            UnderlineSpan.class,
+            RelativeSizeSpan.class,
+            BackgroundColorSpan.class,
+            ForegroundColorSpan.class,
+            AlignmentSpan.class,
+            BulletSpan.class,
+            QuoteSpan.class, IndentSpan.class,
+            StrikethroughSpan.class,
+            URLSpan.class,
+            TypefaceSpan.class
+    ));
+
     static boolean apply(int action, LifecycleOwner owner, View anchor, EditText etBody, Object... args) {
         Log.i("Style action=" + action);
 
@@ -146,7 +163,7 @@ public class StyleHelper {
                     int[] titles = new int[]{R.string.title_style_size_small, R.string.title_style_size_medium, R.string.title_style_size_large};
                     float[] sizes = new float[]{HtmlHelper.FONT_SMALL, 1.0f, HtmlHelper.FONT_LARGE};
                     for (int i = 0; i < ids.length; i++) {
-                        SpannableStringBuilder ssb = new SpannableStringBuilder(context.getString(titles[i]));
+                        SpannableStringBuilder ssb = new SpannableStringBuilderEx(context.getString(titles[i]));
                         ssb.setSpan(new RelativeSizeSpan(sizes[i]), 0, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                         smenu.add(R.id.group_style_size, ids[i], i, ssb);
                     }
@@ -156,7 +173,7 @@ public class StyleHelper {
                 String[] fontNameValues = anchor.getResources().getStringArray(R.array.fontNameValues);
                 SubMenu smenu = popupMenu.getMenu().findItem(R.id.menu_style_font).getSubMenu();
                 for (int i = 0; i < fontNameNames.length; i++) {
-                    SpannableStringBuilder ssb = new SpannableStringBuilder(fontNameNames[i]);
+                    SpannableStringBuilder ssb = new SpannableStringBuilderEx(fontNameNames[i]);
                     ssb.setSpan(getTypefaceSpan(fontNameValues[i], context), 0, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                     smenu.add(R.id.group_style_font, i, 0, ssb);
                 }
@@ -175,6 +192,8 @@ public class StyleHelper {
 
                 IndentSpan[] indents = edit.getSpans(start, end, IndentSpan.class);
                 popupMenu.getMenu().findItem(R.id.menu_style_indentation_decrease).setEnabled(indents.length > 0);
+
+                popupMenu.getMenu().findItem(R.id.menu_style_code).setEnabled(BuildConfig.DEBUG);
 
                 popupMenu.insertIcons(context);
 
@@ -206,6 +225,8 @@ public class StyleHelper {
                                 return setIndentation(item);
                             } else if (groupId == R.id.group_style_strikethrough) {
                                 return setStrikeThrough(item);
+                            } else if (groupId == R.id.group_style_code) {
+                                return setCode(item);
                             } else if (groupId == R.id.group_style_clear) {
                                 return clear(item);
                             }
@@ -221,12 +242,16 @@ public class StyleHelper {
 
                         Float size;
                         if (item.getItemId() == R.id.menu_style_size_small)
-                            size = 0.8f;
+                            size = HtmlHelper.FONT_SMALL;
                         else if (item.getItemId() == R.id.menu_style_size_large)
-                            size = 1.25f;
+                            size = HtmlHelper.FONT_LARGE;
                         else
                             size = null;
 
+                        return _setSize(size);
+                    }
+
+                    private boolean _setSize(Float size) {
                         RelativeSizeSpan[] spans = edit.getSpans(start, end, RelativeSizeSpan.class);
                         for (RelativeSizeSpan span : spans) {
                             int s = edit.getSpanStart(span);
@@ -273,6 +298,10 @@ public class StyleHelper {
                                         _setBackground(null);
                                     }
                                 });
+
+                        BackgroundColorSpan[] spans = edit.getSpans(start, end, BackgroundColorSpan.class);
+                        if (spans != null && spans.length == 1)
+                            builder.initialColor(spans[0].getBackgroundColor());
 
                         builder.build().show();
 
@@ -326,6 +355,10 @@ public class StyleHelper {
                                         _setColor(null);
                                     }
                                 });
+
+                        ForegroundColorSpan[] spans = edit.getSpans(start, end, ForegroundColorSpan.class);
+                        if (spans != null && spans.length == 1)
+                            builder.initialColor(spans[0].getForegroundColor());
 
                         builder.build().show();
 
@@ -475,6 +508,10 @@ public class StyleHelper {
                         String[] names = anchor.getResources().getStringArray(R.array.fontNameValues);
                         String face = (id < names.length ? names[id] : null);
 
+                        return _setFont(face);
+                    }
+
+                    private boolean _setFont(String face) {
                         TypefaceSpan[] spans = edit.getSpans(start, end, TypefaceSpan.class);
                         for (TypefaceSpan span : spans) {
                             int s = edit.getSpanStart(span);
@@ -596,6 +633,12 @@ public class StyleHelper {
                         return true;
                     }
 
+                    private boolean setCode(MenuItem item) {
+                        _setSize(HtmlHelper.FONT_SMALL);
+                        _setFont("monospace");
+                        return true;
+                    }
+
                     private boolean clear(MenuItem item) {
                         Log.breadcrumb("style", "action", "clear");
 
@@ -605,18 +648,21 @@ public class StyleHelper {
                         if (e + 1 < edit.length() && edit.charAt(e) == '\n')
                             e++;
 
-                        for (Object span : edit.getSpans(start, e, Object.class))
-                            if (!(span instanceof ImageSpan)) {
-                                int sstart = edit.getSpanStart(span);
-                                int send = edit.getSpanEnd(span);
-                                int flags = edit.getSpanFlags(span);
-                                if (sstart < start && send > start)
-                                    setSpan(edit, span, sstart, start, flags, etBody.getContext());
-                                if (sstart < end && send > end)
-                                    setSpan(edit, span, e, send, flags, etBody.getContext());
+                        for (Object span : edit.getSpans(start, e, Object.class)) {
+                            if (!CLEAR_STYLES.contains(span.getClass()))
+                                continue;
 
-                                edit.removeSpan(span);
-                            }
+                            int sstart = edit.getSpanStart(span);
+                            int send = edit.getSpanEnd(span);
+                            int flags = edit.getSpanFlags(span);
+
+                            if (sstart < start && send > start)
+                                setSpan(edit, span, sstart, start, flags, etBody.getContext());
+                            if (sstart < end && send > end)
+                                setSpan(edit, span, e, send, flags, etBody.getContext());
+
+                            edit.removeSpan(span);
+                        }
 
                         etBody.setText(edit);
                         etBody.setSelection(start, e);
@@ -669,9 +715,11 @@ public class StyleHelper {
             } else if (action == R.id.menu_clear) {
                 Log.breadcrumb("style", "action", "clear/all");
 
-                for (Object span : edit.getSpans(0, etBody.length(), Object.class))
-                    if (!(span instanceof ImageSpan))
-                        edit.removeSpan(span);
+                for (Object span : edit.getSpans(0, etBody.length(), Object.class)) {
+                    if (!CLEAR_STYLES.contains(span.getClass()))
+                        continue;
+                    edit.removeSpan(span);
+                }
 
                 etBody.setText(edit);
                 etBody.setSelection(start, end);

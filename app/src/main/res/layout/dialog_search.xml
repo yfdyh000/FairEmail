@@ -16,13 +16,15 @@
             android:id="@+id/tvCaption"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:drawableStart="@drawable/twotone_search_24"
+            android:drawablePadding="6dp"
             android:text="@string/title_search"
             android:textAppearance="@style/TextAppearance.AppCompat.Large"
             app:layout_constraintEnd_toStartOf="@+id/ibInfo"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <ImageButton
+        <eu.faircode.email.FixedImageButton
             android:id="@+id/ibInfo"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -50,7 +52,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/tvCaption" />
 
-        <ImageButton
+        <eu.faircode.email.FixedImageButton
             android:id="@+id/ibFlagged"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -62,7 +64,7 @@
             app:srcCompat="@drawable/twotone_star_24"
             tools:ignore="MissingConstraints" />
 
-        <ImageButton
+        <eu.faircode.email.FixedImageButton
             android:id="@+id/ibUnseen"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -74,7 +76,7 @@
             app:srcCompat="@drawable/twotone_mail_24"
             tools:ignore="MissingConstraints" />
 
-        <ImageButton
+        <eu.faircode.email.FixedImageButton
             android:id="@+id/ibInvite"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -86,7 +88,7 @@
             app:srcCompat="@drawable/twotone_event_24"
             tools:ignore="MissingConstraints" />
 
-        <ImageButton
+        <eu.faircode.email.FixedImageButton
             android:id="@+id/ibAttachment"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -98,7 +100,7 @@
             app:srcCompat="@drawable/twotone_attachment_24"
             tools:ignore="MissingConstraints" />
 
-        <ImageButton
+        <eu.faircode.email.FixedImageButton
             android:id="@+id/ibNotes"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -132,6 +134,7 @@
             android:id="@+id/tvSearch1"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
             android:ellipsize="end"
             android:padding="6dp"
             android:singleLine="true"
@@ -149,6 +152,7 @@
             android:id="@+id/tvSearch2"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
             android:ellipsize="end"
             android:padding="6dp"
             android:singleLine="true"
@@ -166,6 +170,7 @@
             android:id="@+id/tvSearch3"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
             android:ellipsize="end"
             android:padding="6dp"
             android:singleLine="true"
@@ -179,7 +184,7 @@
             app:layout_constraintStart_toEndOf="@id/tvSearch2"
             app:layout_constraintTop_toBottomOf="@id/etQuery" />
 
-        <ImageButton
+        <eu.faircode.email.FixedImageButton
             android:id="@+id/ibResetSearches"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -201,7 +206,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvSearch1" />
 
-        <ImageButton
+        <eu.faircode.email.FixedImageButton
             android:id="@+id/ibMore"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -319,6 +324,18 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/cbMessage" />
 
+        <eu.faircode.email.FixedTextView
+            android:id="@+id/tvSearchTextUnsupported"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/title_search_text_unsupported"
+            android:textAppearance="@style/TextAppearance.AppCompat.Small"
+            android:textStyle="italic"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvSearchTextHint" />
+
         <CheckBox
             android:id="@+id/cbNotes"
             android:layout_width="0dp"
@@ -329,7 +346,7 @@
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tvSearchTextHint" />
+            app:layout_constraintTop_toBottomOf="@id/tvSearchTextUnsupported" />
 
         <CheckBox
             android:id="@+id/cbHeaders"
@@ -528,7 +545,7 @@
             android:layout_width="0dp"
             android:layout_height="0dp"
             app:constraint_referenced_ids="
-            cbSearchIndex,tvSearchIndexHint,cbSenders,cbRecipients,cbSubject,cbKeywords,cbMessage,tvSearchTextHint,cbNotes,
+            cbSearchIndex,tvSearchIndexHint,cbSenders,cbRecipients,cbSubject,cbKeywords,cbMessage,tvSearchTextHint,tvSearchTextUnsupported,cbNotes,
             tvAnd,cbUnseen,cbFlagged,cbHidden,cbEncrypted,cbAttachments,
             btnAfter,btnBefore,tvBefore,tvAfter" />
     </androidx.constraintlayout.widget.ConstraintLayout>

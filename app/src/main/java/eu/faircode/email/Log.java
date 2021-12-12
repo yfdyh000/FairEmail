@@ -22,13 +22,16 @@ package eu.faircode.email;
 import android.app.ActivityManager;
 import android.app.ApplicationExitInfo;
 import android.app.Dialog;
+import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.usage.UsageStatsManager;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
@@ -46,13 +49,18 @@ import android.os.Bundle;
 import android.os.DeadObjectException;
 import android.os.DeadSystemException;
 import android.os.Debug;
-import android.os.PowerManager;
+import android.os.IBinder;
+import android.os.OperationCanceledException;
 import android.os.RemoteException;
 import android.os.TransactionTooLargeException;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.Display;
 import android.view.InflateException;
+import android.view.LayoutInflater;
+import android.view.View;
 import android.view.WindowManager;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -95,6 +103,8 @@ import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
+import java.security.Provider;
+import java.security.Security;
 import java.security.cert.CertPathValidatorException;
 import java.text.DateFormat;
 import java.text.DateFormatSymbols;
@@ -128,9 +138,14 @@ import javax.net.ssl.SSLPeerUnverifiedException;
 import io.requery.android.database.CursorWindowAllocationException;
 
 public class Log {
+    private static Context ctx;
+
     private static int level = android.util.Log.INFO;
     private static final int MAX_CRASH_REPORTS = 5;
     private static final String TAG = "fairemail";
+
+    static final String TOKEN_REFRESH_REQUIRED =
+            "Token refresh required. Is there a VPN based app running?";
 
     public static void setLevel(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
@@ -161,14 +176,14 @@ public class Log {
     }
 
     public static int i(String msg) {
-        if (level <= android.util.Log.INFO)
+        if (level <= android.util.Log.INFO || BuildConfig.DEBUG)
             return android.util.Log.i(TAG, msg);
         else
             return 0;
     }
 
     public static int i(String tag, String msg) {
-        if (level <= android.util.Log.INFO)
+        if (level <= android.util.Log.INFO || BuildConfig.DEBUG)
             return android.util.Log.i(tag, msg);
         else
             return 0;
@@ -205,10 +220,13 @@ public class Log {
     public static int w(Throwable ex) {
         if (BuildConfig.BETA_RELEASE)
             try {
+                final StackTraceElement[] ste = new Throwable().getStackTrace();
                 Bugsnag.notify(ex, new OnErrorCallback() {
                     @Override
                     public boolean onError(@NonNull Event event) {
                         event.setSeverity(Severity.INFO);
+                        if (ste.length > 1)
+                            event.addMetadata("extra", "caller", ste[1].toString());
                         return true;
                     }
                 });
@@ -221,10 +239,13 @@ public class Log {
     public static int e(Throwable ex) {
         if (BuildConfig.BETA_RELEASE)
             try {
+                final StackTraceElement[] ste = new Throwable().getStackTrace();
                 Bugsnag.notify(ex, new OnErrorCallback() {
                     @Override
                     public boolean onError(@NonNull Event event) {
                         event.setSeverity(Severity.WARNING);
+                        if (ste.length > 1)
+                            event.addMetadata("extra", "caller", ste[1].toString());
                         return true;
                     }
                 });
@@ -270,6 +291,13 @@ public class Log {
         return android.util.Log.e(TAG, prefix + " " + ex + "\n" + android.util.Log.getStackTraceString(ex));
     }
 
+    public static void persist(String message) {
+        if (ctx == null)
+            Log.e(message);
+        else
+            EntityLog.log(ctx, message);
+    }
+
     static void setCrashReporting(boolean enabled) {
         try {
             if (enabled)
@@ -279,17 +307,23 @@ public class Log {
         }
     }
 
-    static void breadcrumb(String name, String key, String value) {
+    public static void breadcrumb(String name, String key, String value) {
         Map<String, String> crumb = new HashMap<>();
         crumb.put(key, value);
         breadcrumb(name, crumb);
     }
 
-    static void breadcrumb(String name, Map<String, String> crumb) {
+    public static void breadcrumb(String name, Map<String, String> crumb) {
         try {
+            StringBuilder sb = new StringBuilder();
+            sb.append("Breadcrumb ").append(name);
             Map<String, Object> ocrumb = new HashMap<>();
-            for (String key : crumb.keySet())
-                ocrumb.put(key, crumb.get(key));
+            for (String key : crumb.keySet()) {
+                String val = crumb.get(key);
+                sb.append(' ').append(key).append('=').append(val);
+                ocrumb.put(key, val);
+            }
+            Log.i(sb.toString());
             Bugsnag.leaveBreadcrumb(name, ocrumb, BreadcrumbType.LOG);
         } catch (Throwable ex) {
             ex.printStackTrace();
@@ -297,6 +331,7 @@ public class Log {
     }
 
     static void setup(Context context) {
+        ctx = context;
         setLevel(context);
         setupBugsnag(context);
     }
@@ -335,6 +370,7 @@ public class Log {
             etypes.setAnrs(BuildConfig.DEBUG);
             etypes.setNdkCrashes(false);
             config.setEnabledErrorTypes(etypes);
+            config.setMaxBreadcrumbs(BuildConfig.PLAY_STORE_RELEASE ? 50 : 100);
 
             Set<String> ignore = new HashSet<>();
 
@@ -374,11 +410,14 @@ public class Log {
             String no_internet = context.getString(R.string.title_no_internet);
 
             String installer = context.getPackageManager().getInstallerPackageName(BuildConfig.APPLICATION_ID);
+            config.addMetadata("extra", "revision", BuildConfig.REVISION);
             config.addMetadata("extra", "installer", installer == null ? "-" : installer);
             config.addMetadata("extra", "installed", new Date(Helper.getInstallTime(context)).toString());
             config.addMetadata("extra", "fingerprint", Helper.hasValidFingerprint(context));
             config.addMetadata("extra", "memory_class", am.getMemoryClass());
             config.addMetadata("extra", "memory_class_large", am.getLargeMemoryClass());
+            config.addMetadata("extra", "build_host", Build.HOST);
+            config.addMetadata("extra", "build_time", new Date(Build.TIME));
 
             config.addOnSession(new OnSessionCallback() {
                 @Override
@@ -404,6 +443,8 @@ public class Log {
                         event.addMetadata("extra", "thread", Thread.currentThread().getName() + ":" + Thread.currentThread().getId());
                         event.addMetadata("extra", "memory_free", getFreeMemMb());
                         event.addMetadata("extra", "memory_available", getAvailableMb());
+                        event.addMetadata("extra", "native_allocated", Debug.getNativeHeapAllocatedSize() / 1024L / 1024L);
+                        event.addMetadata("extra", "native_size", Debug.getNativeHeapSize() / 1024L / 1024L);
 
                         Boolean ignoringOptimizations = Helper.isIgnoringOptimizations(context);
                         event.addMetadata("extra", "optimizing", (ignoringOptimizations != null && !ignoringOptimizations));
@@ -434,6 +475,7 @@ public class Log {
 
                     if (ex instanceof IllegalStateException &&
                             (no_internet.equals(ex.getMessage()) ||
+                                    TOKEN_REFRESH_REQUIRED.equals(ex.getMessage()) ||
                                     "Not connected".equals(ex.getMessage()) ||
                                     "This operation is not allowed on a closed folder".equals(ex.getMessage())))
                         return false;
@@ -530,24 +572,28 @@ public class Log {
                 Object v = data.get(key);
 
                 Object value = v;
+                int length = -1;
                 if (v != null && v.getClass().isArray()) {
-                    int length = Array.getLength(v);
-                    if (length <= 10) {
-                        String[] elements = new String[length];
-                        for (int i = 0; i < length; i++) {
-                            Object element = Array.get(v, i);
-                            if (element instanceof Long)
-                                elements[i] = element.toString() + " (0x" + Long.toHexString((Long) element) + ")";
-                            else
-                                elements[i] = (element == null ? null : printableString(element.toString()));
-                        }
-                        value = TextUtils.join(",", elements);
-                    } else
-                        value = "[" + length + "]";
+                    length = Array.getLength(v);
+                    String[] elements = new String[Math.min(length, 10)];
+                    for (int i = 0; i < elements.length; i++) {
+                        Object element = Array.get(v, i);
+                        if (element instanceof Long)
+                            elements[i] = element + " (0x" + Long.toHexString((Long) element) + ")";
+                        else
+                            elements[i] = (element == null ? "<null>" : printableString(element.toString()));
+                    }
+                    value = TextUtils.join(",", elements);
+                    if (length > 10)
+                        value += ", ...";
+                    value = "[" + value + "]";
                 } else if (v instanceof Long)
-                    value = v.toString() + " (0x" + Long.toHexString((Long) v) + ")";
+                    value = v + " (0x" + Long.toHexString((Long) v) + ")";
+                else if (v instanceof Bundle)
+                    value = "{" + TextUtils.join(" ", getExtras((Bundle) v)) + "}";
 
-                result.add(key + "=" + value + (value == null ? "" : " (" + v.getClass().getSimpleName() + ")"));
+                result.add(key + "=" + value + (value == null ? "" :
+                        " (" + v.getClass().getSimpleName() + (length < 0 ? "" : ":" + length) + ")"));
             }
         } catch (BadParcelableException ex) {
             // android.os.BadParcelableException: ClassNotFoundException when unmarshalling: ...
@@ -1410,8 +1456,13 @@ public class Log {
                     ex.getCause() instanceof SocketException)
                 return null;
 
+            if (ex instanceof ProtocolException &&
+                    ex.getCause() instanceof InterruptedException)
+                return null; // Interrupted waitIfIdle
+
             if (ex instanceof MessagingException &&
-                    ("connection failure".equals(ex.getMessage()) ||
+                    ("Not connected".equals(ex.getMessage()) || // POP3
+                            "connection failure".equals(ex.getMessage()) ||
                             "failed to create new store connection".equals(ex.getMessage())))
                 return null;
 
@@ -1456,11 +1507,14 @@ public class Log {
                 return null;
 
             if (ex instanceof StoreClosedException ||
-                    ex instanceof FolderClosedException || ex instanceof FolderClosedIOException)
+                    ex instanceof FolderClosedException ||
+                    ex instanceof FolderClosedIOException ||
+                    ex instanceof OperationCanceledException)
                 return null;
 
             if (ex instanceof IllegalStateException &&
-                    ("Not connected".equals(ex.getMessage()) ||
+                    (TOKEN_REFRESH_REQUIRED.equals(ex.getMessage()) ||
+                            "Not connected".equals(ex.getMessage()) ||
                             "This operation is not allowed on a closed folder".equals(ex.getMessage())))
                 return null;
         }
@@ -1488,7 +1542,7 @@ public class Log {
         Log.w("Writing exception to " + file);
 
         try (FileWriter out = new FileWriter(file, true)) {
-            out.write(BuildConfig.VERSION_NAME + " " + new Date() + "\r\n");
+            out.write(BuildConfig.VERSION_NAME + BuildConfig.REVISION + " " + new Date() + "\r\n");
             out.write(ex + "\r\n" + android.util.Log.getStackTraceString(ex) + "\r\n");
         } catch (IOException e) {
             Log.e(e);
@@ -1503,7 +1557,7 @@ public class Log {
             sb.append(ex.toString()).append("\n").append(android.util.Log.getStackTraceString(ex));
         if (log != null)
             sb.append(log);
-        String body = "<pre>" + TextUtils.htmlEncode(sb.toString()) + "</pre>";
+        String body = "<pre class=\"fairemail_debug_info\">" + TextUtils.htmlEncode(sb.toString()) + "</pre>";
 
         EntityMessage draft;
 
@@ -1527,7 +1581,8 @@ public class Log {
             draft.msgid = EntityMessage.generateMessageId();
             draft.thread = draft.msgid;
             draft.to = new Address[]{myAddress()};
-            draft.subject = context.getString(R.string.app_name) + " " + BuildConfig.VERSION_NAME + " debug info";
+            draft.subject = context.getString(R.string.app_name) + " " +
+                    BuildConfig.VERSION_NAME + BuildConfig.REVISION + " debug info";
             draft.received = new Date().getTime();
             draft.seen = true;
             draft.ui_seen = true;
@@ -1587,9 +1642,15 @@ public class Log {
             final Throwable ex = (Throwable) getArguments().getSerializable("ex");
             boolean report = getArguments().getBoolean("report", true);
 
+            final Context context = getContext();
+            LayoutInflater inflater = LayoutInflater.from(context);
+            View dview = inflater.inflate(R.layout.dialog_unexpected, null);
+            TextView tvError = dview.findViewById(R.id.tvError);
+
+            tvError.setText(Log.formatThrowable(ex, false));
+
             AlertDialog.Builder builder = new AlertDialog.Builder(getContext())
-                    .setTitle(R.string.title_unexpected_error)
-                    .setMessage(Log.formatThrowable(ex, false))
+                    .setView(dview)
                     .setPositiveButton(android.R.string.cancel, null);
 
             if (report)
@@ -1630,19 +1691,38 @@ public class Log {
     private static StringBuilder getAppInfo(Context context) {
         StringBuilder sb = new StringBuilder();
 
+        ContentResolver resolver = context.getContentResolver();
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+
+        PackageManager pm = context.getPackageManager();
+        String installer = pm.getInstallerPackageName(BuildConfig.APPLICATION_ID);
+        int targetSdk = -1;
+        try {
+            ApplicationInfo ai = pm.getApplicationInfo(BuildConfig.APPLICATION_ID, 0);
+            targetSdk = ai.targetSdkVersion;
+        } catch (PackageManager.NameNotFoundException ignore) {
+        }
+
         // Get version info
-        String installer = context.getPackageManager().getInstallerPackageName(BuildConfig.APPLICATION_ID);
         sb.append(String.format("%s: %s/%s %s/%s%s%s%s%s\r\n",
                 context.getString(R.string.app_name),
                 BuildConfig.APPLICATION_ID,
                 installer,
-                BuildConfig.VERSION_NAME,
+                BuildConfig.VERSION_NAME + BuildConfig.REVISION,
                 Helper.hasValidFingerprint(context) ? "1" : "3",
                 BuildConfig.PLAY_STORE_RELEASE ? "p" : "",
                 Helper.hasPlayStore(context) ? "s" : "",
                 BuildConfig.DEBUG ? "d" : "",
                 ActivityBilling.isPro(context) ? "+" : ""));
-        sb.append(String.format("Android: %s (SDK %d)\r\n", Build.VERSION.RELEASE, Build.VERSION.SDK_INT));
+        sb.append(String.format("Android: %s (SDK %d/%d)\r\n",
+                Build.VERSION.RELEASE, Build.VERSION.SDK_INT, targetSdk));
+
+        boolean reporting = prefs.getBoolean("crash_reports", false);
+        if (reporting) {
+            String uuid = prefs.getString("uuid", null);
+            sb.append(String.format("UUID: %s\r\n", uuid == null ? "-" : uuid));
+        }
+
         sb.append("\r\n");
 
         // Get device info
@@ -1653,12 +1733,15 @@ public class Log {
         sb.append(String.format("Product: %s\r\n", Build.PRODUCT));
         sb.append(String.format("Device: %s\r\n", Build.DEVICE));
         sb.append(String.format("Host: %s\r\n", Build.HOST));
+        sb.append(String.format("Time: %s\r\n", new Date(Build.TIME).toString()));
         sb.append(String.format("Display: %s\r\n", Build.DISPLAY));
         sb.append(String.format("Id: %s\r\n", Build.ID));
         sb.append("\r\n");
 
         Locale slocale = Resources.getSystem().getConfiguration().locale;
-        sb.append(String.format("Locale: %s/%s\r\n", Locale.getDefault(), slocale));
+        String language = prefs.getString("language", null);
+        sb.append(String.format("Locale: def=%s sys=%s lang=%s\r\n",
+                Locale.getDefault(), slocale, language));
 
         sb.append(String.format("Processors: %d\r\n", Runtime.getRuntime().availableProcessors()));
 
@@ -1677,25 +1760,58 @@ public class Log {
                 Helper.humanReadableByteCount(storage_used)));
 
         Runtime rt = Runtime.getRuntime();
-        long hused = (rt.totalMemory() - rt.freeMemory()) / 1024L;
-        long hmax = rt.maxMemory() / 1024L;
-        long nheap = Debug.getNativeHeapAllocatedSize() / 1024L;
-        sb.append(String.format("Heap usage: %s/%s KiB native: %s KiB\r\n", hused, hmax, nheap));
+        long hused = (rt.totalMemory() - rt.freeMemory()) / 1024L / 1024L;
+        long hmax = rt.maxMemory() / 1024L / 1024L;
+        long nheap = Debug.getNativeHeapAllocatedSize() / 1024L / 1024L;
+        long nsize = Debug.getNativeHeapSize() / 1024 / 1024L;
+        sb.append(String.format("Heap usage: %d/%d MiB native: %d/%d MiB\r\n", hused, hmax, nheap, nsize));
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            int ipc = IBinder.getSuggestedMaxIpcSizeBytes();
+            sb.append(String.format("IPC max: %s\r\n", Helper.humanReadableByteCount(ipc)));
+        }
+
+        Configuration config = context.getResources().getConfiguration();
+        String size;
+        if (config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_XLARGE))
+            size = "XL";
+        else if (config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_LARGE))
+            size = "L";
+        else if (config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_NORMAL))
+            size = "M";
+        else if (config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_SMALL))
+            size = "M";
+        else
+            size = "?";
         WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         Display display = wm.getDefaultDisplay();
-        Point size = new Point();
-        display.getSize(size);
+        Point dim = new Point();
+        display.getSize(dim);
         float density = context.getResources().getDisplayMetrics().density;
-        sb.append(String.format("Density %f resolution: %.2f x %.2f dp %b\r\n",
-                density,
-                size.x / density, size.y / density,
-                context.getResources().getConfiguration().isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_NORMAL)));
+        sb.append(String.format("Density %f resolution: %.2f x %.2f dp %s\r\n",
+                density, dim.x / density, dim.y / density, size));
+
+        try {
+            float animation_scale = Settings.Global.getFloat(resolver,
+                    Settings.Global.WINDOW_ANIMATION_SCALE, 0f);
+            sb.append(String.format("Animation scale: %f\r\n", animation_scale));
+        } catch (Throwable ex) {
+            Log.w(ex);
+        }
 
         int uiMode = context.getResources().getConfiguration().uiMode;
         sb.append(String.format("UI mode: 0x"))
                 .append(Integer.toHexString(uiMode))
                 .append(" night=").append(Helper.isNight(context))
+                .append("\r\n");
+
+        sb.append(String.format("UI type: %s\r\n", Helper.getUiModeType(context)));
+
+        sb.append("ExactAlarms")
+                .append(" can=")
+                .append(AlarmManagerCompatEx.canScheduleExactAlarms(context))
+                .append(" has=")
+                .append(AlarmManagerCompatEx.hasExactAlarms(context))
                 .append("\r\n");
 
         sb.append("Transliterate: ")
@@ -1704,22 +1820,25 @@ public class Log {
 
         try {
             int maxKeySize = javax.crypto.Cipher.getMaxAllowedKeyLength("AES");
-            sb.append(context.getString(R.string.title_advanced_aes_key_size, maxKeySize)).append("\r\n");
+            sb.append(context.getString(R.string.title_advanced_aes_key_size,
+                    Helper.humanReadableByteCount(maxKeySize, false))).append("\r\n");
         } catch (Throwable ex) {
             sb.append(ex.toString()).append("\r\n");
         }
 
-        PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-        boolean ignoring = true;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
-            ignoring = pm.isIgnoringBatteryOptimizations(BuildConfig.APPLICATION_ID);
-        sb.append(String.format("Battery optimizations: %b\r\n", !ignoring));
-        sb.append(String.format("Charging: %b\r\n", Helper.isCharging(context)));
+        Boolean ignoring = Helper.isIgnoringOptimizations(context);
+        sb.append(String.format("Battery optimizations: %s\r\n",
+                ignoring == null ? null : Boolean.toString(!ignoring)));
+
+        sb.append(String.format("Charging: %b; level: %d\r\n",
+                Helper.isCharging(context), Helper.getBatteryLevel(context)));
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             UsageStatsManager usm = (UsageStatsManager) context.getSystemService(Context.USAGE_STATS_SERVICE);
             int bucket = usm.getAppStandbyBucket();
-            sb.append(String.format("Standby bucket: %d\r\n", bucket));
+            boolean inactive = usm.isAppInactive(BuildConfig.APPLICATION_ID);
+            sb.append(String.format("Standby bucket: %d-%s;p inactive: %b\r\n",
+                    bucket, Helper.getStandbyBucketName(bucket), inactive));
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
@@ -1728,16 +1847,22 @@ public class Log {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
             sb.append(String.format("Data saving: %b\r\n", ConnectionHelper.isDataSaving(context)));
 
+        try {
+            int finish_activities = Settings.Global.getInt(resolver,
+                    Settings.Global.ALWAYS_FINISH_ACTIVITIES, 0);
+            sb.append(String.format("Always finish: %d\r\n", finish_activities));
+        } catch (Throwable ex) {
+            Log.w(ex);
+        }
+
         String charset = MimeUtility.getDefaultJavaCharset();
         sb.append(String.format("Default charset: %s/%s\r\n", charset, MimeUtility.mimeCharset(charset)));
 
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        boolean reporting = prefs.getBoolean("crash_reports", false);
-        if (reporting) {
-            String uuid = prefs.getString("uuid", null);
-            sb.append(String.format("UUID: %s\r\n", uuid == null ? "-" : uuid));
-        }
+        sb.append(String.format("Configuration: %s\r\n", config.toString()));
 
+        sb.append("\r\n");
+        for (Provider p : Security.getProviders())
+            sb.append(p).append("\r\n");
         sb.append("\r\n");
 
         try {
@@ -1773,8 +1898,18 @@ public class Log {
             sb.append("\r\n");
         }
 
-        sb.append(new Date(Helper.getInstallTime(context))).append("\r\n");
-        sb.append(new Date()).append("\r\n");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+            try {
+                Map<String, String> stats = Debug.getRuntimeStats();
+                for (String key : stats.keySet())
+                    sb.append(key).append('=').append(stats.get(key)).append("\r\n");
+                sb.append("\r\n");
+            } catch (Throwable ex) {
+                sb.append(ex.toString()).append("\r\n");
+            }
+
+        sb.append(String.format("Installed: %s\r\n", new Date(Helper.getInstallTime(context))));
+        sb.append(String.format("Now: %s\r\n", new Date()));
 
         sb.append("\r\n");
 
@@ -1831,11 +1966,20 @@ public class Log {
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
             boolean enabled = prefs.getBoolean("enabled", true);
             int pollInterval = ServiceSynchronize.getPollInterval(context);
+            boolean metered = prefs.getBoolean("metered", true);
+            Boolean ignoring = Helper.isIgnoringOptimizations(context);
+            boolean auto_optimize = prefs.getBoolean("auto_optimize", false);
             boolean schedule = prefs.getBoolean("schedule", false);
 
             size += write(os, "accounts=" + accounts.size() +
                     " enabled=" + enabled +
-                    " interval=" + pollInterval + "\r\n\r\n");
+                    " interval=" + pollInterval + "\r\n" +
+                    " metered=" + metered +
+                    " VPN=" + ConnectionHelper.vpnActive(context) +
+                    " NetGuard=" + Helper.isInstalled(context, "eu.faircode.netguard") + "\r\n" +
+                    " optimizing=" + (ignoring == null ? null : !ignoring) +
+                    " auto_optimize=" + auto_optimize +
+                    "\r\n\r\n");
 
             if (schedule) {
                 int minuteStart = prefs.getInt("schedule_start", 0);
@@ -1856,24 +2000,36 @@ public class Log {
 
             for (EntityAccount account : accounts) {
                 if (account.synchronize) {
+                    int content = 0;
+                    int messages = 0;
+                    List<TupleFolderEx> folders = db.folder().getFoldersEx(account.id);
+                    for (TupleFolderEx folder : folders) {
+                        content += folder.content;
+                        messages += folder.messages;
+                    }
+
                     size += write(os, account.name +
                             " " + (account.protocol == EntityAccount.TYPE_IMAP ? "IMAP" : "POP") + "/" + account.auth_type +
                             " " + account.host + ":" + account.port + "/" + account.encryption +
                             " sync=" + account.synchronize +
                             " exempted=" + account.poll_exempted +
                             " poll=" + account.poll_interval +
+                            " ondemand=" + account.ondemand +
+                            " messages=" + content + "/" + messages +
                             " " + account.state +
                             (account.last_connected == null ? "" : " " + dtf.format(account.last_connected)) +
                             "\r\n");
 
-                    List<EntityFolder> folders = db.folder().getFolders(account.id, false, false);
                     if (folders.size() > 0)
                         Collections.sort(folders, folders.get(0).getComparator(context));
-                    for (EntityFolder folder : folders)
+                    for (TupleFolderEx folder : folders)
                         if (folder.synchronize)
                             size += write(os, "- " + folder.name + " " + folder.type +
+                                    (folder.unified ? " unified" : "") +
+                                    (folder.notify ? " notify" : "") +
                                     " poll=" + folder.poll + "/" + folder.poll_factor +
                                     " days=" + folder.sync_days + "/" + folder.keep_days +
+                                    " msgs=" + folder.content + "/" + folder.messages +
                                     " " + folder.state +
                                     (folder.last_sync == null ? "" : " " + dtf.format(folder.last_sync)) +
                                     "\r\n");
@@ -1883,60 +2039,64 @@ public class Log {
             }
 
             for (EntityAccount account : accounts)
-                try {
-                    JSONObject jaccount = account.toJSON();
-                    jaccount.put("state", account.state == null ? "null" : account.state);
-                    jaccount.put("warning", account.warning);
-                    jaccount.put("error", account.error);
+                if (account.synchronize)
+                    try {
+                        JSONObject jaccount = account.toJSON();
+                        jaccount.put("state", account.state == null ? "null" : account.state);
+                        jaccount.put("warning", account.warning);
+                        jaccount.put("error", account.error);
+                        jaccount.put("capabilities", account.capabilities);
 
-                    if (account.last_connected != null)
-                        jaccount.put("last_connected", new Date(account.last_connected).toString());
+                        if (account.last_connected != null)
+                            jaccount.put("last_connected", new Date(account.last_connected).toString());
 
-                    jaccount.put("keep_alive_ok", account.keep_alive_ok);
-                    jaccount.put("keep_alive_failed", account.keep_alive_failed);
-                    jaccount.put("keep_alive_succeeded", account.keep_alive_succeeded);
+                        jaccount.put("keep_alive_ok", account.keep_alive_ok);
+                        jaccount.put("keep_alive_failed", account.keep_alive_failed);
+                        jaccount.put("keep_alive_succeeded", account.keep_alive_succeeded);
 
-                    jaccount.remove("user");
-                    jaccount.remove("password");
+                        jaccount.remove("password");
 
-                    size += write(os, "==========\r\n");
-                    size += write(os, jaccount.toString(2) + "\r\n");
+                        size += write(os, "==========\r\n");
+                        size += write(os, jaccount.toString(2) + "\r\n");
 
-                    List<EntityFolder> folders = db.folder().getFolders(account.id, false, false);
-                    if (folders.size() > 0)
-                        Collections.sort(folders, folders.get(0).getComparator(context));
-                    for (EntityFolder folder : folders) {
-                        JSONObject jfolder = folder.toJSON();
-                        jfolder.put("level", folder.level);
-                        jfolder.put("total", folder.total);
-                        jfolder.put("initialize", folder.initialize);
-                        jfolder.put("subscribed", folder.subscribed);
-                        jfolder.put("state", folder.state == null ? "null" : folder.state);
-                        jfolder.put("sync_state", folder.sync_state == null ? "null" : folder.sync_state);
-                        jfolder.put("read_only", folder.read_only);
-                        jfolder.put("selectable", folder.selectable);
-                        jfolder.put("inferiors", folder.inferiors);
-                        jfolder.put("error", folder.error);
-                        if (folder.last_sync != null)
-                            jfolder.put("last_sync", new Date(folder.last_sync).toString());
-                        size += write(os, jfolder.toString(2) + "\r\n");
-                    }
-
-                    List<EntityIdentity> identities = db.identity().getIdentities(account.id);
-                    for (EntityIdentity identity : identities)
-                        try {
-                            JSONObject jidentity = identity.toJSON();
-                            jidentity.remove("user");
-                            jidentity.remove("password");
-                            jidentity.remove("signature");
-                            size += write(os, "----------\r\n");
-                            size += write(os, jidentity.toString(2) + "\r\n");
-                        } catch (JSONException ex) {
-                            size += write(os, ex.toString() + "\r\n");
+                        List<EntityFolder> folders = db.folder().getFolders(account.id, false, false);
+                        if (folders.size() > 0)
+                            Collections.sort(folders, folders.get(0).getComparator(context));
+                        for (EntityFolder folder : folders) {
+                            JSONObject jfolder = folder.toJSON();
+                            jfolder.put("level", folder.level);
+                            jfolder.put("total", folder.total);
+                            jfolder.put("initialize", folder.initialize);
+                            jfolder.put("subscribed", folder.subscribed);
+                            jfolder.put("state", folder.state == null ? "null" : folder.state);
+                            jfolder.put("sync_state", folder.sync_state == null ? "null" : folder.sync_state);
+                            jfolder.put("poll_count", folder.poll_count);
+                            jfolder.put("read_only", folder.read_only);
+                            jfolder.put("selectable", folder.selectable);
+                            jfolder.put("inferiors", folder.inferiors);
+                            jfolder.put("auto_add", folder.auto_add);
+                            jfolder.put("error", folder.error);
+                            if (folder.last_sync != null)
+                                jfolder.put("last_sync", new Date(folder.last_sync).toString());
+                            if (folder.last_sync_count != null)
+                                jfolder.put("last_sync_count", folder.last_sync_count);
+                            size += write(os, jfolder.toString(2) + "\r\n");
                         }
-                } catch (JSONException ex) {
-                    size += write(os, ex.toString() + "\r\n");
-                }
+
+                        List<EntityIdentity> identities = db.identity().getIdentities(account.id);
+                        for (EntityIdentity identity : identities)
+                            try {
+                                JSONObject jidentity = identity.toJSON();
+                                jidentity.remove("password");
+                                jidentity.remove("signature");
+                                size += write(os, "----------\r\n");
+                                size += write(os, jidentity.toString(2) + "\r\n");
+                            } catch (JSONException ex) {
+                                size += write(os, ex.toString() + "\r\n");
+                            }
+                    } catch (JSONException ex) {
+                        size += write(os, ex.toString() + "\r\n");
+                    }
         }
 
         db.attachment().setDownloaded(attachment.id, size);
@@ -2034,8 +2194,14 @@ public class Log {
             long from = new Date().getTime() - 24 * 3600 * 1000L;
             DateFormat TF = Helper.getTimeInstance(context);
 
-            for (EntityLog entry : db.log().getLogs(from))
-                size += write(os, String.format("%s %s\r\n", TF.format(entry.time), entry.data));
+            for (EntityLog entry : db.log().getLogs(from, null))
+                size += write(os, String.format("%s [%d:%d:%d:%d] %s\r\n",
+                        TF.format(entry.time),
+                        entry.type.ordinal(),
+                        (entry.account == null ? 0 : entry.account),
+                        (entry.folder == null ? 0 : entry.folder),
+                        (entry.message == null ? 0 : entry.message),
+                        entry.data));
         }
 
         db.attachment().setDownloaded(attachment.id, size);
@@ -2094,9 +2260,11 @@ public class Log {
         long size = 0;
         File file = attachment.getFile(context);
         try (OutputStream os = new BufferedOutputStream(new FileOutputStream(file))) {
-            for (SimpleTask task : SimpleTask.getList()) {
+            for (SimpleTask task : SimpleTask.getList())
                 size += write(os, String.format("%s\r\n", task.toString()));
-            }
+            size += write(os, "\r\n");
+            for (TwoStateOwner owner : TwoStateOwner.getList())
+                size += write(os, String.format("%s\r\n", owner.toString()));
         }
 
         db.attachment().setDownloaded(attachment.id, size);
@@ -2158,6 +2326,31 @@ public class Log {
         try (OutputStream os = new BufferedOutputStream(new FileOutputStream(file))) {
             NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
+
+            String name;
+            int filter = nm.getCurrentInterruptionFilter();
+            switch (filter) {
+                case NotificationManager.INTERRUPTION_FILTER_UNKNOWN:
+                    name = "Unknown";
+                    break;
+                case NotificationManager.INTERRUPTION_FILTER_ALL:
+                    name = "All";
+                    break;
+                case NotificationManager.INTERRUPTION_FILTER_PRIORITY:
+                    name = "Priority";
+                    break;
+                case NotificationManager.INTERRUPTION_FILTER_NONE:
+                    name = "None";
+                    break;
+                case NotificationManager.INTERRUPTION_FILTER_ALARMS:
+                    name = "Alarms";
+                    break;
+                default:
+                    name = Integer.toString(filter);
+            }
+
+            size += write(os, String.format("Interruption filter allow=%s\r\n\r\n", name));
+
             for (NotificationChannel channel : nm.getNotificationChannels())
                 try {
                     JSONObject jchannel = NotificationHelper.channelToJSON(channel);
@@ -2166,7 +2359,20 @@ public class Log {
                     size += write(os, ex.toString() + "\r\n");
                 }
 
-            size += write(os, "Importance none=0; min=1; low=2; default=3; high=4; max=5\r\n\r\n");
+            size += write(os,
+                    String.format("Importance none=%d; min=%d; low=%d; default=%d; high=%d; max=%d; unspecified=%d\r\n",
+                            NotificationManager.IMPORTANCE_NONE,
+                            NotificationManager.IMPORTANCE_MIN,
+                            NotificationManager.IMPORTANCE_LOW,
+                            NotificationManager.IMPORTANCE_DEFAULT,
+                            NotificationManager.IMPORTANCE_HIGH,
+                            NotificationManager.IMPORTANCE_MAX,
+                            NotificationManager.IMPORTANCE_UNSPECIFIED));
+            size += write(os,
+                    String.format("Visibility private=%d; public=%d; secret=%d\r\n",
+                            Notification.VISIBILITY_PRIVATE,
+                            Notification.VISIBILITY_PUBLIC,
+                            Notification.VISIBILITY_SECRET));
         }
 
         db.attachment().setDownloaded(attachment.id, size);

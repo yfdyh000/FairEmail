@@ -1,6 +1,7 @@
 package com.bugsnag.android
 
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -8,6 +9,7 @@ import android.content.res.Configuration.ORIENTATION_LANDSCAPE
 import android.content.res.Configuration.ORIENTATION_PORTRAIT
 import android.content.res.Resources
 import android.os.BatteryManager
+import android.os.Build
 import android.provider.Settings
 import java.io.File
 import java.util.Date
@@ -16,22 +18,24 @@ import java.util.Locale
 import java.util.concurrent.Callable
 import java.util.concurrent.Future
 import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.max
 import kotlin.math.min
+import android.os.Process as AndroidProcess
 
 internal class DeviceDataCollector(
     private val connectivity: Connectivity,
     private val appContext: Context,
-    private val resources: Resources?,
+    resources: Resources,
     private val deviceId: String?,
     private val buildInfo: DeviceBuildInfo,
     private val dataDirectory: File,
     rootDetector: RootDetector,
-    bgTaskService: BackgroundTaskService,
+    private val bgTaskService: BackgroundTaskService,
     private val logger: Logger
 ) {
 
-    private val displayMetrics = resources?.displayMetrics
+    private val displayMetrics = resources.displayMetrics
     private val emulator = isEmulator()
     private val screenDensity = getScreenDensity()
     private val dpi = getScreenDensityDpi()
@@ -40,6 +44,8 @@ internal class DeviceDataCollector(
     private val cpuAbi = getCpuAbi()
     private val runtimeVersions: MutableMap<String, Any>
     private val rootedFuture: Future<Boolean>?
+    private val totalMemoryFuture: Future<Long?>? = retrieveTotalDeviceMemory()
+    private var orientation = AtomicInteger(resources.configuration.orientation)
 
     init {
         val map = mutableMapOf<String, Any>()
@@ -66,7 +72,7 @@ internal class DeviceDataCollector(
         checkIsRooted(),
         deviceId,
         locale,
-        calculateTotalMemory(),
+        totalMemoryFuture.runCatching { this?.get() }.getOrNull(),
         runtimeVersions.toMutableMap()
     )
 
@@ -75,11 +81,11 @@ internal class DeviceDataCollector(
         checkIsRooted(),
         deviceId,
         locale,
-        calculateTotalMemory(),
+        totalMemoryFuture.runCatching { this?.get() }.getOrNull(),
         runtimeVersions.toMutableMap(),
         calculateFreeDisk(),
         calculateFreeMemory(),
-        calculateOrientation(),
+        getOrientationAsString(),
         Date(now)
     )
 
@@ -187,7 +193,7 @@ internal class DeviceDataCollector(
         return if (displayMetrics != null) {
             val max = max(displayMetrics.widthPixels, displayMetrics.heightPixels)
             val min = min(displayMetrics.widthPixels, displayMetrics.heightPixels)
-            String.format(Locale.US, "%dx%d", max, min)
+            "${max}x$min"
         } else {
             null
         }
@@ -205,42 +211,85 @@ internal class DeviceDataCollector(
     fun calculateFreeDisk(): Long {
         // for this specific case we want the currently usable space, not
         // StorageManager#allocatableBytes() as the UsableSpace lint inspection suggests
-        return dataDirectory.usableSpace
+        return runCatching {
+            bgTaskService.submitTask(
+                TaskType.IO,
+                Callable { dataDirectory.usableSpace }
+            ).get()
+        }.getOrDefault(0L)
     }
 
     /**
-     * Get the amount of memory remaining that the VM can allocate
+     * Get the amount of memory remaining on the device
      */
-    private fun calculateFreeMemory(): Long {
-        val runtime = Runtime.getRuntime()
-        val maxMemory = runtime.maxMemory()
+    private fun calculateFreeMemory(): Long? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+            val freeMemory = appContext.getActivityManager()
+                ?.let { am -> ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) } }
+                ?.availMem
 
-        return if (maxMemory != Long.MAX_VALUE) {
-            maxMemory - runtime.totalMemory() + runtime.freeMemory()
-        } else {
-            runtime.freeMemory()
+            if (freeMemory != null) {
+                return freeMemory
+            }
+        }
+
+        return runCatching {
+            @Suppress("PrivateApi")
+            AndroidProcess::class.java.getDeclaredMethod("getFreeMemory").invoke(null) as Long?
+        }.getOrNull()
+    }
+
+    /**
+     * Attempt to retrieve the total amount of memory available on the device
+     */
+    private fun retrieveTotalDeviceMemory(): Future<Long?>? {
+        return try {
+            bgTaskService.submitTask(
+                TaskType.DEFAULT,
+                Callable {
+                    calculateTotalMemory()
+                }
+            )
+        } catch (exc: RejectedExecutionException) {
+            logger.w("Failed to lookup available device memory", exc)
+            null
         }
     }
 
-    /**
-     * Get the total memory available on the current Android device, in bytes
-     */
-    private fun calculateTotalMemory(): Long {
-        val runtime = Runtime.getRuntime()
-        val maxMemory = runtime.maxMemory()
-        return when {
-            maxMemory != Long.MAX_VALUE -> maxMemory
-            else -> runtime.totalMemory()
+    private fun calculateTotalMemory(): Long? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+            val totalMemory = appContext.getActivityManager()
+                ?.let { am -> ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) } }
+                ?.totalMem
+
+            if (totalMemory != null) {
+                return totalMemory
+            }
         }
+
+        // we try falling back to a reflective API
+        return runCatching {
+            @Suppress("PrivateApi")
+            AndroidProcess::class.java.getDeclaredMethod("getTotalMemory").invoke(null) as Long?
+        }.getOrNull()
     }
 
     /**
-     * Get the device orientation, eg. "landscape"
+     * Get the current device orientation, eg. "landscape"
      */
-    internal fun calculateOrientation() = when (resources?.configuration?.orientation) {
+    internal fun getOrientationAsString(): String? = when (orientation.get()) {
         ORIENTATION_LANDSCAPE -> "landscape"
         ORIENTATION_PORTRAIT -> "portrait"
         else -> null
+    }
+
+    /**
+     * Called whenever the orientation is updated so that the device information is accurate.
+     * Currently this is only invoked by [ClientComponentCallbacks]. Returns true if the
+     * orientation has changed, otherwise false.
+     */
+    internal fun updateOrientation(newOrientation: Int): Boolean {
+        return orientation.getAndSet(newOrientation) != newOrientation
     }
 
     fun addRuntimeVersionInfo(key: String, value: String) {

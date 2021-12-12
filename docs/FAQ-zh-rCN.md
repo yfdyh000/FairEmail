@@ -2,12 +2,12 @@
 
 # FairEmail 支持文档
 
-如遇疑问，请先阅读下列的常见问题。 [本文档末尾列有：](#user-content-get-support)如何询问未列出的问题、请求功能，以及报告遇到的问题。
+如果有疑问，请先查看以下常见问题。 [在本文末尾](#user-content-get-support)，您可以了解如何提出其他问题、请求功能和报告错误。
 
 ## 索引
 
 * [账户授权](#user-content-authorizing-accounts)
-* [怎样来...？](#user-content-howto)
+* [如何操作 ...?](#user-content-howto)
 * [已知问题](#user-content-known-problems)
 * [计划添加的功能](#user-content-planned-features)
 * [常被要求添加的功能](#user-content-frequently-requested-features)
@@ -43,7 +43,7 @@
 
 <a name="howto">
 
-## 如何 ...?
+## 如何操作…？
 
 * 更改账户名称：“设置”，点击 “手动配置“，点击 ”账户“，然后再点击账户。
 * 更改向左/右滑动的目标：设置、标签页行为、设定滑动操作
@@ -64,16 +64,16 @@
 
 <h2><a name="known-problems"></a>已知问题</h2>
 
-* ~~A [bug in Android 5.1 and 6](https://issuetracker.google.com/issues/37054851) causes apps to sometimes show a wrong time format. Toggling the Android setting *Use 24-hour format* might temporarily solve the issue. A workaround was added.~~ 将安卓设置切换到 *使用24小时格式* 可能可以暂时解决这个问题。 已加入一个替代方法。~~
-* ~~一个 [Google Drive 的 bug](https://issuetracker.google.com/issues/126362828) 导致导出到 Google Drive 的文件为空。 谷歌已将其修复。~~
-* ~~A [bug in AndroidX](https://issuetracker.google.com/issues/78495471) causes FairEmail to occasionally crash on long pressing or swiping. Google has fixed this.~~ 谷歌已将其修复。~~
-* ~~A [bug in AndroidX ROOM](https://issuetracker.google.com/issues/138441698) causes sometimes a crash with "*... Exception while computing database live data ... Couldn't read row ...*". A workaround was added.~~ 计算数据库实时数据时出现异常... 无法读取行...</em>"。 已加入一个替代方法。~~
-* A [bug in Android](https://issuetracker.google.com/issues/119872129) causes FairEmail to crash with "*... Bad notification posted ...*" on some devices once after updating FairEmail and tapping on a notification. Bad notification posted ...</em>" on some devices once after updating FairEmail and tapping on a notification.
-* A [bug in Android](https://issuetracker.google.com/issues/62427912) sometimes causes a crash with "*... ActivityRecord not found for ...*" after updating FairEmail. A [bug in Android](https://issuetracker.google.com/issues/62427912) sometimes causes a crash with "*... ActivityRecord not found for ...*" after updating FairEmail. Reinstalling ([source](https://stackoverflow.com/questions/46309428/android-activitythread-reportsizeconfigurations-causes-app-to-freeze-with-black)) might fix the problem.
-* A [bug in Android](https://issuetracker.google.com/issues/37018931) sometimes causes a crash with *... A [bug in Android](https://issuetracker.google.com/issues/37018931) sometimes causes a crash with *... InputChannel is not initialized ...* on some devices.</li>
-* ~~A [bug in LineageOS](https://review.lineageos.org/c/LineageOS/android_frameworks_base/+/265273) sometimes causes a crash with *... java.lang.ArrayIndexOutOfBoundsException: length=...; index=... ...*.~~
-* A bug in Nova Launcher on Android 5.x causes FairEmail to crash with a *java.lang.StackOverflowError* when Nova Launcher has access to the accessibility service.
-* ~~The folder selector sometimes shows no folders for yet unknown reasons. This seems to be fixed.~~ This seems to be fixed.~~
+* ~~[Android 5.1 和 6 中有一个 Bug](https://issuetracker.google.com/issues/37054851) 会导致应用程序有时会显示错误的时间格式。 将安卓设置切换到 *使用24小时格式* 可能可以暂时解决这个问题。 已添加解决方案。~~
+* ~~ [Google Drive 中的一个 Bug](https://issuetracker.google.com/issues/126362828) 会导致导出到 Google Drive 的文件为空。 谷歌已将其修复。~~
+* ~~[AndroidX 中的一个 Bug](https://issuetracker.google.com/issues/78495471) 会导致 FairEmail 在长按或滑动操作时偶尔崩溃。 谷歌已将其修复。~~
+* ~~ [AndroidX ROOM 的一个 Bug](https://issuetracker.google.com/issues/138441698) 会导致有时出现崩溃并报告错误 “*... 计算数据库实时数据时出现异常... 无法读取行...*”。 已添加解决方案。~~
+* 更新 FairEmail 并点击通知后，[Android 中的一个 Bug](https://issuetracker.google.com/issues/119872129)会导致 FairEmail 在某些设备上崩溃，并显示“* ... Bad notification posted ...*“。
+* 更新 FairEmail 后，一个 [Android 中的 Bug](https://issuetracker.google.com/issues/62427912) 有时会导致其崩溃并显示“*... ActivityRecord not found for ...*”。 重新安装（[source](https://stackoverflow.com/questions/46309428/android-activitythread-reportsizeconfigurations-causes-app-to-freeze-with-black)）可能会解决该问题。
+* 某些设备上，一个 [Android 中的 Bug](https://issuetracker.google.com/issues/37018931) 有时会导致崩溃并显示：*... InputChannel is not initialized ...*
+* ~~一个 [LineageOS 中的 Bug](https://review.lineageos.org/c/LineageOS/android_frameworks_base/+/265273) 有时会导致崩溃并显示：*... java.lang.ArrayIndexOutOfBoundsException: length=...; index=... ...*.~~
+* Nova Launcher 访问辅助功能服务时，Android 5.x 版本的 Nove Launcher 中的一个 Bug 会导致 FairEmail 崩溃，并显示：*java.lang.StackOverflowError*
+* ~~出于未知原因，文件夹选择器有时不会显示文件夹。 似乎已被修复。~~
 * ~~A [bug in AndroidX](https://issuetracker.google.com/issues/64729576) makes it hard to grap the fast scroller. A workaround was added.~~ A workaround was added.~~
 * ~~Encryption with YubiKey results into an infinite loop. ~~Encryption with YubiKey results into an infinite loop. This seems to be caused by a [bug in OpenKeychain](https://github.com/open-keychain/open-keychain/issues/2507).~~
 * Scrolling to an internally linked location in original messages does not work. Scrolling to an internally linked location in original messages does not work. This can't be fixed because the original message view is contained in a scrolling view.
@@ -81,7 +81,7 @@
 * A [bug in Android 6.0](https://issuetracker.google.com/issues/37068143) causes a crash with *... Invalid offset: ... Valid range is ...* when text is selected and tapping outside of the selected text. This bug has been fixed in Android 6.0.1. Invalid offset: ... Valid range is ...</em> when text is selected and tapping outside of the selected text. This bug has been fixed in Android 6.0.1.
 * Internal (anchor) links will not work because original messages are shown in an embedded WebView in a scrolling view (the conversation list). This is an Android limitation which cannot be fixed or worked around. This is an Android limitation which cannot be fixed or worked around.
 * Language detection [is not working anymore](https://issuetracker.google.com/issues/173337263) on Pixel devices with (upgraded to?) Android 11
-* A [bug in OpenKeychain](https://github.com/open-keychain/open-keychain/issues/2688) causes invalid PGP signatures when using a hardware token.</ul>
+* A [bug in OpenKeychain](https://github.com/open-keychain/open-keychain/issues/2688) causes invalid PGP signatures when using a hardware token.
 
 <h2><a name="planned-features"></a>计划添加的功能</h2>
 
@@ -146,7 +146,7 @@
 * [(20) 购买后能退款吗？](#user-content-faq20)
 * [(21) 如何启用呼吸灯通知？](#user-content-faq21)
 * [(22) 账户/文件夹错误是怎么回事？](#user-content-faq22)
-* [(23) Why do I get alert .. ? ?](#user-content-faq23)
+* [(23) 我为何会收到警报？ ?](#user-content-faq23)
 * [(24) 什么是浏览服务器上的消息？](#user-content-faq24)
 * [(25) 为什么我不能选择/打开/保存图片、附件或者文件？](#user-content-faq25)
 * [(26) 我能否帮忙翻译我所用语言的 FairEmail？](#user-content-faq26)
@@ -160,12 +160,12 @@
 * [(34) 身份如何匹配？](#user-content-faq34)
 * [(35) 我为什么要小心浏览图像、附件、原始信息和打开链接？](#user-content-faq35)
 * [(36) 设置文件会如何加密？](#user-content-faq36)
-* [(37) 密码被如何存储？](#user-content-faq37)
+* [(37) 如何保存我的密码？](#user-content-faq37)
 * [(39) 怎样能减少 FairEmail 的用电量？](#user-content-faq39)
 * [(40) 怎样能减少 FairEmail 使用的流量？](#user-content-faq40)
 * [(41) 如何解决“握手失败”错误？](#user-content-faq41)
 * [(42) 作者您能在提供商列表中新增一个提供商吗？](#user-content-faq42)
-* [(43) Can you show the original ... ?](#user-content-faq43)
+* [(43) 是否可以出示原创证明…？](#user-content-faq43)
 * [(44) 能在发件箱中显示联系人照片/身份吗？](#user-content-faq44)
 * [(45) How can I fix 'This key is not available. (45) How can I fix 'This key is not available. To use it, you must import it as one of your own!' ? ?](#user-content-faq45)
 * [(46) 为什么消息列表一直在刷新？](#user-content-faq46)
@@ -850,13 +850,13 @@ In case of successive connection errors, FairEmail will hold off increasingly lo
 <br />
 
 <a name="faq19"></a>
-**(19) Why are the pro features so expensive?**
+**(19) 为何高级版功能如此昂贵？**
 
 首先，**FairEmail 基本上可以免费使用**，仅部分高级功能需要购买。
 
-Zuerst, **FairEmail ist grundsätzlich kostenlos** und nur einige erweiterte Funktionen müssen gekauft werden.
+****
 
-Tout d'abord, **FairEmail est au fond gratuit** et seulement quelques fonctionnalités avancées doivent être achetés.
+****
 
 专业版功能的完整列表另见本应用在 Play 商店中的描述，或者[这里](https://email.faircode.eu/#pro)。
 
@@ -869,16 +869,16 @@ Tout d'abord, **FairEmail est au fond gratuit** et seulement quelques fonctionna
 
 所以，开发者只收取了您支付金额的一小部分。
 
-也请注意绝大多数的免费应用都因难以为继而不可持续，而 FairEmail 得到了妥善的维护和提供客户服务，并且免费应用更有可能加入偷窃信息的功能。 本应用中也不含违背隐私权的广告。
+另请注意：大多数的免费应用随时面临危险，而 FairEmail 拥有一定的维护与支持的能力。 免费应用也有一定风险，例如将隐私信息发送至互联网。 本应用中也不含违背隐私权的广告。
 
 我几乎每天处理有关 FairEmail 的问题，已超过两年，所以我认为这个费用是合理的。 因此，没有打折。
 
 <br />
 
 <a name="faq20"></a>
-**(20) Can I get a refund?**
+**(20) 我可以申请退款吗？**
 
-如果您购买的专业版功能无法正常运作、问题不是由免费功能所引起，且我无法及时地解决问题，您可以得到退款。 而其他情况下，没有退款。 任何情况下不会为免费功能相关的问题提供退款，因为用户没有为此付费，且可以不受限制的评估功能。 我承担卖方责任并兑现承诺，买方也应负起责任了解自己购买了什么。
+如果您购买的专业版功能无法正常运作、问题不是由免费功能所引起，且我无法及时地解决问题，您可以得到退款。 而其他情况下，没有退款。 任何情况下不会为免费功能相关的问题提供退款，因为用户没有为此付费，且可以不受限制的评估功能。 我能承担卖方责任并兑现承诺，您也应该为您所购买的东西负责。
 
 <a name="faq21"></a>
 **(21) How do I enable the notification light?**
@@ -1241,7 +1241,7 @@ If you want to reset the default *Open with* apps, please [see here](https://www
 <br />
 
 <a name="faq37"></a>
-**(37) How are passwords stored?**
+**(37) 如何保存我的密码？**
 
 所有受支持的 Android 版本都[加密所有的用户数据](https://source.android.com/security/encryption)，因此所有数据，包括用户名、密码、邮件等都被加密存储。
 
@@ -1284,19 +1284,19 @@ FairEmail will by default check if old messages were deleted from the server on 
 
 Some providers don't follow the IMAP standard and don't keep connections open long enough, forcing FairEmail to reconnect often, causing extra battery usage. You can inspect the *Log* via the main navigation menu to check if there are frequent reconnects (connection closed/reset, read/write error/timeout, etc). You can workaround this by lowering the keep-alive interval in the advanced account settings to for example 9 or 15 minutes. Note that battery optimizations need to be disabled in setup step 3 to reliably keep connections alive.
 
-Some providers send every two minutes something like '*Still here*' resulting in network traffic and your device to wake up and causing unnecessary extra battery usage. You can inspect the *Log* via the main navigation menu to check if your provider is doing this. If your provider is using [Dovecot](https://www.dovecot.org/) as IMAP server, you could ask your provider to change the [imap_idle_notify_interval](https://wiki.dovecot.org/Timeouts) setting to a higher value or better yet, to disable this. If your provider is not able or willing to change/disable this, you should consider to switch to periodically instead of continuous synchronization. You can change this in the receive settings.
+部分提供商每两分钟发送一次类似 '*我还在*' 消息，这也会导致网络流量和您的设备被唤醒，并增加不必要的电池消耗。 您可以通过主导航菜单检查 *日志* 来判断您的提供商是否有这种行为。 如果您的提供商使用 [Dovecot](https://www.dovecot.org/) 作为 IMAP 服务器， 您可以请求提供商将 [imap_idle_notify_interval](https://wiki.dovecot.org/Timeouts) 设置改至更高或更好的值来避免此行为。 如果您的提供商不能或不愿对此做出改变，您应该考虑切换为定期而不是连续的同步。 您可以在接收设置中更改此设置。
 
-If you got the message *This provider does not support push messages* while configuring an account, consider switching to a modern provider which supports push messages (IMAP IDLE) to reduce battery usage.
+如果您在配置账户时看到 *此提供商不支持推送消息*，可考虑改用支持推送消息（IMAP IDLE）的提供商以减少电池消耗。
 
-If your device has an [AMOLED](https://en.wikipedia.org/wiki/AMOLED) screen, you can save battery usage while viewing messages by switching to the black theme.
+如果您的设备采用 [AMOLED](https://en.wikipedia.org/wiki/AMOLED) 屏幕，您可以通过切换为黑色主题来减少电量消耗。
 
-If auto optimize in the receive settings is enabled, an account will automatically be switched to periodically checking for new messages when the email server:
+如果在接收设置中启用了自动优化，遇到下列情况时账户会自动切换为定期检查新邮件：
 
-* Says '*Still here*' within 3 minutes
-* The email server does not support push messages
-* The keep-alive interval is lower than 12 minutes
+* 3分钟内再次告知'*我还在*'
+* 电子邮件服务器不支持推送邮件
+* 保活间隔小于12分钟
 
-In addition, the trash and spam folders will be automatically set to checking for new messages after three successive [too many simultaneous connections](#user-content-faq23) errors.
+此外，连续遭遇三次 [并发连接过多](#user-content-faq23) 错误后，“回收站”和“垃圾邮件”文件夹将自动设为检查新邮件。
 
 <br />
 
@@ -2925,15 +2925,15 @@ If I could, I would add a setting to select the primary and accent color right a
 <br />
 
 <a name="faq162"></a>
-**(162) Is IMAP NOTIFY supported?***
+**(162) 支持 IMAP NOTIFY 吗？***
 
-是的，[IMAP NotIFY](https://tools.ietf.org/html/rfc5465) 自版本 1.1413 以来一直支持。
+是的，自版本 1.1413 以来支持 [IMAP NOTIFY](https://tools.ietf.org/html/rfc5465)。
 
-IMAP NOTIFY support means that notifications for added, changed or deleted messages of all *subscribed* folders will be requested and if a notification is received for a subscribed folder, that the folder will be synchronized. Synchronization for subscribed folders can therefore be disable, saving folder connections to the email server.
+支持 IMAP NOTIFY 意味着将会为所有 *已订阅* 文件夹的新增、变更和删除邮件请求通知，并在收到已订阅文件夹的变更通知时同步该文件夹。 因此可以禁用已订阅文件夹的同步，减少向电子邮件服务器的同步文件夹的连接。
 
 **Important**: push messages (=always sync) for the inbox and subscription management (receive settings) need to be enabled.
 
-**重要**：大多数电子邮件服务器都不支持它！ 如果电子邮件服务器支持 NOTIFY 功能，您可以通过导航菜单检查其日志。
+**重要**：大多数电子邮件服务器都不支持它！ 您可以通过导航菜单检查日志来判断电子邮件服务器是否支持 NOTIFY 功能。
 
 <br />
 

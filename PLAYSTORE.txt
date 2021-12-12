@@ -17,7 +17,7 @@ FairEmail might be for you if you value your privacy.
 * Privacy oriented
 * Unlimited accounts
 * Unlimited email addresses
-* Unified inbox
+* Unified inbox (optionally accounts or folders)
 * Conversation threading
 * Two way synchronization
 * Push notifications
@@ -25,7 +25,7 @@ FairEmail might be for you if you value your privacy.
 * Common text style options (size, color, lists, etc)
 * Battery friendly
 * Low data usage
-* Small (~ 20 MB)
+* Small (~20 MB)
 * Material design (including dark/black theme)
 * Maintained and supported
 
@@ -57,7 +57,7 @@ This app starts a foreground service with a low priority status bar notification
 * Confirm opening links, images and attachments
 * No special permissions required
 * No advertisements
-* No analytics and no tracking
+* No analytics and no tracking (error reporting via Bugsnag is opt-in)
 * No Google backup
 * No Firebase Cloud Messaging
 * FairEmail is an original work, not a fork or a clone
@@ -85,7 +85,6 @@ All pro features are convenience or advanced features.
 * Filter rules
 * Automatic message classification
 * Search indexing, search on server
-* Keyword management
 * S/MIME sign/encrypt
 * Biometric/PIN authentication
 * Message list widget

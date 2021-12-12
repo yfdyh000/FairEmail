@@ -24,6 +24,7 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import android.text.TextUtils;
 
+import androidx.core.net.MailTo;
 import androidx.preference.PreferenceManager;
 
 import java.net.Inet4Address;
@@ -39,6 +40,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import javax.mail.Address;
+import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeUtility;
 
 public class DnsBlockList {
@@ -55,7 +58,7 @@ public class DnsBlockList {
             }),
 
             // https://www.spamhaus.org/dbl/
-            new BlockList(null, "Spamhaus/DBL", "dbl.spamhaus.org", false, new String[]{
+            new BlockList(true, "Spamhaus/DBL", "dbl.spamhaus.org", false, new String[]{
                     // https://www.spamhaus.org/faq/section/Spamhaus%20DBL#291
                     "127.0.1.2", // spam domain
                     "127.0.1.4", // phish domain
@@ -75,6 +78,11 @@ public class DnsBlockList {
 
             new BlockList(false, "Barracuda", "b.barracudacentral.org", true, new String[]{
                     // https://www.barracudacentral.org/rbl/how-to-use
+                    "127.0.0.2",
+            }),
+
+            new BlockList(BuildConfig.DEBUG, "NordSpam", "dbl.nordspam.com", false, new String[]{
+                    // https://www.nordspam.com/
                     "127.0.0.2",
             })
     ));
@@ -137,10 +145,44 @@ public class DnsBlockList {
             return null;
 
         String host = getFromHost(MimeUtility.unfold(received[received.length - 1]));
-        return (host == null ? null : isJunk(context, host, BLOCK_LISTS));
+        if (host == null)
+            return null;
+        boolean numeric = host.startsWith("[") && host.endsWith("]");
+        if (numeric)
+            host = host.substring(1, host.length() - 1);
+
+        return isJunk(context, host, true, BLOCK_LISTS);
     }
 
-    private static boolean isJunk(Context context, String host, List<BlockList> blocklists) {
+    static Boolean isJunk(Context context, List<Address> addresses) {
+        boolean hasDomain = false;
+        for (Address address : addresses) {
+            String email = ((InternetAddress) address).getAddress();
+            String domain = UriHelper.getEmailDomain(email);
+            if (domain == null)
+                continue;
+            hasDomain = true;
+            if (isJunk(context, domain, false, BLOCK_LISTS))
+                return true;
+        }
+        return (hasDomain ? false : null);
+    }
+
+    static Boolean isJunk(Context context, Uri uri) {
+        String domain = null;
+        if ("mailto".equalsIgnoreCase(uri.getScheme())) {
+            MailTo email = MailTo.parse(uri.toString());
+            domain = UriHelper.getEmailDomain(email.getTo());
+        } else
+            domain = uri.getHost();
+
+        if (domain == null)
+            return null;
+
+        return isJunk(context, domain, false, BLOCK_LISTS);
+    }
+
+    private static boolean isJunk(Context context, String host, boolean numeric, List<BlockList> blocklists) {
         synchronized (cache) {
             CacheEntry entry = cache.get(host);
             if (entry != null && !entry.isExpired())
@@ -149,7 +191,9 @@ public class DnsBlockList {
 
         boolean blocked = false;
         for (BlockList blocklist : blocklists)
-            if (isEnabled(context, blocklist) && isJunk(host, blocklist)) {
+            if (isEnabled(context, blocklist) &&
+                    blocklist.numeric == numeric &&
+                    isJunk(host, blocklist)) {
                 blocked = true;
                 break;
             }
@@ -162,9 +206,6 @@ public class DnsBlockList {
     }
 
     private static boolean isJunk(String host, BlockList blocklist) {
-        boolean numeric = host.startsWith("[") && host.endsWith("]");
-        if (numeric)
-            host = host.substring(1, host.length() - 1);
         try {
             if (blocklist.numeric) {
                 long start = new Date().getTime();
@@ -202,7 +243,7 @@ public class DnsBlockList {
                         Log.w(ex);
                     }
                 }
-            } else if (!numeric) {
+            } else {
                 long start = new Date().getTime();
                 String lookup = host + "." + blocklist.address;
                 boolean junk = isJunk(lookup, blocklist.responses);

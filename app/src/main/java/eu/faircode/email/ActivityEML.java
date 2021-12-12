@@ -172,13 +172,17 @@ public class ActivityEML extends ActivityBase {
                 new SimpleTask<File>() {
                     @Override
                     protected File onExecute(Context context, Bundle args) throws Throwable {
+                        Uri uri = args.getParcelable("uri");
+
+                        if (uri == null)
+                            throw new FileNotFoundException();
+
                         File dir = new File(getCacheDir(), "shared");
                         if (!dir.exists())
                             dir.mkdir();
 
                         File file = new File(dir, "email.eml");
 
-                        Uri uri = args.getParcelable("uri");
                         Helper.copy(context, uri, file);
                         return file;
                     }
@@ -261,17 +265,18 @@ public class ActivityEML extends ActivityBase {
                     result.sent = helper.getSent();
                     result.received = helper.getReceived();
                     result.subject = helper.getSubject();
-                    result.parts = helper.getMessageParts();
+                    result.parts = helper.getMessageParts(false);
 
                     String html = result.parts.getHtml(context);
                     if (html != null) {
                         Document parsed = JsoupEx.parse(html);
+                        HtmlHelper.autoLink(parsed);
                         Document document = HtmlHelper.sanitizeView(context, parsed, false);
                         result.body = HtmlHelper.fromDocument(context, document, null, null);
                     }
 
                     int textColorLink = Helper.resolveColor(context, android.R.attr.textColorLink);
-                    SpannableStringBuilder ssb = new SpannableStringBuilder();
+                    SpannableStringBuilder ssb = new SpannableStringBuilderEx();
                     getStructure(imessage, ssb, 0, textColorLink);
                     result.structure = ssb;
 
@@ -489,6 +494,9 @@ public class ActivityEML extends ActivityBase {
             protected Void onExecute(Context context, Bundle args) throws Throwable {
                 Uri uri = args.getParcelable("uri");
 
+                if (uri == null)
+                    throw new FileNotFoundException();
+
                 if (!"content".equals(uri.getScheme())) {
                     Log.w("Save attachment uri=" + uri);
                     throw new IllegalArgumentException(context.getString(R.string.title_no_stream));
@@ -564,6 +572,7 @@ public class ActivityEML extends ActivityBase {
                         adapter.add(account);
 
                 new AlertDialog.Builder(ActivityEML.this)
+                        .setIcon(R.drawable.twotone_save_alt_24)
                         .setTitle(R.string.title_save_eml)
                         .setAdapter(adapter, new DialogInterface.OnClickListener() {
                             @Override

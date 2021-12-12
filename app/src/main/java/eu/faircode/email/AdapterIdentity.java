@@ -20,11 +20,14 @@ package eu.faircode.email;
 */
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.SpannableString;
+import android.text.TextUtils;
 import android.text.style.RelativeSizeSpan;
 import android.text.style.StyleSpan;
 import android.view.LayoutInflater;
@@ -36,6 +39,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Lifecycle;
@@ -43,6 +47,7 @@ import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.OnLifecycleEvent;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListUpdateCallback;
 import androidx.recyclerview.widget.RecyclerView;
@@ -62,6 +67,8 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
     private Context context;
     private LifecycleOwner owner;
     private LayoutInflater inflater;
+
+    private int colorStripeWidth;
 
     private List<TupleIdentityEx> items = new ArrayList<>();
 
@@ -106,6 +113,9 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
             tvMaxSize = itemView.findViewById(R.id.tvMaxSize);
             tvDrafts = itemView.findViewById(R.id.tvDrafts);
             tvError = itemView.findViewById(R.id.tvError);
+
+            if (vwColor != null)
+                vwColor.getLayoutParams().width = colorStripeWidth;
         }
 
         private void wire() {
@@ -199,20 +209,22 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
 
             PopupMenuLifecycle popupMenu = new PopupMenuLifecycle(context, powner, view);
 
+            int order = 0;
             SpannableString ss = new SpannableString(identity.email);
             ss.setSpan(new StyleSpan(Typeface.ITALIC), 0, ss.length(), 0);
             ss.setSpan(new RelativeSizeSpan(0.9f), 0, ss.length(), 0);
-            popupMenu.getMenu().add(Menu.NONE, 0, 0, ss).setEnabled(false);
+            popupMenu.getMenu().add(Menu.NONE, 0, order++, ss).setEnabled(false);
 
-            popupMenu.getMenu().add(Menu.NONE, R.string.title_enabled, 1, R.string.title_enabled)
+            popupMenu.getMenu().add(Menu.NONE, R.string.title_enabled, order++, R.string.title_enabled)
                     .setCheckable(true).setChecked(identity.synchronize);
-            popupMenu.getMenu().add(Menu.NONE, R.string.title_primary, 2, R.string.title_primary)
+            popupMenu.getMenu().add(Menu.NONE, R.string.title_primary, order++, R.string.title_primary)
                     .setCheckable(true).setChecked(identity.primary);
 
             if (identity.sign_key != null || identity.sign_key_alias != null)
-                popupMenu.getMenu().add(Menu.NONE, R.string.title_reset_sign_key, 3, R.string.title_reset_sign_key);
+                popupMenu.getMenu().add(Menu.NONE, R.string.title_reset_sign_key, order++, R.string.title_reset_sign_key);
 
-            popupMenu.getMenu().add(Menu.NONE, R.string.title_copy, 4, R.string.title_copy);
+            popupMenu.getMenu().add(Menu.NONE, R.string.title_copy, order++, R.string.title_copy);
+            popupMenu.getMenu().add(Menu.NONE, R.string.title_delete, order++, R.string.title_delete);
 
             popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
                 @Override
@@ -229,6 +241,9 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
                         return true;
                     } else if (itemId == R.string.title_copy) {
                         onActionCopy();
+                        return true;
+                    } else if (itemId == R.string.title_delete) {
+                        onActionDelete();
                         return true;
                     }
                     return false;
@@ -336,6 +351,50 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
                                     .putExtra("id", identity.id)
                                     .putExtra("copy", true));
                 }
+
+                private void onActionDelete() {
+                    new AlertDialog.Builder(view.getContext())
+                            .setIcon(R.drawable.twotone_warning_24)
+                            .setTitle(identity.email)
+                            .setMessage(R.string.title_identity_delete)
+                            .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    onDelete();
+                                }
+                            })
+                            .setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    // Do nothing
+                                }
+                            })
+                            .show();
+                }
+
+                private void onDelete() {
+                    Bundle args = new Bundle();
+                    args.putLong("id", identity.id);
+
+                    new SimpleTask<Void>() {
+                        @Override
+                        protected Void onExecute(Context context, Bundle args) {
+                            long id = args.getLong("id");
+
+                            DB db = DB.getInstance(context);
+                            db.identity().deleteIdentity(id);
+
+                            Core.clearIdentities();
+
+                            return null;
+                        }
+
+                        @Override
+                        protected void onException(Bundle args, Throwable ex) {
+                            Log.unexpectedError(parentFragment.getParentFragmentManager(), ex);
+                        }
+                    }.execute(context, owner, args, "identity:delete");
+                }
             });
 
             popupMenu.show();
@@ -350,6 +409,10 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
         this.owner = parentFragment.getViewLifecycleOwner();
         this.inflater = LayoutInflater.from(context);
 
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean color_stripe_wide = prefs.getBoolean("color_stripe_wide", false);
+        this.colorStripeWidth = Helper.dp2pixels(context, color_stripe_wide ? 12 : 6);
+
         this.DTF = Helper.getDateTimeInstance(context, DateFormat.SHORT, DateFormat.SHORT);
 
         setHasStableIds(true);
@@ -359,6 +422,7 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
             public void onDestroyed() {
                 Log.d(AdapterIdentity.this + " parent destroyed");
                 AdapterIdentity.this.parentFragment = null;
+                owner.getLifecycle().removeObserver(this);
             }
         });
     }
@@ -372,6 +436,11 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
         Collections.sort(identities, new Comparator<TupleIdentityEx>() {
             @Override
             public int compare(TupleIdentityEx i1, TupleIdentityEx i2) {
+                int c = collator.compare(
+                        i1.accountCategory == null ? "" : i1.accountCategory,
+                        i2.accountCategory == null ? "" : i2.accountCategory);
+                if (c != 0)
+                    return c;
                 int n = collator.compare(i1.getDisplayName(), i2.getDisplayName());
                 if (n != 0)
                     return n;
@@ -447,6 +516,13 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
     @Override
     public long getItemId(int position) {
         return items.get(position).id;
+    }
+
+    public TupleIdentityEx getItemAtPosition(int pos) {
+        if (pos >= 0 && pos < items.size())
+            return items.get(pos);
+        else
+            return null;
     }
 
     @Override

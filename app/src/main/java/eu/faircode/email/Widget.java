@@ -27,6 +27,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.os.Build;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.RemoteViews;
@@ -61,6 +62,9 @@ public class Widget extends AppWidgetProvider {
                     int background = prefs.getInt("widget." + appWidgetId + ".background", Color.TRANSPARENT);
                     int layout = prefs.getInt("widget." + appWidgetId + ".layout", 0);
                     int version = prefs.getInt("widget." + appWidgetId + ".version", 0);
+
+                    if (version <= 1550)
+                        semi = true; // Legacy
 
                     List<EntityFolder> folders = db.folder().getNotifyingFolders(account);
                     if (folders == null)
@@ -107,7 +111,7 @@ public class Widget extends AppWidgetProvider {
                     RemoteViews views = new RemoteViews(context.getPackageName(),
                             layout == 0 ? R.layout.widget : R.layout.widget_new);
 
-                    views.setOnClickPendingIntent(R.id.widget, pi);
+                    views.setOnClickPendingIntent(android.R.id.background, pi);
 
                     if (layout == 1)
                         views.setImageViewResource(R.id.ivMessage, unseen == 0
@@ -126,15 +130,22 @@ public class Widget extends AppWidgetProvider {
                     }
 
                     if (background == Color.TRANSPARENT) {
-                        if (!semi && version > 1550)
-                            views.setInt(R.id.widget, "setBackgroundColor", background);
+                        if (semi)
+                            views.setInt(android.R.id.background, "setBackgroundResource", R.drawable.widget_background);
+                        else
+                            views.setInt(android.R.id.background, "setBackgroundColor", background);
+
+                        int colorWidgetForeground = context.getResources().getColor(R.color.colorWidgetForeground);
+                        views.setInt(R.id.ivMessage, "setColorFilter", colorWidgetForeground);
+                        views.setTextColor(R.id.tvCount, colorWidgetForeground);
+                        views.setTextColor(R.id.tvAccount, colorWidgetForeground);
                     } else {
                         float lum = (float) ColorUtils.calculateLuminance(background);
 
                         if (semi)
                             background = ColorUtils.setAlphaComponent(background, 127);
 
-                        views.setInt(R.id.widget, "setBackgroundColor", background);
+                        views.setInt(android.R.id.background, "setBackgroundColor", background);
 
                         if (lum > 0.7f) {
                             views.setInt(R.id.ivMessage, "setColorFilter", Color.BLACK);
@@ -142,6 +153,9 @@ public class Widget extends AppWidgetProvider {
                             views.setTextColor(R.id.tvAccount, Color.BLACK);
                         }
                     }
+
+                    int pad = Helper.dp2pixels(context, layout == 0 ? 3 : 6);
+                    views.setViewPadding(R.id.content, pad, pad, pad, pad);
 
                     appWidgetManager.updateAppWidget(appWidgetId, views);
                 }

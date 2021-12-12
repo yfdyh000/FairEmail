@@ -19,6 +19,10 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static android.app.Activity.RESULT_OK;
+
+import static androidx.recyclerview.widget.RecyclerView.NO_POSITION;
+
 import android.app.Dialog;
 import android.app.NotificationManager;
 import android.content.ContentResolver;
@@ -26,6 +30,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.net.Uri;
@@ -42,13 +47,16 @@ import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.RadioGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.SearchView;
 import androidx.constraintlayout.widget.Group;
 import androidx.core.app.NotificationCompat;
+import androidx.core.view.MenuCompat;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.Observer;
 import androidx.preference.PreferenceManager;
@@ -75,14 +83,13 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Properties;
 
 import javax.mail.Message;
 import javax.mail.MessagingException;
 import javax.mail.Session;
 import javax.mail.internet.InternetAddress;
-
-import static android.app.Activity.RESULT_OK;
 
 public class FragmentFolders extends FragmentBase {
     private ViewGroup view;
@@ -102,10 +109,12 @@ public class FragmentFolders extends FragmentBase {
     private boolean compact;
 
     private long account;
+    private boolean unified = false;
     private boolean imap = false;
     private boolean primary;
     private boolean show_hidden = false;
     private boolean show_flagged = false;
+    private String searching = null;
     private AdapterFolder adapter;
 
     private NumberFormat NF = NumberFormat.getNumberInstance();
@@ -115,6 +124,7 @@ public class FragmentFolders extends FragmentBase {
     static final int REQUEST_DELETE_FOLDER = 3;
     static final int REQUEST_EXECUTE_RULES = 4;
     static final int REQUEST_EXPORT_MESSAGES = 5;
+    static final int REQUEST_EDIT_ACCOUNT_NAME = 6;
 
     private static final long EXPORT_PROGRESS_INTERVAL = 5000L; // milliseconds
 
@@ -125,6 +135,7 @@ public class FragmentFolders extends FragmentBase {
         // Get arguments
         Bundle args = getArguments();
         account = args.getLong("account", -1);
+        unified = args.getBoolean("unified");
         primary = args.getBoolean("primary");
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
@@ -194,7 +205,8 @@ public class FragmentFolders extends FragmentBase {
             DividerItemDecoration itemDecorator = new DividerItemDecoration(getContext(), llm.getOrientation()) {
                 @Override
                 public void getItemOffsets(Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
-                    if (view.findViewById(R.id.clItem).getVisibility() == View.GONE)
+                    View clItem = view.findViewById(R.id.clItem);
+                    if (clItem == null || clItem.getVisibility() == View.GONE)
                         outRect.setEmpty();
                     else
                         super.getItemOffsets(outRect, view, parent, state);
@@ -204,7 +216,77 @@ public class FragmentFolders extends FragmentBase {
             rvFolder.addItemDecoration(itemDecorator);
         }
 
-        adapter = new AdapterFolder(this, account, primary, compact, show_hidden, show_flagged, null);
+        if (unified) {
+            DividerItemDecoration categoryDecorator = new DividerItemDecoration(getContext(), llm.getOrientation()) {
+                @Override
+                public void onDraw(@NonNull Canvas canvas, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
+                    int count = parent.getChildCount();
+                    for (int i = 0; i < count; i++) {
+                        View view = parent.getChildAt(i);
+                        int pos = parent.getChildAdapterPosition(view);
+
+                        View header = getView(view, parent, pos);
+                        if (header != null) {
+                            canvas.save();
+                            canvas.translate(0, parent.getChildAt(i).getTop() - header.getMeasuredHeight());
+                            header.draw(canvas);
+                            canvas.restore();
+                        }
+                    }
+                }
+
+                @Override
+                public void getItemOffsets(Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
+                    int pos = parent.getChildAdapterPosition(view);
+                    View header = getView(view, parent, pos);
+                    if (header == null)
+                        outRect.setEmpty();
+                    else
+                        outRect.top = header.getMeasuredHeight();
+                }
+
+                private View getView(View view, RecyclerView parent, int pos) {
+                    if (pos == NO_POSITION)
+                        return null;
+
+                    TupleFolderEx prev = adapter.getItemAtPosition(pos - 1);
+                    TupleFolderEx account = adapter.getItemAtPosition(pos);
+                    if (pos > 0 && prev == null)
+                        return null;
+                    if (account == null)
+                        return null;
+
+                    if (pos > 0) {
+                        if (Objects.equals(prev.accountCategory, account.accountCategory))
+                            return null;
+                    } else {
+                        if (account.accountCategory == null)
+                            return null;
+                    }
+
+                    View header = inflater.inflate(R.layout.item_group, parent, false);
+                    TextView tvCategory = header.findViewById(R.id.tvCategory);
+                    TextView tvDate = header.findViewById(R.id.tvDate);
+
+                    if (cards) {
+                        View vSeparator = header.findViewById(R.id.vSeparator);
+                        vSeparator.setVisibility(View.GONE);
+                    }
+
+                    tvCategory.setText(account.accountCategory);
+                    tvDate.setVisibility(View.GONE);
+
+                    header.measure(View.MeasureSpec.makeMeasureSpec(parent.getWidth(), View.MeasureSpec.EXACTLY),
+                            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+                    header.layout(0, 0, header.getMeasuredWidth(), header.getMeasuredHeight());
+
+                    return header;
+                }
+            };
+            rvFolder.addItemDecoration(categoryDecorator);
+        }
+
+        adapter = new AdapterFolder(this, account, unified, primary, compact, show_hidden, show_flagged, null);
         rvFolder.setAdapter(adapter);
 
         fabAdd.setOnClickListener(new View.OnClickListener() {
@@ -253,9 +335,42 @@ public class FragmentFolders extends FragmentBase {
         fabError.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(getContext(), ActivitySetup.class)
-                        .putExtra("target", "accounts");
-                startActivity(intent);
+                Bundle args = new Bundle();
+                args.putLong("id", account);
+
+                new SimpleTask<EntityAccount>() {
+                    @Override
+                    protected EntityAccount onExecute(Context context, Bundle args) {
+                        long id = args.getLong("id");
+
+                        DB db = DB.getInstance(context);
+                        return db.account().getAccount(id);
+                    }
+
+                    @Override
+                    protected void onExecuted(Bundle args, EntityAccount account) {
+                        if (account == null)
+                            return;
+
+                        String title = getString(R.string.title_notification_failed, account.name);
+
+                        Intent intent = new Intent(getContext(), ActivityError.class);
+                        intent.putExtra("title", title);
+                        intent.putExtra("message", account.error);
+                        intent.putExtra("provider", account.provider);
+                        intent.putExtra("account", account.id);
+                        intent.putExtra("protocol", account.protocol);
+                        intent.putExtra("auth_type", account.auth_type);
+                        intent.putExtra("faq", 22);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    }
+
+                    @Override
+                    protected void onException(Bundle args, Throwable ex) {
+                        Log.unexpectedError(getParentFragmentManager(), ex);
+                    }
+                }.execute(FragmentFolders.this, args, "folders:error");
             }
         });
 
@@ -280,8 +395,18 @@ public class FragmentFolders extends FragmentBase {
     }
 
     @Override
+    public void onSaveInstanceState(Bundle outState) {
+        outState.putString("fair:searching", searching);
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
+
+        if (savedInstanceState != null)
+            searching = savedInstanceState.getString("fair:searching");
+        adapter.search(searching);
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
         boolean folder_actions = prefs.getBoolean("folder_actions", false);
@@ -347,9 +472,14 @@ public class FragmentFolders extends FragmentBase {
     }
 
     private void onSwipeRefresh() {
+        refresh(false);
+    }
+
+    private void refresh(boolean force) {
         Bundle args = new Bundle();
         args.putLong("account", account);
         args.putBoolean("primary", primary);
+        args.putBoolean("force", force);
 
         new SimpleTask<Void>() {
             @Override
@@ -366,7 +496,7 @@ public class FragmentFolders extends FragmentBase {
                     throw new IllegalStateException(context.getString(R.string.title_no_internet));
 
                 boolean now = true;
-                boolean force = false;
+                boolean force = args.getBoolean("force");
                 boolean outbox = false;
 
                 DB db = DB.getInstance(context);
@@ -389,7 +519,7 @@ public class FragmentFolders extends FragmentBase {
                         Collections.sort(folders, folders.get(0).getComparator(context));
 
                     for (EntityFolder folder : folders) {
-                        EntityOperation.sync(context, folder.id, true);
+                        EntityOperation.sync(context, folder.id, true, force);
 
                         if (folder.account == null)
                             outbox = true;
@@ -416,7 +546,7 @@ public class FragmentFolders extends FragmentBase {
                 if (outbox)
                     ServiceSend.start(context);
 
-                if (!now)
+                if (!now && !args.getBoolean("force"))
                     throw new IllegalArgumentException(context.getString(R.string.title_no_connection));
 
                 return null;
@@ -429,10 +559,10 @@ public class FragmentFolders extends FragmentBase {
                             .setGestureInsetBottomIgnored(true);
                     snackbar.setAction(R.string.title_fix, new View.OnClickListener() {
                         @Override
-                        public void onClick(View view) {
-                            startActivity(
-                                    new Intent(getContext(), ActivitySetup.class)
-                                            .putExtra("tab", "connection"));
+                        public void onClick(View v) {
+                            v.getContext().startActivity(new Intent(v.getContext(), ActivitySetup.class)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                    .putExtra("tab", "connection"));
                         }
                     });
                     snackbar.show();
@@ -448,6 +578,57 @@ public class FragmentFolders extends FragmentBase {
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.menu_folders, menu);
+
+        MenuItem menuSearch = menu.findItem(R.id.menu_search_folder);
+        SearchView searchView = (SearchView) menuSearch.getActionView();
+        searchView.setQueryHint(getString(R.string.title_search));
+
+        if (TextUtils.isEmpty(searching))
+            menuSearch.collapseActionView();
+        else {
+            menuSearch.expandActionView();
+            searchView.setQuery(searching, true);
+        }
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                if (getView() != null) {
+                    searching = newText;
+                    adapter.search(newText);
+                }
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                searching = query;
+                adapter.search(query);
+                return true;
+            }
+        });
+
+        LayoutInflater infl = LayoutInflater.from(getContext());
+        ImageButton ibSearch = (ImageButton) infl.inflate(R.layout.action_button, null);
+        ibSearch.setId(View.generateViewId());
+        ibSearch.setImageResource(R.drawable.twotone_search_24);
+        ibSearch.setContentDescription(getString(R.string.title_legend_search));
+        ibSearch.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                onMenuSearch();
+            }
+        });
+        ibSearch.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View view) {
+                onMenuSearchFolder(menu.findItem(R.id.menu_search_folder));
+                return true;
+            }
+        });
+        menu.findItem(R.id.menu_search).setActionView(ibSearch);
+
+        MenuCompat.setGroupDividerEnabled(menu, true);
         super.onCreateOptionsMenu(menu, inflater);
     }
 
@@ -456,15 +637,18 @@ public class FragmentFolders extends FragmentBase {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
         boolean subscriptions = prefs.getBoolean("subscriptions", false);
         boolean subscribed_only = prefs.getBoolean("subscribed_only", false);
+        boolean sort_unread_atop = prefs.getBoolean("sort_unread_atop", false);
 
         menu.findItem(R.id.menu_unified).setVisible(account < 0 || primary);
-        menu.findItem(R.id.menu_theme).setVisible(account < 0 || primary);
         menu.findItem(R.id.menu_compact).setChecked(compact);
+        menu.findItem(R.id.menu_theme).setVisible(account < 0 || primary);
         menu.findItem(R.id.menu_show_hidden).setChecked(show_hidden);
         menu.findItem(R.id.menu_show_flagged).setChecked(show_flagged);
         menu.findItem(R.id.menu_subscribed_only).setChecked(subscribed_only);
         menu.findItem(R.id.menu_subscribed_only).setVisible(subscriptions);
+        menu.findItem(R.id.menu_sort_unread_atop).setChecked(sort_unread_atop);
         menu.findItem(R.id.menu_apply_all).setVisible(account >= 0 && imap);
+        menu.findItem(R.id.menu_edit_account_name).setVisible(account >= 0);
 
         super.onPrepareOptionsMenu(menu);
     }
@@ -478,11 +662,11 @@ public class FragmentFolders extends FragmentBase {
         } else if (itemId == R.id.menu_unified) {
             onMenuUnified();
             return true;
-        } else if (itemId == R.id.menu_theme) {
-            onMenuTheme();
-            return true;
         } else if (itemId == R.id.menu_compact) {
             onMenuCompact();
+            return true;
+        } else if (itemId == R.id.menu_theme) {
+            onMenuTheme();
             return true;
         } else if (itemId == R.id.menu_show_hidden) {
             onMenuShowHidden();
@@ -493,8 +677,17 @@ public class FragmentFolders extends FragmentBase {
         } else if (itemId == R.id.menu_subscribed_only) {
             onMenuSubscribedOnly();
             return true;
+        } else if (itemId == R.id.menu_sort_unread_atop) {
+            onMenuSortUnreadAtop();
+            return true;
+        } else if (itemId == R.id.menu_search_folder) {
+            onMenuSearchFolder(item);
+            return true;
         } else if (itemId == R.id.menu_apply_all) {
             onMenuApplyToAll();
+            return true;
+        } else if (itemId == R.id.menu_edit_account_name) {
+            onMenuEditAccount();
             return true;
         } else if (itemId == R.id.menu_force_sync) {
             onMenuForceSync();
@@ -521,17 +714,13 @@ public class FragmentFolders extends FragmentBase {
         fragmentTransaction.commit();
     }
 
-    private void onMenuTheme() {
-        new FragmentDialogTheme().show(getParentFragmentManager(), "messages:theme");
-    }
-
     private void onMenuCompact() {
         compact = !compact;
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
         prefs.edit().putBoolean("compact_folders", compact).apply();
 
-        getActivity().invalidateOptionsMenu();
+        invalidateOptionsMenu();
         adapter.setCompact(compact);
         rvFolder.post(new Runnable() {
             @Override
@@ -545,13 +734,17 @@ public class FragmentFolders extends FragmentBase {
         });
     }
 
+    private void onMenuTheme() {
+        new FragmentDialogTheme().show(getParentFragmentManager(), "messages:theme");
+    }
+
     private void onMenuShowHidden() {
         show_hidden = !show_hidden;
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
         prefs.edit().putBoolean("hidden_folders", show_hidden).apply();
 
-        getActivity().invalidateOptionsMenu();
+        invalidateOptionsMenu();
         adapter.setShowHidden(show_hidden);
     }
 
@@ -561,7 +754,7 @@ public class FragmentFolders extends FragmentBase {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
         prefs.edit().putBoolean("flagged_folders", show_flagged).apply();
 
-        getActivity().invalidateOptionsMenu();
+        invalidateOptionsMenu();
         adapter.setShowFlagged(show_flagged);
         rvFolder.post(new Runnable() {
             @Override
@@ -579,8 +772,23 @@ public class FragmentFolders extends FragmentBase {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
         boolean subscribed_only = !prefs.getBoolean("subscribed_only", false);
         prefs.edit().putBoolean("subscribed_only", subscribed_only).apply();
-        getActivity().invalidateOptionsMenu();
+        invalidateOptionsMenu();
         adapter.setSubscribedOnly(subscribed_only);
+    }
+
+    private void onMenuSortUnreadAtop() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+        boolean sort_unread_atop = !prefs.getBoolean("sort_unread_atop", false);
+        prefs.edit().putBoolean("sort_unread_atop", sort_unread_atop).apply();
+        invalidateOptionsMenu();
+        adapter.setSortUnreadAtop(sort_unread_atop);
+    }
+
+    private void onMenuSearchFolder(MenuItem item) {
+        if (item.isActionViewExpanded())
+            item.collapseActionView();
+        else
+            item.expandActionView();
     }
 
     private void onMenuApplyToAll() {
@@ -592,8 +800,40 @@ public class FragmentFolders extends FragmentBase {
         fragment.show(getParentFragmentManager(), "folders:apply");
     }
 
+    private void onMenuEditAccount() {
+        Bundle args = new Bundle();
+        args.putLong("id", account);
+
+        new SimpleTask<EntityAccount>() {
+            @Override
+            protected EntityAccount onExecute(Context context, Bundle args) throws Throwable {
+                long id = args.getLong("id");
+                DB db = DB.getInstance(context);
+                return db.account().getAccount(id);
+            }
+
+            @Override
+            protected void onExecuted(Bundle args, EntityAccount account) {
+                if (account == null)
+                    return;
+
+                args.putString("name", account.name);
+
+                FragmentDialogEditName fragment = new FragmentDialogEditName();
+                fragment.setArguments(args);
+                fragment.setTargetFragment(FragmentFolders.this, REQUEST_EDIT_ACCOUNT_NAME);
+                fragment.show(getParentFragmentManager(), "account:name");
+            }
+
+            @Override
+            protected void onException(Bundle args, Throwable ex) {
+                Log.unexpectedError(getParentFragmentManager(), ex);
+            }
+        }.execute(this, args, "account:name");
+    }
+
     private void onMenuForceSync() {
-        ServiceSynchronize.reload(getContext(), null, true, "force sync");
+        refresh(true);
         ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG).show();
     }
 
@@ -622,6 +862,10 @@ public class FragmentFolders extends FragmentBase {
                 case REQUEST_EXPORT_MESSAGES:
                     if (resultCode == RESULT_OK && data != null)
                         onExportMessages(data.getData());
+                    break;
+                case REQUEST_EDIT_ACCOUNT_NAME:
+                    if (resultCode == RESULT_OK && data != null)
+                        onEditAccountName(data.getBundleExtra("args"));
                     break;
             }
         } catch (Throwable ex) {
@@ -771,7 +1015,7 @@ public class FragmentFolders extends FragmentBase {
                     db.endTransaction();
                 }
 
-                ServiceSynchronize.reload(context, folder.account, false, "delete folder");
+                ServiceSynchronize.reload(context, folder.account, true, "delete folder");
 
                 return null;
             }
@@ -799,6 +1043,7 @@ public class FragmentFolders extends FragmentBase {
                 List<EntityRule> rules = db.rule().getEnabledRules(fid);
                 if (rules == null)
                     return 0;
+                EntityLog.log(context, "Executing rules count=" + rules.size());
 
                 for (EntityRule rule : rules) {
                     JSONObject jcondition = new JSONObject(rule.condition);
@@ -810,6 +1055,7 @@ public class FragmentFolders extends FragmentBase {
                 List<Long> ids = db.message().getMessageIdsByFolder(fid);
                 if (ids == null)
                     return 0;
+                EntityLog.log(context, "Executing rules messages=" + ids.size());
 
                 int applied = 0;
                 for (long mid : ids)
@@ -820,18 +1066,27 @@ public class FragmentFolders extends FragmentBase {
                         if (message == null)
                             continue;
 
-                        for (EntityRule rule : rules)
-                            if (rule.matches(context, message, null)) {
-                                if (rule.execute(context, message))
+                        EntityLog.log(context, "Executing rules message=" + message.id);
+
+                        for (EntityRule rule : rules) {
+                            EntityLog.log(context, "Executing rules evaluating=" + rule.name);
+                            if (rule.matches(context, message, null, null)) {
+                                EntityLog.log(context, "Executing rules matches=" + rule.name);
+                                if (rule.execute(context, message)) {
+                                    EntityLog.log(context, "Executing rules applied=" + rule.name);
                                     applied++;
+                                }
                                 if (rule.stop)
                                     break;
                             }
+                        }
 
                         db.setTransactionSuccessful();
                     } finally {
                         db.endTransaction();
                     }
+
+                EntityLog.log(context, "Executing rules applied=" + applied);
 
                 if (applied > 0)
                     ServiceSynchronize.eval(context, "rules/manual");
@@ -917,7 +1172,7 @@ public class FragmentFolders extends FragmentBase {
                             if (now - last > EXPORT_PROGRESS_INTERVAL) {
                                 last = now;
                                 builder.setProgress(ids.size(), i, false);
-                                nm.notify("export", 1, builder.build());
+                                nm.notify("export", NotificationHelper.NOTIFICATION_TAGGED, builder.build());
                             }
 
                             long id = ids.get(i);
@@ -990,7 +1245,7 @@ public class FragmentFolders extends FragmentBase {
                             Log.e(ex);
                         }
                 } finally {
-                    nm.cancel("export", 1);
+                    nm.cancel("export", NotificationHelper.NOTIFICATION_TAGGED);
                 }
 
                 return null;
@@ -1001,6 +1256,29 @@ public class FragmentFolders extends FragmentBase {
                 Log.unexpectedError(getParentFragmentManager(), ex);
             }
         }.execute(this, args, "folder:export");
+    }
+
+    private void onEditAccountName(Bundle args) {
+        new SimpleTask<Void>() {
+            @Override
+            protected Void onExecute(Context context, Bundle args) {
+                long id = args.getLong("id");
+                String name = args.getString("name");
+
+                if (TextUtils.isEmpty(name))
+                    return null;
+
+                DB db = DB.getInstance(context);
+                db.account().setAccountName(id, name);
+
+                return null;
+            }
+
+            @Override
+            protected void onException(Bundle args, Throwable ex) {
+                Log.unexpectedError(getParentFragmentManager(), ex);
+            }
+        }.execute(this, args, "edit:name");
     }
 
     public static class FragmentDialogApply extends FragmentDialogBase {
@@ -1043,7 +1321,7 @@ public class FragmentFolders extends FragmentBase {
                             new SimpleTask<Void>() {
                                 @Override
                                 protected Void onExecute(Context context, Bundle args) throws Throwable {
-                                    long account = args.getLong("account");
+                                    long aid = args.getLong("account");
                                     Boolean enable = null;
                                     if (args.containsKey("enable"))
                                         enable = args.getBoolean("enable");
@@ -1061,7 +1339,14 @@ public class FragmentFolders extends FragmentBase {
                                     try {
                                         db.beginTransaction();
 
-                                        List<EntityFolder> folders = db.folder().getFolders(account, false, true);
+                                        EntityAccount account = db.account().getAccount(aid);
+                                        if (account == null)
+                                            return null;
+
+                                        if (system && account.poll_interval > 15)
+                                            db.account().setAccountKeepAliveInterval(account.id, 15);
+
+                                        List<EntityFolder> folders = db.folder().getFolders(aid, false, true);
                                         if (folders == null)
                                             return null;
 
@@ -1090,7 +1375,7 @@ public class FragmentFolders extends FragmentBase {
                                         db.endTransaction();
                                     }
 
-                                    ServiceSynchronize.reload(context, account, false, "Apply");
+                                    ServiceSynchronize.reload(context, aid, false, "Apply");
 
                                     return null;
                                 }

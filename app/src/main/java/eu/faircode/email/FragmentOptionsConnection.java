@@ -63,8 +63,10 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
     private SwitchCompat swDownloadHeaders;
     private SwitchCompat swDownloadEml;
     private SwitchCompat swValidated;
+    private SwitchCompat swVpnOnly;
     private EditText etTimeout;
     private SwitchCompat swPreferIp4;
+    private SwitchCompat swBindSocket;
     private SwitchCompat swStandaloneVpn;
     private SwitchCompat swTcpKeepAlive;
     private TextView tvTcpKeepAliveHint;
@@ -80,7 +82,8 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
     private final static String[] RESET_OPTIONS = new String[]{
             "metered", "download", "roaming", "rlah",
             "download_headers", "download_eml",
-            "require_validated", "timeout", "prefer_ip4", "standalone_vpn", "tcp_keep_alive", "ssl_harden"
+            "require_validated", "vpn_only",
+            "timeout", "prefer_ip4", "bind_socket", "standalone_vpn", "tcp_keep_alive", "ssl_harden"
     };
 
     @Override
@@ -100,8 +103,10 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
         swDownloadHeaders = view.findViewById(R.id.swDownloadHeaders);
         swDownloadEml = view.findViewById(R.id.swDownloadEml);
         swValidated = view.findViewById(R.id.swValidated);
+        swVpnOnly = view.findViewById(R.id.swVpnOnly);
         etTimeout = view.findViewById(R.id.etTimeout);
         swPreferIp4 = view.findViewById(R.id.swPreferIp4);
+        swBindSocket = view.findViewById(R.id.swBindSocket);
         swStandaloneVpn = view.findViewById(R.id.swStandaloneVpn);
         swTcpKeepAlive = view.findViewById(R.id.swTcpKeepAlive);
         tvTcpKeepAliveHint = view.findViewById(R.id.tvTcpKeepAliveHint);
@@ -179,6 +184,13 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
             }
         });
 
+        swVpnOnly.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("vpn_only", checked).apply();
+            }
+        });
+
         etTimeout.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -208,6 +220,15 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("prefer_ip4", checked).apply();
+            }
+        });
+
+        swBindSocket.setVisibility(debug || BuildConfig.DEBUG ? View.VISIBLE : View.GONE);
+
+        swBindSocket.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("bind_socket", checked).apply();
             }
         });
 
@@ -342,12 +363,14 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
         swDownloadEml.setChecked(prefs.getBoolean("download_eml", false));
 
         swValidated.setChecked(prefs.getBoolean("require_validated", false));
+        swVpnOnly.setChecked(prefs.getBoolean("vpn_only", false));
 
         int timeout = prefs.getInt("timeout", 0);
         etTimeout.setText(timeout == 0 ? null : Integer.toString(timeout));
         etTimeout.setHint(Integer.toString(EmailService.DEFAULT_CONNECT_TIMEOUT));
 
         swPreferIp4.setChecked(prefs.getBoolean("prefer_ip4", true));
+        swBindSocket.setChecked(prefs.getBoolean("bind_socket", false));
         swStandaloneVpn.setChecked(prefs.getBoolean("standalone_vpn", false));
         swTcpKeepAlive.setChecked(prefs.getBoolean("tcp_keep_alive", false));
         swSslHarden.setChecked(prefs.getBoolean("ssl_harden", false));
@@ -383,14 +406,10 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
     };
 
     private void showConnectionType() {
-        final Context context = getContext();
-        if (context == null) {
-            tvNetworkMetered.setVisibility(View.GONE);
-            tvNetworkRoaming.setVisibility(View.GONE);
-            cardDebug.setVisibility(View.GONE);
+        if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
             return;
-        }
 
+        final Context context = getContext();
         final ConnectionHelper.NetworkState networkState = ConnectionHelper.getNetworkState(context);
 
         final StringBuilder sb = new StringBuilder();
@@ -415,6 +434,8 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
                         sb.append(lp).append("\r\n\r\n");
                 }
 
+                sb.append("VPN=")
+                        .append(ConnectionHelper.vpnActive(context)).append("\r\n");
                 sb.append("Airplane mode=")
                         .append(ConnectionHelper.airplaneMode(context)).append("\r\n");
             } catch (Throwable ex) {
@@ -424,13 +445,13 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
         getMainHandler().post(new Runnable() {
             @Override
             public void run() {
-                if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
-                    tvNetworkMetered.setText(networkState.isUnmetered() ? R.string.title_legend_unmetered : R.string.title_legend_metered);
-                    tvNetworkInfo.setText(sb.toString());
-                    tvNetworkMetered.setVisibility(networkState.isConnected() ? View.VISIBLE : View.GONE);
-                    tvNetworkRoaming.setVisibility(networkState.isRoaming() ? View.VISIBLE : View.GONE);
-                    cardDebug.setVisibility(sb.length() == 0 ? View.GONE : View.VISIBLE);
-                }
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return;
+                tvNetworkMetered.setText(networkState.isUnmetered() ? R.string.title_legend_unmetered : R.string.title_legend_metered);
+                tvNetworkInfo.setText(sb.toString());
+                tvNetworkMetered.setVisibility(networkState.isConnected() ? View.VISIBLE : View.GONE);
+                tvNetworkRoaming.setVisibility(networkState.isRoaming() ? View.VISIBLE : View.GONE);
+                cardDebug.setVisibility(sb.length() == 0 ? View.GONE : View.VISIBLE);
             }
         });
     }

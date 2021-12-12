@@ -19,6 +19,12 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static android.app.Activity.RESULT_OK;
+import static com.google.android.material.textfield.TextInputLayout.END_ICON_NONE;
+import static com.google.android.material.textfield.TextInputLayout.END_ICON_PASSWORD_TOGGLE;
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_OAUTH;
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -58,19 +64,15 @@ import androidx.preference.PreferenceManager;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputLayout;
 
+import java.io.FileNotFoundException;
 import java.net.UnknownHostException;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
-
-import static android.app.Activity.RESULT_OK;
-import static com.google.android.material.textfield.TextInputLayout.END_ICON_NONE;
-import static com.google.android.material.textfield.TextInputLayout.END_ICON_PASSWORD_TOGGLE;
-import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_OAUTH;
-import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
 
 public class FragmentIdentity extends FragmentBase {
     private ViewGroup view;
@@ -98,7 +100,6 @@ public class FragmentIdentity extends FragmentBase {
     private EditText etPort;
     private EditText etUser;
     private TextInputLayout tilPassword;
-    private TextView tvCharacters;
     private TextView tvPasswordStorage;
     private Button btnCertificate;
     private TextView tvCertificate;
@@ -197,7 +198,6 @@ public class FragmentIdentity extends FragmentBase {
         etPort = view.findViewById(R.id.etPort);
         etUser = view.findViewById(R.id.etUser);
         tilPassword = view.findViewById(R.id.tilPassword);
-        tvCharacters = view.findViewById(R.id.tvCharacters);
         tvPasswordStorage = view.findViewById(R.id.tvPasswordStorage);
         btnCertificate = view.findViewById(R.id.btnCertificate);
         tvCertificate = view.findViewById(R.id.tvCertificate);
@@ -316,8 +316,9 @@ public class FragmentIdentity extends FragmentBase {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (TextUtils.isEmpty(s))
-                    tilPassword.setEndIconMode(END_ICON_PASSWORD_TOGGLE);
+                // https://github.com/material-components/material-components-android/issues/503
+                //if (TextUtils.isEmpty(s))
+                //    tilPassword.setEndIconMode(END_ICON_PASSWORD_TOGGLE);
             }
 
             @Override
@@ -370,6 +371,8 @@ public class FragmentIdentity extends FragmentBase {
                     getMainHandler().post(new Runnable() {
                         @Override
                         public void run() {
+                            if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                                return;
                             scroll.smoothScrollTo(0, btnAdvanced.getTop());
                         }
                     });
@@ -511,8 +514,7 @@ public class FragmentIdentity extends FragmentBase {
         btnAutoConfig.setEnabled(false);
         pbAutoConfig.setVisibility(View.GONE);
         cbInsecure.setVisibility(View.GONE);
-        tilPassword.setEndIconMode(Helper.isSecure(getContext()) ? END_ICON_PASSWORD_TOGGLE : END_ICON_NONE);
-        tvCharacters.setVisibility(View.GONE);
+        tilPassword.setEndIconMode(id < 0 || Helper.isSecure(getContext()) ? END_ICON_PASSWORD_TOGGLE : END_ICON_NONE);
 
         btnAdvanced.setVisibility(View.GONE);
 
@@ -535,12 +537,15 @@ public class FragmentIdentity extends FragmentBase {
     }
 
     private void setAccount(EntityAccount account) {
+        if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+            return;
+
         auth = account.auth_type;
         provider = account.provider;
         etEmail.setText(account.user);
         etUser.setText(account.user);
         tilPassword.getEditText().setText(account.password);
-        tilPassword.setEndIconMode(Helper.isSecure(getContext()) ? END_ICON_PASSWORD_TOGGLE : END_ICON_NONE);
+        //tilPassword.setEndIconMode(Helper.isSecure(getContext()) ? END_ICON_PASSWORD_TOGGLE : END_ICON_NONE);
         certificate = account.certificate_alias;
         tvCertificate.setText(certificate == null ? getString(R.string.title_optional) : certificate);
         etRealm.setText(account.realm);
@@ -584,7 +589,9 @@ public class FragmentIdentity extends FragmentBase {
             @Override
             protected EmailProvider onExecute(Context context, Bundle args) throws Throwable {
                 String domain = args.getString("domain");
-                return EmailProvider.fromDomain(context, domain, EmailProvider.Discover.SMTP);
+                return EmailProvider
+                        .fromDomain(context, domain, EmailProvider.Discover.SMTP)
+                        .get(0);
             }
 
             @Override
@@ -598,7 +605,10 @@ public class FragmentIdentity extends FragmentBase {
 
             @Override
             protected void onException(Bundle args, Throwable ex) {
-                if (ex instanceof IllegalArgumentException || ex instanceof UnknownHostException)
+                if (ex.getMessage() != null &&
+                        (ex instanceof UnknownHostException ||
+                                ex instanceof FileNotFoundException ||
+                                ex instanceof IllegalArgumentException))
                     Snackbar.make(view, ex.getMessage(), Snackbar.LENGTH_LONG)
                             .setGestureInsetBottomIgnored(true).show();
                 else
@@ -610,10 +620,9 @@ public class FragmentIdentity extends FragmentBase {
     private void checkPassword(String password) {
         boolean warning = (Helper.containsWhiteSpace(password) ||
                 Helper.containsControlChars(password));
-        tvCharacters.setVisibility(warning &&
-                grpAdvanced.getVisibility() == View.VISIBLE
-                ? View.VISIBLE : View.GONE);
-
+        tilPassword.setHelperText(
+                warning ? getString(R.string.title_setup_password_chars) : null);
+        tilPassword.setHelperTextEnabled(warning);
     }
 
     private void onSave(boolean should) {
@@ -676,7 +685,7 @@ public class FragmentIdentity extends FragmentBase {
             @Override
             protected void onPreExecute(Bundle args) {
                 saving = true;
-                getActivity().invalidateOptionsMenu();
+                invalidateOptionsMenu();
                 Helper.setViewsEnabled(view, false);
                 pbSave.setVisibility(View.VISIBLE);
                 grpError.setVisibility(View.GONE);
@@ -688,7 +697,7 @@ public class FragmentIdentity extends FragmentBase {
             @Override
             protected void onPostExecute(Bundle args) {
                 saving = false;
-                getActivity().invalidateOptionsMenu();
+                invalidateOptionsMenu();
                 Helper.setViewsEnabled(view, true);
                 if (auth != AUTH_TYPE_PASSWORD) {
                     etUser.setEnabled(false);
@@ -740,10 +749,9 @@ public class FragmentIdentity extends FragmentBase {
 
                 boolean should = args.getBoolean("should");
 
-                if (host.contains(":")) {
-                    Uri h = Uri.parse(host);
-                    host = h.getHost();
-                }
+                int semi = host.indexOf(':');
+                if (semi > 0 && host.indexOf(':', semi + 1) < 0)
+                    host = host.substring(0, semi);
 
                 //if (TextUtils.isEmpty(name) && !should)
                 //    throw new IllegalArgumentException(context.getString(R.string.title_no_name));
@@ -893,6 +901,8 @@ public class FragmentIdentity extends FragmentBase {
                     if (!Objects.equals(identity.unicode, unicode))
                         return true;
                     if (user_max_size != null && !Objects.equals(identity.max_size, user_max_size))
+                        return true;
+                    if (identity.error != null && identity.synchronize)
                         return true;
 
                     return false;
@@ -1044,9 +1054,10 @@ public class FragmentIdentity extends FragmentBase {
         grpError.setVisibility(View.VISIBLE);
 
         if (ex instanceof EmailService.UntrustedException) {
-            EmailService.UntrustedException e = (EmailService.UntrustedException) ex;
-            cbTrust.setTag(e.getFingerprint());
-            cbTrust.setText(getString(R.string.title_trust, e.getFingerprint()));
+            X509Certificate certificate = ((EmailService.UntrustedException) ex).getCertificate();
+            String fingerprint = EntityCertificate.getKeyFingerprint(certificate);
+            cbTrust.setTag(fingerprint);
+            cbTrust.setText(getString(R.string.title_trust, fingerprint));
             cbTrust.setVisibility(View.VISIBLE);
         }
 
@@ -1067,6 +1078,8 @@ public class FragmentIdentity extends FragmentBase {
         getMainHandler().post(new Runnable() {
             @Override
             public void run() {
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return;
                 if (provider != null && provider.documentation != null)
                     scroll.smoothScrollTo(0, tvInstructions.getBottom());
                 else
@@ -1357,6 +1370,8 @@ public class FragmentIdentity extends FragmentBase {
                         getMainHandler().post(new Runnable() {
                             @Override
                             public void run() {
+                                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                                    return;
                                 scroll.smoothScrollTo(0, btnSave.getBottom());
                             }
                         });

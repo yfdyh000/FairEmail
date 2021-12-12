@@ -3,7 +3,6 @@
     <string name="app_search">ফেয়ারইমেইল সার্চ</string>
     <string name="app_changelog">পরিবর্তনসূচী</string>
     <string name="app_welcome">ফেয়ারমেল গোপনীয়তা এবং নিরাপত্তার উপর মনোযোগী একটি মুক্ত(ওপেন) সোর্স ইমেল অ্যাপ্লিকেশন। এই কারণে কিছু বৈশিষ্ট্য আপনার অভ্যস্ততা থেকে আলাদাভাবে কাজ করতে পারে।</string>
-    <string name="app_crash">ফেয়ার ইমেইল এই ডিভাইসে সমর্থিত নয় কারণ এই অ্যান্ড্রয়েডের বাগগুলি ক্রাশ হওয়ার কারণ</string>
     <string name="app_exit">বের হওয়ার জন্য \'ব্যাক\' করুন</string>
     <string name="app_cake">অপর্যাপ্ত জায়গা খালি রয়েছে</string>
     <string name="channel_service">প্রাপ্তি</string>
@@ -57,9 +56,7 @@
     <string name="title_junk_hint">স্প্যাম ফিল্টার করার জন্য আপনার ইমেইল সরবরাহকারী দায়ী। একটি ইমেইল অ্যাপের কাছে এটি নির্ভরযোগ্যভাবে করার জন্য সমস্ত তথ্য থাকে না।</string>
     <string name="title_block">%1$s ব্লক করুন</string>
     <string name="title_block_sender">ব্লক প্রেরক</string>
-    <string name="title_block_domain">প্রেরক ডোমেন ব্লক করুন</string>
-    <string name="title_block_sender_hint">        প্রেরককে ব্লক করলে ভবিষ্যতে তার বার্তা স্বয়ংক্রিয়ভাবে স্প্যাম ফোল্ডারে অপসারণ করার একটি নিয়ম তৈরি হবে।
-        নিয়ম তৈরি এবং করা একটি প্রিমিয়াম বৈশিষ্ট্য।</string>
+    <string name="title_junk_clear">মুছে ফেলুন</string>
     <string name="title_notification_sending">বার্তাসমূহ প্রেরণ হচ্ছে</string>
     <string name="title_notification_waiting">উপযুক্ত সংযোগের জন্য অপেক্ষা করা হচ্ছে</string>
     <string name="title_notification_idle">নিষ্ক্রিয়</string>
@@ -110,6 +107,8 @@
     <string name="title_advanced_caption_conversation">কথোপকথন</string>
     <string name="title_advanced_caption_message">বার্তা</string>
     <string name="title_synchronize_enabled">সিংক্রোনাইজ হয়েছে</string>
+    <string name="title_raw_send_message">বার্তা</string>
+    <string name="title_raw_send_thread">কথোপকথন</string>
     <string name="title_compose">লেখুন</string>
     <string name="title_send">পাঠান</string>
     <string name="title_legend_section_synchronize">সিংক্রোনাইজ হয়েছে</string>
@@ -129,4 +128,7 @@
     <!-- https://en.wikipedia.org/wiki/Display_resolution -->
     <!-- https://en.wikipedia.org/wiki/Comparison_of_high-definition_smartphone_displays -->
     <!-- https://www.w3.org/TR/css-fonts-4/#generic-font-families -->
+    <!-- https://www.bouncycastle.org/specifications.html -->
+    <!-- https://datatracker.ietf.org/doc/html/rfc5751#page-29 -->
+    <!-- https://datatracker.ietf.org/doc/html/rfc5751#section-2.7 -->
 </resources>

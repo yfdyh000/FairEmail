@@ -37,6 +37,11 @@ import com.sun.mail.imap.IMAPStore;
 import com.sun.mail.imap.protocol.IMAPProtocol;
 import com.sun.mail.imap.protocol.IMAPResponse;
 import com.sun.mail.imap.protocol.SearchSequence;
+import com.sun.mail.util.MessageRemovedIOException;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
@@ -53,6 +58,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 
+import javax.mail.Address;
 import javax.mail.FetchProfile;
 import javax.mail.Flags;
 import javax.mail.Folder;
@@ -80,6 +86,7 @@ import io.requery.android.database.sqlite.SQLiteDatabase;
 
 public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMessageEx> {
     private Context context;
+    private AdapterMessage.ViewType viewType;
     private Long account;
     private Long folder;
     private boolean server;
@@ -102,8 +109,13 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
         void onException(@NonNull Throwable ex);
     }
 
-    BoundaryCallbackMessages(Context context, long account, long folder, boolean server, SearchCriteria criteria, int pageSize) {
+    BoundaryCallbackMessages(
+            Context context,
+            AdapterMessage.ViewType viewType, long account, long folder,
+            boolean server, SearchCriteria criteria,
+            int pageSize) {
         this.context = context.getApplicationContext();
+        this.viewType = viewType;
         this.account = (account < 0 ? null : account);
         this.folder = (folder < 0 ? null : folder);
         this.server = server;
@@ -264,6 +276,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
         }
 
         int found = 0;
+        String query = (criteria.query == null ? null : criteria.query.toLowerCase());
 
         if (criteria.fts && criteria.query != null) {
             if (state.ids == null) {
@@ -276,11 +289,95 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                         " ids=" + state.ids.size());
             }
 
+            List<Long> excluded = Helper.fromLongArray(exclude);
+
             try {
                 db.beginTransaction();
 
                 for (; state.index < state.ids.size() && found < pageSize && !state.destroyed; state.index++) {
                     long id = state.ids.get(state.index);
+                    EntityMessage message = db.message().getMessage(id);
+                    if (message == null)
+                        continue;
+
+                    if (criteria.with_unseen) {
+                        if (message.ui_seen)
+                            continue;
+                    }
+
+                    if (criteria.with_flagged) {
+                        if (!message.ui_flagged)
+                            continue;
+                    }
+
+                    if (criteria.with_hidden) {
+                        if (message.ui_snoozed == null)
+                            continue;
+                    }
+
+                    if (criteria.with_encrypted) {
+                        if (message.encrypt == null ||
+                                EntityMessage.ENCRYPT_NONE.equals(message.encrypt))
+                            continue;
+                    }
+
+                    if (excluded.contains(message.folder))
+                        continue;
+
+                    boolean matched = false;
+
+                    if (!matched && criteria.in_senders) {
+                        if (contains(message.from, query))
+                            matched = true;
+                    }
+
+                    if (!matched && criteria.in_recipients) {
+                        if (contains(message.to, query) ||
+                                contains(message.cc, query) ||
+                                contains(message.bcc, query))
+                            matched = true;
+                    }
+
+                    if (!matched && criteria.in_subject) {
+                        if (message.subject != null &&
+                                message.subject.toLowerCase().contains(query))
+                            matched = true;
+                    }
+
+                    if (!matched && criteria.in_keywords) {
+                        if (message.keywords != null)
+                            for (String keyword : message.keywords)
+                                if (keyword.toLowerCase().contains(query)) {
+                                    matched = true;
+                                    break;
+                                }
+                    }
+
+                    if (!matched && criteria.in_notes) {
+                        if (message.notes != null &&
+                                message.notes.toLowerCase().contains(query))
+                            matched = true;
+                    }
+
+                    if (!matched && criteria.in_message)
+                        try {
+                            File file = EntityMessage.getFile(context, id);
+                            if (file.exists()) {
+                                String html = Helper.readText(file);
+                                if (html.toLowerCase().contains(query)) {
+                                    String text = HtmlHelper.getFullText(html);
+                                    if (text != null &&
+                                            text.toLowerCase().contains(query))
+                                        matched = true;
+                                }
+                            }
+                        } catch (IOException ex) {
+                            Log.e(ex);
+                        }
+
+                    if (!matched)
+                        continue;
+
                     found += db.message().setMessageFound(id);
                     Log.i("Boundary matched=" + id + " found=" + found);
                 }
@@ -330,8 +427,6 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
 
             if (state.matches.size() == 0)
                 break;
-
-            String query = (criteria.query == null ? null : criteria.query.toLowerCase());
 
             for (int i = state.index; i < state.matches.size() && found < pageSize && !state.destroyed; i++) {
                 state.index = i + 1;
@@ -408,10 +503,12 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                 state.ifolder = (IMAPFolder) state.iservice.getStore().getFolder(browsable.name);
                 try {
                     state.ifolder.open(Folder.READ_WRITE);
-                    db.folder().setFolderReadOnly(browsable.id, state.ifolder.getUIDNotSticky());
+                    browsable.read_only = state.ifolder.getUIDNotSticky();
+                    db.folder().setFolderReadOnly(browsable.id, browsable.read_only);
                 } catch (ReadOnlyFolderException ex) {
                     state.ifolder.open(Folder.READ_ONLY);
-                    db.folder().setFolderReadOnly(browsable.id, true);
+                    browsable.read_only = true;
+                    db.folder().setFolderReadOnly(browsable.id, browsable.read_only);
                 }
 
                 db.folder().setFolderError(browsable.id, null);
@@ -420,8 +517,8 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                 db.folder().setFolderTotal(browsable.id, count < 0 ? null : count);
 
                 if (criteria == null) {
-                    boolean filter_seen = prefs.getBoolean(FragmentMessages.getFilter("seen", browsable.type), false);
-                    boolean filter_unflagged = prefs.getBoolean(FragmentMessages.getFilter("unflagged", browsable.type), false);
+                    boolean filter_seen = prefs.getBoolean(FragmentMessages.getFilter(context, "seen", viewType, browsable.type), false);
+                    boolean filter_unflagged = prefs.getBoolean(FragmentMessages.getFilter(context, "unflagged", viewType, browsable.type), false);
                     EntityLog.log(context, "Boundary filter seen=" + filter_seen + " unflagged=" + filter_unflagged);
 
                     List<SearchTerm> and = new ArrayList<>();
@@ -578,19 +675,20 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                     long uid = state.ifolder.getUID(isub[j]);
                     Log.i("Boundary server sync uid=" + uid);
                     EntityMessage message = db.message().getMessageByUid(browsable.id, uid);
-                    if (message == null)
+                    if (message == null) {
                         message = Core.synchronizeMessage(context,
                                 account, browsable,
                                 (IMAPStore) state.iservice.getStore(), state.ifolder, (MimeMessage) isub[j],
                                 true, true,
                                 rules, astate, null);
-                    if (message != null) // SQLiteConstraintException
-                        if (criteria == null)
+                        // SQLiteConstraintException
+                        if (message != null && criteria == null)
                             found++; // browsed
-                        else
-                            found += db.message().setMessageFound(message.id);
+                    }
+                    if (message != null && criteria != null)
+                        found += db.message().setMessageFound(message.id);
                     Log.i("Boundary matched=" + (message == null ? null : message.id) + " found=" + found);
-                } catch (MessageRemovedException ex) {
+                } catch (MessageRemovedException | MessageRemovedIOException ex) {
                     Log.w(browsable.name + " boundary server", ex);
                 } catch (FolderClosedException ex) {
                     throw ex;
@@ -652,6 +750,15 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
             imessages[i] = state.ifolder.getMessage(msgnums.get(i));
 
         return imessages;
+    }
+
+    private static boolean contains(Address[] addresses, String text) {
+        if (addresses == null)
+            return false;
+        for (Address address : addresses)
+            if (address.toString().toLowerCase().contains(text))
+                return true;
+        return false;
     }
 
     State getState() {
@@ -722,6 +829,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
     }
 
     static class SearchCriteria implements Serializable {
+        long id = -1;
         String query;
         boolean fts = false;
         boolean in_senders = true;
@@ -917,8 +1025,8 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
             if (with_size != null)
                 flags.add(context.getString(R.string.title_search_flag_size,
                         Helper.humanReadableByteCount(with_size)));
-            return (query == null ? "" : query)
-                    + (flags.size() > 0 ? " +" : "")
+            return (query == null ? "" : query + " ")
+                    + (flags.size() > 0 ? "+" : "")
                     + TextUtils.join(",", flags);
         }
 
@@ -949,6 +1057,86 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                         Objects.equals(this.before, other.before));
             } else
                 return false;
+        }
+
+        JSONObject toJson() throws JSONException {
+            JSONObject json = new JSONObject();
+            json.put("query", query);
+            json.put("in_senders", in_senders);
+            json.put("in_recipients", in_recipients);
+            json.put("in_subject", in_subject);
+            json.put("in_keywords", in_keywords);
+            json.put("in_message", in_message);
+            json.put("in_notes", in_notes);
+            json.put("in_headers", in_headers);
+            json.put("in_html", in_html);
+            json.put("with_unseen", with_unseen);
+            json.put("with_flagged", with_flagged);
+            json.put("with_hidden", with_hidden);
+            json.put("with_encrypted", with_encrypted);
+            json.put("with_attachments", with_attachments);
+            json.put("with_notes", with_notes);
+
+            if (with_types != null) {
+                JSONArray jtypes = new JSONArray();
+                for (String type : with_types)
+                    jtypes.put(type);
+                json.put("with_types", jtypes);
+            }
+
+            if (with_size != null)
+                json.put("with_size", with_size);
+
+            json.put("in_trash", in_trash);
+            json.put("in_junk", in_junk);
+
+            if (after != null)
+                json.put("after", after);
+
+            if (before != null)
+                json.put("before", before);
+
+            return json;
+        }
+
+        public static SearchCriteria fromJSON(JSONObject json) throws JSONException {
+            SearchCriteria criteria = new SearchCriteria();
+            criteria.query = json.optString("query");
+            criteria.in_senders = json.optBoolean("in_senders");
+            criteria.in_recipients = json.optBoolean("in_recipients");
+            criteria.in_subject = json.optBoolean("in_subject");
+            criteria.in_keywords = json.optBoolean("in_keywords");
+            criteria.in_message = json.optBoolean("in_message");
+            criteria.in_notes = json.optBoolean("in_notes");
+            criteria.in_headers = json.optBoolean("in_headers");
+            criteria.in_html = json.optBoolean("in_html");
+            criteria.with_unseen = json.optBoolean("with_unseen");
+            criteria.with_flagged = json.optBoolean("with_flagged");
+            criteria.with_hidden = json.optBoolean("with_hidden");
+            criteria.with_encrypted = json.optBoolean("with_encrypted");
+            criteria.with_attachments = json.optBoolean("with_attachments");
+            criteria.with_notes = json.optBoolean("with_notes");
+
+            if (json.has("with_types")) {
+                JSONArray jtypes = json.getJSONArray("with_types");
+                criteria.with_types = new String[jtypes.length()];
+                for (int i = 0; i < jtypes.length(); i++)
+                    criteria.with_types[i] = jtypes.getString(i);
+            }
+
+            if (json.has("with_size"))
+                criteria.with_size = json.getInt("with_size");
+
+            criteria.in_trash = json.optBoolean("in_trash");
+            criteria.in_junk = json.optBoolean("in_junk");
+
+            if (json.has("after"))
+                criteria.after = json.getLong("after");
+
+            if (json.has("before"))
+                criteria.before = json.getLong("before");
+
+            return criteria;
         }
 
         @NonNull

@@ -50,24 +50,34 @@ public class WidgetSync extends AppWidgetProvider {
                 int background = prefs.getInt("widget." + appWidgetId + ".background", Color.TRANSPARENT);
                 int version = prefs.getInt("widget." + appWidgetId + ".version", 0);
 
+                if (version <= 1550)
+                    semi = true; // Legacy
+
                 RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_sync);
                 views.setOnClickPendingIntent(R.id.ivSync, pi);
                 views.setImageViewResource(R.id.ivSync, enabled ? R.drawable.twotone_sync_24 : R.drawable.twotone_sync_disabled_24);
 
                 if (background == Color.TRANSPARENT) {
-                    if (!semi && version > 1550)
-                        views.setInt(R.id.widget, "setBackgroundColor", background);
+                    if (semi)
+                        views.setInt(android.R.id.background, "setBackgroundResource", R.drawable.widget_background);
+                    else
+                        views.setInt(android.R.id.background, "setBackgroundColor", background);
+                    views.setInt(R.id.ivSync, "setColorFilter",
+                            context.getResources().getColor(R.color.colorWidgetForeground));
                 } else {
                     float lum = (float) ColorUtils.calculateLuminance(background);
 
                     if (semi)
                         background = ColorUtils.setAlphaComponent(background, 127);
 
-                    views.setInt(R.id.widget, "setBackgroundColor", background);
+                    views.setInt(android.R.id.background, "setBackgroundColor", background);
 
                     if (lum > 0.7f)
                         views.setInt(R.id.ivSync, "setColorFilter", Color.BLACK);
                 }
+
+                int dp6 = Helper.dp2pixels(context, 6);
+                views.setViewPadding(R.id.content, dp6, dp6, dp6, dp6);
 
                 appWidgetManager.updateAppWidget(appWidgetId, views);
             }

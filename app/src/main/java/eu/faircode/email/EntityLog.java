@@ -29,6 +29,7 @@ import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 import java.util.Date;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 
 @Entity(
@@ -47,7 +48,7 @@ public class EntityLog {
     private static Long last_cleanup = null;
 
     private static final long LOG_CLEANUP_INTERVAL = 3600 * 1000L; // milliseconds
-    private static final long LOG_KEEP_DURATION = 24 * 3600 * 1000L; // milliseconds
+    private static final long LOG_KEEP_DURATION = 6 * 3600 * 1000L; // milliseconds
     private static final int LOG_DELETE_BATCH_SIZE = 50;
 
     @PrimaryKey(autoGenerate = true)
@@ -55,12 +56,43 @@ public class EntityLog {
     @NonNull
     public Long time;
     @NonNull
+    public Type type = Type.General;
+    public Long account;
+    public Long folder;
+    public Long message;
+    @NonNull
     public String data;
+
+    enum Type {General, Statistics, Scheduling, Network, Account, Protocol, Classification, Notification, Rules}
 
     private static final ExecutorService executor =
             Helper.getBackgroundExecutor(1, "log");
 
     static void log(final Context context, String data) {
+        log(context, Type.General, data);
+    }
+
+    static void log(final Context context, @NonNull Type type, EntityAccount account, String data) {
+        log(context, type, account.id, null, null, account.name + " " + data);
+    }
+
+    static void log(final Context context, @NonNull Type type, EntityAccount account, EntityFolder folder, String data) {
+        log(context, type, account.id, folder.id, null, account.name + "/" + folder.name + " " + data);
+    }
+
+    static void log(final Context context, @NonNull Type type, EntityFolder folder, String data) {
+        log(context, type, folder.account, folder.id, null, folder.name + " " + data);
+    }
+
+    static void log(final Context context, @NonNull Type type, EntityMessage message, String data) {
+        log(context, type, message.account, message.folder, message.id, data);
+    }
+
+    static void log(final Context context, @NonNull Type type, String data) {
+        log(context, type, null, null, null, data);
+    }
+
+    static void log(final Context context, @NonNull Type type, Long account, Long folder, Long message, String data) {
         Log.i(data);
 
         if (context == null)
@@ -73,6 +105,10 @@ public class EntityLog {
 
         final EntityLog entry = new EntityLog();
         entry.time = new Date().getTime();
+        entry.type = type;
+        entry.account = account;
+        entry.folder = folder;
+        entry.message = message;
         entry.data = data;
 
         final DB db = DB.getInstance(context);
@@ -138,7 +174,13 @@ public class EntityLog {
     public boolean equals(Object obj) {
         if (obj instanceof EntityLog) {
             EntityLog other = (EntityLog) obj;
-            return (this.time.equals(other.time) && this.data.equals(other.data));
+            return (this.id.equals(other.id) &&
+                    this.time.equals(other.time) &&
+                    this.type.equals(other.type) &&
+                    Objects.equals(this.account, other.account) &&
+                    Objects.equals(this.folder, other.folder) &&
+                    Objects.equals(this.message, other.message) &&
+                    this.data.equals(other.data));
         } else
             return false;
     }

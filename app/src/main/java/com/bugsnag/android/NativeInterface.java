@@ -1,5 +1,7 @@
 package com.bugsnag.android;
 
+import com.bugsnag.android.internal.ImmutableConfig;
+
 import android.annotation.SuppressLint;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -54,7 +56,7 @@ public class NativeInterface {
     @NonNull
     public static String getNativeReportPath() {
         ImmutableConfig config = getClient().getConfig();
-        File persistenceDirectory = config.getPersistenceDirectory();
+        File persistenceDirectory = config.getPersistenceDirectory().getValue();
         return new File(persistenceDirectory, "bugsnag-native").getAbsolutePath();
     }
 
@@ -325,7 +327,7 @@ public class NativeInterface {
         ImmutableConfig config = client.getConfig();
         if (releaseStage == null
                 || releaseStage.length() == 0
-                || config.shouldNotifyForReleaseStage()) {
+                || !config.shouldDiscardByReleaseStage()) {
             EventStore eventStore = client.getEventStore();
 
             String filename = eventStore.getNdkFilename(payload, apiKey);
@@ -368,6 +370,9 @@ public class NativeInterface {
                               @NonNull final String message,
                               @NonNull final Severity severity,
                               @NonNull final StackTraceElement[] stacktrace) {
+        if (getClient().getConfig().shouldDiscardError(name)) {
+            return;
+        }
         Throwable exc = new RuntimeException();
         exc.setStackTrace(stacktrace);
 
@@ -424,4 +429,37 @@ public class NativeInterface {
     public static void setAutoDetectAnrs(boolean autoDetectAnrs) {
         getClient().setAutoDetectAnrs(autoDetectAnrs);
     }
+
+    public static void startSession() {
+        getClient().startSession();
+    }
+
+    public static void pauseSession() {
+        getClient().pauseSession();
+    }
+
+    public static boolean resumeSession() {
+        return getClient().resumeSession();
+    }
+
+    @Nullable
+    public static Session getCurrentSession() {
+        return getClient().sessionTracker.getCurrentSession();
+    }
+
+    /**
+     * Marks the launch period as complete
+     */
+    public static void markLaunchCompleted() {
+        getClient().markLaunchCompleted();
+    }
+
+    /**
+     * Get the last run info object
+     */
+    @Nullable
+    public static LastRunInfo getLastRunInfo() {
+        return getClient().getLastRunInfo();
+    }
+
 }

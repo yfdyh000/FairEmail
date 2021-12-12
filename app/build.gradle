@@ -1,9 +1,11 @@
 apply plugin: 'com.android.application'
 apply plugin: 'com.bugsnag.android.gradle'
 apply plugin: 'kotlin-android'
+apply plugin: 'de.undercouch.download'
 
-def getVersionCode = { -> return 1647 }
-def getReleaseName = { -> return "\"Sciurumimus\"" }
+def getVersionCode = { -> return 1787 }
+def getRevision = { -> "a" }
+def getReleaseName = { -> return "Caudipteryx" }
 // https://en.wikipedia.org/wiki/List_of_dinosaur_genera
 
 def keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -12,17 +14,18 @@ def keystoreProperties = new Properties()
 keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 
 android {
-    compileSdkVersion 30
+    compileSdkVersion 31
 
     defaultConfig {
         applicationId "eu.faircode.email"
         minSdkVersion 21
-        targetSdkVersion 30
+        targetSdkVersion 31
         versionCode getVersionCode()
         versionName "1." + getVersionCode()
-        archivesBaseName = "FairEmail-v$versionName"
+        archivesBaseName = "FairEmail-v$versionName" + getRevision()
 
-        buildConfigField "String", "RELEASE_NAME", getReleaseName()
+        buildConfigField "String", "REVISION", "\"" + getRevision() + "\""
+        buildConfigField "String", "RELEASE_NAME", "\"" + getReleaseName() + "\""
 
         javaCompileOptions {
             annotationProcessorOptions {
@@ -33,7 +36,7 @@ android {
         // https://developer.android.com/guide/topics/graphics/vector-drawable-resources
         vectorDrawables.useSupportLibrary = true
 
-        //ndkVersion "21.0.6113669"
+        ndkVersion "21.4.7075529"
         ndk {
             // Bugsnag, sqlite
             abiFilters "armeabi-v7a", "x86", "arm64-v8a", "x86_64"
@@ -84,6 +87,8 @@ android {
         exclude 'META-INF/LICENSE.gpl.txt'
         exclude 'META-INF/LICENSE.commercial.txt'
         exclude 'org/apache/**'
+        exclude 'LICENSE-2.0.txt'
+        exclude 'RELEASE.txt'
     }
 
     // https://google.github.io/android-gradle-dsl/current/com.android.build.gradle.internal.dsl.SigningConfig.html
@@ -228,10 +233,28 @@ android {
 task copyMarkdown(type: Copy) {
     from "${rootDir}"
     into "src/main/assets"
+    include "CHANGELOG.md"
     include "SETUP.md"
     include "ATTRIBUTION.md"
 }
+
 preBuild.dependsOn copyMarkdown
+
+task copyChangelog(type: Copy) {
+    from "${rootDir}"
+    into "../metadata/en-US/changelogs"
+    include "CHANGELOG.md"
+    rename "CHANGELOG.md", getVersionCode() + ".txt"
+}
+
+preBuild.dependsOn copyChangelog
+
+task downloadPublicSuffixList(type: Download) {
+    // https://github.com/michel-kraemer/gradle-download-task
+    src "https://raw.githubusercontent.com/publicsuffix/list/master/public_suffix_list.dat"
+    dest "src/main/assets"
+    overwrite true
+}
 
 repositories {
     google()
@@ -254,52 +277,64 @@ configurations.all {
     // paging-runtime: AsyncPagedListDiffer, LivePagedListBuilder, PagedListAdapter, PagedStorageDiffHelper
 }
 
+configurations.all {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == "org.apache.poi") {
+            details.useVersion "3.17"
+        }
+    }
+}
+
 dependencies {
     //implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    def startup_version = "1.1.0-beta01"
-    def annotation_version = "1.1.0"
-    def core_version = "1.6.0"
-    def appcompat_version = "1.3.0"
-    def activity_version = "1.2.3"
-    def fragment_version = "1.3.5"
+    def startup_version = "1.1.0"
+    def annotation_version_experimental = "1.1.0" // 1.2.0-rc01
+    def core_version = "1.6.0" // 1.7.0
+    def shortcuts_version = "1.0.0"
+    def appcompat_version = "1.3.1"
+    def emoji_version = "1.0.0"
+    def activity_version = "1.4.0"
+    def fragment_version = "1.4.0"
     def webkit_version = "1.4.0"
     def recyclerview_version = "1.2.1"
-    def coordinatorlayout_version = "1.1.0"
-    def constraintlayout_version = "2.0.2"
-    def material_version = "1.3.0"
-    def browser_version = "1.3.0"
+    def coordinatorlayout_version = "1.1.0" // 1.2.0-beta01
+    def constraintlayout_version = "2.1.2"
+    def material_version = "1.4.0"
+    def browser_version = "1.4.0"
     def lbm_version = "1.0.0"
     def swiperefresh_version = "1.2.0-alpha01"
-    def documentfile_version = "1.0.1"
-    def lifecycle_version = "2.4.0-alpha02"
+    def documentfile_version = "1.1.0-alpha01"
+    def lifecycle_version = "2.4.0"
     def lifecycle_extensions_version = "2.2.0"
-    def room_version = "2.3.0" // 2.4.0-alpha03
-    def sqlite_version = "2.1.0" // 2.2.0-alpha01
+    def room_version = "2.3.0" // 2.4.0-rc01
+    def sqlite_version = "2.1.0" // 2.2.0-rc01
     def requery_version = "3.36.0"
-    def paging_version = "2.1.2" // 3.0.0
-    def preference_version = "1.1.1"
-    def work_version = "2.6.0-beta01"
-    def exif_version = "1.3.2"
-    def biometric_version = "1.2.0-alpha03"
+    def paging_version = "2.1.2" //  3.1.0
+    def preference_version = "1.1.1" // 1.2.0-alpha02
+    def work_version = "2.7.1"
+    def exif_version = "1.3.3"
+    def biometric_version = "1.2.0-alpha04"
     def billingclient_version = "3.0.3"
     def javamail_version = "1.6.7"
-    def jsoup_version = "1.13.1"
+    def jsoup_version = "1.14.2"
     def css_version = "0.9.29"
     def jax_version = "2.3.0-jaxb-1.0.6"
     def dnsjava_version = "2.1.9"
     def openpgp_version = "12.0"
     def badge_version = "1.1.22"
-    def bugsnag_version = "5.9.4"
+    def bugsnag_version = "5.14.0"
     def biweekly_version = "0.6.6"
+    def vcard_version = "0.11.3"
     def relinker_version = "1.4.3"
     def markwon_version = "4.6.2"
-    def bouncycastle_version = "1.68"
+    def bouncycastle_version = "1.69"
     def colorpicker_version = "0.0.15"
     def overscroll_version = "1.1.1"
     def appauth_version = "0.8.1"
     def jcharset_version = "2.1"
     def apache_poi = "3.17" // Do not update
+    def outlook_parser_version = "1.7.12"
     def reactivestreams_version = "1.0.3"
     def rxjava2_version = "2.2.21"
     def svg_version = "1.4"
@@ -308,15 +343,19 @@ dependencies {
     implementation "androidx.startup:startup-runtime:$startup_version"
 
     // https://developer.android.com/jetpack/androidx/releases/
-    implementation "androidx.annotation:annotation-experimental:$annotation_version"
+    implementation "androidx.annotation:annotation-experimental:$annotation_version_experimental"
 
     // https://mvnrepository.com/artifact/androidx.core/core
+    // https://mvnrepository.com/artifact/androidx.core/core-google-shortcuts
     implementation "androidx.core:core:$core_version"
+    implementation "androidx.core:core-google-shortcuts:$shortcuts_version"
 
     // https://mvnrepository.com/artifact/androidx.appcompat/appcompat
+    // https://mvnrepository.com/artifact/androidx.emoji2/emoji2
     // https://mvnrepository.com/artifact/androidx.activity/activity
     // https://mvnrepository.com/artifact/androidx.fragment/fragment
     implementation "androidx.appcompat:appcompat:$appcompat_version"
+    implementation "androidx.emoji2:emoji2:$emoji_version"
     implementation "androidx.activity:activity:$activity_version"
     implementation "androidx.fragment:fragment:$fragment_version"
 
@@ -437,7 +476,7 @@ dependencies {
     // https://github.com/bugsnag/bugsnag-android
     // https://mvnrepository.com/artifact/com.bugsnag/bugsnag-android
     implementation("com.bugsnag:bugsnag-android:$bugsnag_version") {
-        //exclude group: "com.bugsnag", module: "bugsnag-plugin-android-anr"
+        exclude group: "com.bugsnag", module: "bugsnag-plugin-android-anr"
         exclude group: "com.bugsnag", module: "bugsnag-plugin-android-ndk"
         exclude group: "com.bugsnag", module: "bugsnag-android-core"
     }
@@ -447,6 +486,9 @@ dependencies {
     implementation("net.sf.biweekly:biweekly:$biweekly_version") {
         exclude group: 'com.fasterxml.jackson.core', module: 'jackson-core'
     }
+
+    // https://github.com/mangstadt/ez-vcard
+    implementation "com.googlecode.ez-vcard:ez-vcard:$vcard_version"
 
     // https://github.com/KeepSafe/ReLinker
     // https://mvnrepository.com/artifact/com.getkeepsafe.relinker/relinker
@@ -479,6 +521,9 @@ dependencies {
     // https://poi.apache.org/components/hmef/index.html
     // https://mvnrepository.com/artifact/org.apache.poi/poi-scratchpad
     implementation "org.apache.poi:poi-scratchpad:$apache_poi"
+
+    // https://github.com/bbottema/outlook-message-parser
+    implementation "org.simplejavamail:outlook-message-parser:$outlook_parser_version"
 
     // https://mvnrepository.com/artifact/org.reactivestreams/reactive-streams
     // https://mvnrepository.com/artifact/io.reactivex.rxjava2/rxjava

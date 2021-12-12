@@ -19,6 +19,13 @@ package eu.faircode.email;
     Copyright 2018-2021 by Marcel Bokhorst (M66B)
 */
 
+import static android.app.Activity.RESULT_OK;
+import static com.google.android.material.textfield.TextInputLayout.END_ICON_NONE;
+import static com.google.android.material.textfield.TextInputLayout.END_ICON_PASSWORD_TOGGLE;
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_GMAIL;
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_OAUTH;
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
+
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
@@ -52,6 +59,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.constraintlayout.widget.Group;
+import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.Lifecycle;
 
@@ -59,7 +67,9 @@ import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputLayout;
 import com.sun.mail.imap.IMAPFolder;
 
+import java.io.FileNotFoundException;
 import java.net.UnknownHostException;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -67,12 +77,6 @@ import java.util.List;
 import java.util.Objects;
 
 import javax.mail.Folder;
-
-import static android.app.Activity.RESULT_OK;
-import static com.google.android.material.textfield.TextInputLayout.END_ICON_NONE;
-import static com.google.android.material.textfield.TextInputLayout.END_ICON_PASSWORD_TOGGLE;
-import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_OAUTH;
-import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
 
 public class FragmentAccount extends FragmentBase {
     private ViewGroup view;
@@ -92,13 +96,14 @@ public class FragmentAccount extends FragmentBase {
     private EditText etPort;
     private EditText etUser;
     private TextInputLayout tilPassword;
-    private TextView tvCharacters;
+    private TextView tvAppPassword;
     private TextView tvPasswordStorage;
     private Button btnCertificate;
     private TextView tvCertificate;
     private EditText etRealm;
 
     private EditText etName;
+    private EditText etCategory;
     private ViewButtonColor btnColor;
     private TextView tvColorPro;
 
@@ -198,13 +203,14 @@ public class FragmentAccount extends FragmentBase {
         tvInsecureRemark = view.findViewById(R.id.tvInsecureRemark);
         etUser = view.findViewById(R.id.etUser);
         tilPassword = view.findViewById(R.id.tilPassword);
-        tvCharacters = view.findViewById(R.id.tvCharacters);
+        tvAppPassword = view.findViewById(R.id.tvAppPassword);
         tvPasswordStorage = view.findViewById(R.id.tvPasswordStorage);
         btnCertificate = view.findViewById(R.id.btnCertificate);
         tvCertificate = view.findViewById(R.id.tvCertificate);
         etRealm = view.findViewById(R.id.etRealm);
 
         etName = view.findViewById(R.id.etName);
+        etCategory = view.findViewById(R.id.etCategory);
         btnColor = view.findViewById(R.id.btnColor);
         tvColorPro = view.findViewById(R.id.tvColorPro);
 
@@ -286,6 +292,9 @@ public class FragmentAccount extends FragmentBase {
                 etUser.setTag(null);
                 etUser.setText(null);
                 tilPassword.getEditText().setText(null);
+                tvAppPassword.setVisibility(
+                        "office365".equals(provider.id) || "outlook".equals(provider.id)
+                                ? View.VISIBLE : View.GONE);
                 certificate = null;
                 tvCertificate.setText(R.string.title_optional);
                 etRealm.setText(null);
@@ -295,6 +304,7 @@ public class FragmentAccount extends FragmentBase {
                 etInterval.setText(provider.keepalive > 0 ? Integer.toString(provider.keepalive) : null);
                 cbPartialFetch.setChecked(provider.partial);
 
+                tvSentWarning.setVisibility(View.GONE);
                 grpFolders.setVisibility(View.GONE);
                 btnSave.setVisibility(View.GONE);
                 cbIdentity.setVisibility(View.GONE);
@@ -334,8 +344,9 @@ public class FragmentAccount extends FragmentBase {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (TextUtils.isEmpty(s))
-                    tilPassword.setEndIconMode(END_ICON_PASSWORD_TOGGLE);
+                // https://github.com/material-components/material-components-android/issues/503
+                //if (TextUtils.isEmpty(s))
+                //   tilPassword.setEndIconMode(END_ICON_PASSWORD_TOGGLE);
             }
 
             @Override
@@ -343,9 +354,18 @@ public class FragmentAccount extends FragmentBase {
                 String password = s.toString();
                 boolean warning = (Helper.containsWhiteSpace(password) ||
                         Helper.containsControlChars(password));
-                tvCharacters.setVisibility(warning &&
-                        tilPassword.getVisibility() == View.VISIBLE
-                        ? View.VISIBLE : View.GONE);
+                tilPassword.setHelperText(
+                        warning ? getString(R.string.title_setup_password_chars) : null);
+                tilPassword.setHelperTextEnabled(warning);
+            }
+        });
+
+        tvAppPassword.setVisibility(View.GONE);
+        tvAppPassword.setPaintFlags(tvAppPassword.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
+        tvAppPassword.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Helper.viewFAQ(view.getContext(), 14);
             }
         });
 
@@ -402,6 +422,8 @@ public class FragmentAccount extends FragmentBase {
                     getMainHandler().post(new Runnable() {
                         @Override
                         public void run() {
+                            if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                                return;
                             scroll.smoothScrollTo(0, btnAdvanced.getTop());
                         }
                     });
@@ -536,7 +558,6 @@ public class FragmentAccount extends FragmentBase {
         rgEncryption.setVisibility(View.GONE);
         cbInsecure.setVisibility(View.GONE);
         tilPassword.setEndIconMode(id < 0 || Helper.isSecure(getContext()) ? END_ICON_PASSWORD_TOGGLE : END_ICON_NONE);
-        tvCharacters.setVisibility(View.GONE);
 
         btnAdvanced.setVisibility(View.GONE);
 
@@ -588,7 +609,9 @@ public class FragmentAccount extends FragmentBase {
             @Override
             protected EmailProvider onExecute(Context context, Bundle args) throws Throwable {
                 String domain = args.getString("domain");
-                return EmailProvider.fromDomain(context, domain, EmailProvider.Discover.IMAP);
+                return EmailProvider
+                        .fromDomain(context, domain, EmailProvider.Discover.IMAP)
+                        .get(0);
             }
 
             @Override
@@ -600,7 +623,10 @@ public class FragmentAccount extends FragmentBase {
 
             @Override
             protected void onException(Bundle args, Throwable ex) {
-                if (ex instanceof IllegalArgumentException || ex instanceof UnknownHostException)
+                if (ex.getMessage() != null &&
+                        (ex instanceof UnknownHostException ||
+                                ex instanceof FileNotFoundException ||
+                                ex instanceof IllegalArgumentException))
                     Snackbar.make(view, ex.getMessage(), Snackbar.LENGTH_LONG)
                             .setGestureInsetBottomIgnored(true).show();
                 else
@@ -636,10 +662,11 @@ public class FragmentAccount extends FragmentBase {
             @Override
             protected void onPreExecute(Bundle args) {
                 saving = true;
-                getActivity().invalidateOptionsMenu();
+                invalidateOptionsMenu();
                 Helper.setViewsEnabled(view, false);
                 pbCheck.setVisibility(View.VISIBLE);
                 tvIdle.setVisibility(View.GONE);
+                tvSentWarning.setVisibility(View.GONE);
                 grpFolders.setVisibility(View.GONE);
                 grpError.setVisibility(View.GONE);
                 btnHelp.setVisibility(View.GONE);
@@ -650,7 +677,7 @@ public class FragmentAccount extends FragmentBase {
             @Override
             protected void onPostExecute(Bundle args) {
                 saving = false;
-                getActivity().invalidateOptionsMenu();
+                invalidateOptionsMenu();
                 Helper.setViewsEnabled(view, true);
                 pbCheck.setVisibility(View.GONE);
             }
@@ -670,10 +697,9 @@ public class FragmentAccount extends FragmentBase {
                 String realm = args.getString("realm");
                 String fingerprint = args.getString("fingerprint");
 
-                if (host.contains(":")) {
-                    Uri h = Uri.parse(host);
-                    host = h.getHost();
-                }
+                int semi = host.indexOf(':');
+                if (semi > 0 && host.indexOf(':', semi + 1) < 0)
+                    host = host.substring(0, semi);
 
                 if (TextUtils.isEmpty(host))
                     throw new IllegalArgumentException(context.getString(R.string.title_no_host));
@@ -736,7 +762,7 @@ public class FragmentAccount extends FragmentBase {
                         }
                     }
 
-                    EntityFolder.guessTypes(result.folders, iservice.getStore().getDefaultFolder().getSeparator());
+                    EntityFolder.guessTypes(result.folders);
 
                     if (result.folders.size() > 0)
                         Collections.sort(result.folders, result.folders.get(0).getComparator(null));
@@ -759,6 +785,8 @@ public class FragmentAccount extends FragmentBase {
                 getMainHandler().post(new Runnable() {
                     @Override
                     public void run() {
+                        if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                            return;
                         scroll.smoothScrollTo(0, cbIdentity.getBottom());
                     }
                 });
@@ -766,6 +794,7 @@ public class FragmentAccount extends FragmentBase {
 
             @Override
             protected void onException(Bundle args, Throwable ex) {
+                tvSentWarning.setVisibility(View.GONE);
                 grpFolders.setVisibility(View.GONE);
                 btnSave.setVisibility(View.GONE);
                 cbIdentity.setVisibility(View.GONE);
@@ -832,6 +861,7 @@ public class FragmentAccount extends FragmentBase {
         args.putString("fingerprint", cbTrust.isChecked() ? (String) cbTrust.getTag() : null);
 
         args.putString("name", etName.getText().toString());
+        args.putString("category", etCategory.getText().toString());
         args.putInt("color", btnColor.getColor());
 
         args.putBoolean("synchronize", cbSynchronize.isChecked());
@@ -861,7 +891,7 @@ public class FragmentAccount extends FragmentBase {
             @Override
             protected void onPreExecute(Bundle args) {
                 saving = true;
-                getActivity().invalidateOptionsMenu();
+                invalidateOptionsMenu();
                 Helper.setViewsEnabled(view, false);
                 pbSave.setVisibility(View.VISIBLE);
                 grpError.setVisibility(View.GONE);
@@ -873,7 +903,7 @@ public class FragmentAccount extends FragmentBase {
             @Override
             protected void onPostExecute(Bundle args) {
                 saving = false;
-                getActivity().invalidateOptionsMenu();
+                invalidateOptionsMenu();
                 Helper.setViewsEnabled(view, true);
                 pbSave.setVisibility(View.GONE);
             }
@@ -895,6 +925,7 @@ public class FragmentAccount extends FragmentBase {
                 String fingerprint = args.getString("fingerprint");
 
                 String name = args.getString("name");
+                String category = args.getString("category");
                 Integer color = args.getInt("color");
 
                 boolean synchronize = args.getBoolean("synchronize");
@@ -921,10 +952,9 @@ public class FragmentAccount extends FragmentBase {
                 boolean pro = ActivityBilling.isPro(context);
                 boolean should = args.getBoolean("should");
 
-                if (host.contains(":")) {
-                    Uri h = Uri.parse(host);
-                    host = h.getHost();
-                }
+                int semi = host.indexOf(':');
+                if (semi > 0 && host.indexOf(':', semi + 1) < 0)
+                    host = host.substring(0, semi);
 
                 if (TextUtils.isEmpty(host) && !should)
                     throw new IllegalArgumentException(context.getString(R.string.title_no_host));
@@ -941,6 +971,8 @@ public class FragmentAccount extends FragmentBase {
                     realm = null;
                 if (TextUtils.isEmpty(name))
                     name = user;
+                if (TextUtils.isEmpty(category))
+                    category = null;
                 if (color == Color.TRANSPARENT || !pro)
                     color = null;
                 if (!pro)
@@ -977,6 +1009,8 @@ public class FragmentAccount extends FragmentBase {
                         return true;
                     if (!Objects.equals(account.name, name))
                         return true;
+                    if (!Objects.equals(account.category, category))
+                        return true;
                     if (!Objects.equals(account.color, color))
                         return true;
                     if (!Objects.equals(account.synchronize, synchronize))
@@ -1000,6 +1034,8 @@ public class FragmentAccount extends FragmentBase {
                     if (!Objects.equals(account.use_date, use_date))
                         return true;
                     if (!Objects.equals(account.use_received, use_received))
+                        return true;
+                    if (account.error != null && account.synchronize)
                         return true;
 
                     EntityFolder edrafts = db.folder().getFolderByType(account.id, EntityFolder.DRAFTS);
@@ -1092,7 +1128,7 @@ public class FragmentAccount extends FragmentBase {
                     db.beginTransaction();
 
                     if (account != null && !account.password.equals(password)) {
-                        String domain = UriHelper.getParentDomain(account.host);
+                        String domain = UriHelper.getParentDomain(context, account.host);
                         String match = (Objects.equals(account.host, domain) ? account.host : "%." + domain);
                         int count = db.identity().setIdentityPassword(account.id, account.user, password, match);
                         Log.i("Updated passwords=" + count + " match=" + match);
@@ -1115,6 +1151,7 @@ public class FragmentAccount extends FragmentBase {
                     account.fingerprint = fingerprint;
 
                     account.name = name;
+                    account.category = category;
                     account.color = color;
 
                     account.synchronize = synchronize;
@@ -1266,8 +1303,8 @@ public class FragmentAccount extends FragmentBase {
 
                 if (!synchronize) {
                     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-                    nm.cancel("receive:" + account.id, 1);
-                    nm.cancel("alert:" + account.id, 1);
+                    nm.cancel("receive:" + account.id, NotificationHelper.NOTIFICATION_TAGGED);
+                    nm.cancel("alert:" + account.id, NotificationHelper.NOTIFICATION_TAGGED);
                 }
 
                 args.putBoolean("saved", true);
@@ -1325,9 +1362,10 @@ public class FragmentAccount extends FragmentBase {
         grpError.setVisibility(View.VISIBLE);
 
         if (ex instanceof EmailService.UntrustedException) {
-            EmailService.UntrustedException e = (EmailService.UntrustedException) ex;
-            cbTrust.setTag(e.getFingerprint());
-            cbTrust.setText(getString(R.string.title_trust, e.getFingerprint()));
+            X509Certificate certificate = ((EmailService.UntrustedException) ex).getCertificate();
+            String fingerprint = EntityCertificate.getKeyFingerprint(certificate);
+            cbTrust.setTag(fingerprint);
+            cbTrust.setText(getString(R.string.title_trust, fingerprint));
             cbTrust.setVisibility(View.VISIBLE);
         }
 
@@ -1348,6 +1386,8 @@ public class FragmentAccount extends FragmentBase {
         getMainHandler().post(new Runnable() {
             @Override
             public void run() {
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return;
                 if (provider != null && provider.documentation != null)
                     scroll.smoothScrollTo(0, tvInstructions.getBottom());
                 else
@@ -1391,6 +1431,11 @@ public class FragmentAccount extends FragmentBase {
                 long id = args.getLong("id");
 
                 DB db = DB.getInstance(context);
+
+                List<EntityIdentity> identities = db.identity().getIdentities(id);
+                if (identities != null && identities.size() == 1)
+                    args.putString("personal", identities.get(0).name);
+
                 return db.account().getAccount(id);
             }
 
@@ -1440,6 +1485,9 @@ public class FragmentAccount extends FragmentBase {
 
                     etUser.setText(account == null ? null : account.user);
                     tilPassword.getEditText().setText(account == null ? null : account.password);
+                    tvAppPassword.setVisibility(account != null &&
+                            ("office365".equals(account.provider) || "outlook".equals(account.provider))
+                            ? View.VISIBLE : View.GONE);
                     certificate = (account == null ? null : account.certificate_alias);
                     tvCertificate.setText(certificate == null ? getString(R.string.title_optional) : certificate);
                     etRealm.setText(account == null ? null : account.realm);
@@ -1454,6 +1502,7 @@ public class FragmentAccount extends FragmentBase {
                     }
 
                     etName.setText(account == null ? null : account.name);
+                    etCategory.setText(account == null ? null : account.category);
                     btnColor.setColor(account == null ? null : account.color);
 
                     boolean pro = ActivityBilling.isPro(getContext());
@@ -1514,8 +1563,51 @@ public class FragmentAccount extends FragmentBase {
 
                 if (auth != AUTH_TYPE_PASSWORD) {
                     etUser.setEnabled(false);
-                    tilPassword.setEnabled(false);
+                    tilPassword.getEditText().setEnabled(false);
                     btnCertificate.setEnabled(false);
+
+                    tilPassword.setEndIconDrawable(R.drawable.twotone_edit_24);
+                    tilPassword.setEndIconOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            Fragment fragment;
+                            if (auth == AUTH_TYPE_GMAIL)
+                                fragment = new FragmentGmail();
+                            else if (auth == AUTH_TYPE_OAUTH)
+                                fragment = new FragmentOAuth();
+                            else {
+                                Log.e("Unknown auth=" + auth);
+                                return;
+                            }
+
+                            try {
+                                Bundle aargs = new Bundle();
+                                if (auth == AUTH_TYPE_OAUTH) {
+                                    if (account == null)
+                                        throw new IllegalArgumentException("Account missing");
+
+                                    EmailProvider provider =
+                                            EmailProvider.getProvider(view.getContext(), account.provider);
+                                    aargs.putString("id", provider.id);
+                                    aargs.putString("name", provider.description);
+                                    aargs.putString("privacy", provider.oauth.privacy);
+                                    aargs.putBoolean("askAccount", provider.oauth.askAccount);
+                                }
+                                aargs.putString("personal", args.getString("personal"));
+                                aargs.putString("address", etUser.getText().toString());
+                                aargs.putBoolean("update", true);
+
+                                fragment.setArguments(aargs);
+
+                                getParentFragmentManager().popBackStack();
+                                FragmentTransaction fragmentTransaction = getParentFragmentManager().beginTransaction();
+                                fragmentTransaction.replace(R.id.content_frame, fragment).addToBackStack("quick");
+                                fragmentTransaction.commit();
+                            } catch (Throwable ex) {
+                                Log.e(ex);
+                            }
+                        }
+                    });
                 }
 
                 cbOnDemand.setEnabled(cbSynchronize.isChecked());
@@ -1621,6 +1713,8 @@ public class FragmentAccount extends FragmentBase {
                         getMainHandler().post(new Runnable() {
                             @Override
                             public void run() {
+                                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                                    return;
                                 scroll.smoothScrollTo(0, (save ? btnSave : btnCheck).getBottom());
                             }
                         });
