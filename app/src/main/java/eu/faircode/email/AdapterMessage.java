@@ -1108,10 +1108,14 @@ public class AdapterMessage extends RecyclerView.Adapter<AdapterMessage.ViewHold
                     !((Boolean.FALSE.equals(message.dkim) && check_authentication) ||
                             (Boolean.FALSE.equals(message.spf) && check_authentication) ||
                             (Boolean.FALSE.equals(message.dmarc) && check_authentication) ||
-                            (Boolean.FALSE.equals(message.from_domain) && BuildConfig.DEBUG) ||
                             (Boolean.FALSE.equals(message.reply_domain) && check_reply_domain) ||
                             (Boolean.FALSE.equals(message.mx) && check_mx) ||
                             (Boolean.TRUE.equals(message.blocklist) && check_blocklist));
+            if (Boolean.FALSE.equals(message.from_domain) && check_authentication)
+                if (!Boolean.TRUE.equals(message.dkim) ||
+                        !Boolean.TRUE.equals(message.spf) ||
+                        !Boolean.TRUE.equals(message.dmarc))
+                    authenticated = false;
             boolean expanded = (viewType == ViewType.THREAD && properties.getValue("expanded", message.id));
 
             // Text size
@@ -3837,12 +3841,13 @@ public class AdapterMessage extends RecyclerView.Adapter<AdapterMessage.ViewHold
                 sb.append(context.getString(R.string.title_on_blocklist));
             }
 
-            if (Boolean.FALSE.equals(message.from_domain) && BuildConfig.DEBUG) {
-                if (sb.length() > 0)
-                    sb.append('\n');
-                for (String domain : message.checkFromDomain(context))
-                    sb.append(domain).append(' ');
-            }
+            if (Boolean.FALSE.equals(message.from_domain) && message.smtp_from != null)
+                for (Address smtp_from : message.smtp_from) {
+                    if (sb.length() > 0)
+                        sb.append('\n');
+                    String domain = UriHelper.getEmailDomain(((InternetAddress) smtp_from).getAddress());
+                    sb.append(context.getString(R.string.title_via, UriHelper.getParentDomain(context, domain)));
+                }
 
             if (Boolean.FALSE.equals(message.reply_domain)) {
                 String[] warning = message.checkReplyDomain(context);
@@ -6277,7 +6282,10 @@ public class AdapterMessage extends RecyclerView.Adapter<AdapterMessage.ViewHold
                     log("sender changed", next.id);
                 }
                 // return_path
-                // smtp_from
+                if (!MessageHelper.equal(prev.smtp_from, next.smtp_from)) {
+                    same = false;
+                    log("smtp_from changed", next.id);
+                }
                 if (!MessageHelper.equal(prev.submitter, next.submitter)) {
                     same = false;
                     log("submitter changed", next.id);
