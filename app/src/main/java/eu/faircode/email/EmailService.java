@@ -514,7 +514,8 @@ public class EmailService implements AutoCloseable {
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
 
             String key = "dns." + host;
-            // an "ips.dns.work.inc" like "192.168.8.100;192.168.8.101"
+            // an "ips.dns.work.inc" like "192.168.8.100;192.168.8.101",
+            //   or the public IPs of a domain is only available through an internal DNS server (hypothetical).
             // an "ips.dns.imap.gmail.com" like "74.125.137.109;74.125.137.108;[2607:f8b0:4023:c0b::6d]"
             //   instead of the first host address being cached and attempted only.
 
