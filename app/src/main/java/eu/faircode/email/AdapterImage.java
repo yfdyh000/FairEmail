@@ -16,12 +16,15 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.drawable.AnimatedImageDrawable;
+import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -78,7 +81,23 @@ public class AdapterImage extends RecyclerView.Adapter<AdapterImage.ViewHolder> 
         }
 
         private void bindTo(EntityAttachment attachment) {
+            tvCaption.setText(attachment.name);
+            tvCaption.setVisibility(TextUtils.isEmpty(attachment.name) ? View.GONE : View.VISIBLE);
+
             if (attachment.available) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+                    try {
+                        Drawable d = ImageHelper.getScaledDrawable(context,
+                                attachment.getFile(context), attachment.getMimeType(),
+                                context.getResources().getDisplayMetrics().widthPixels);
+                        ivImage.setImageDrawable(d);
+                        if (d instanceof AnimatedImageDrawable)
+                            ((AnimatedImageDrawable) d).start();
+                        return;
+                    } catch (Throwable ex) {
+                        Log.w(ex);
+                    }
+
                 Bitmap bm = ImageHelper.decodeImage(
                         attachment.getFile(context), attachment.getMimeType(),
                         context.getResources().getDisplayMetrics().widthPixels);
@@ -89,10 +108,6 @@ public class AdapterImage extends RecyclerView.Adapter<AdapterImage.ViewHolder> 
             } else
                 ivImage.setImageResource(attachment.progress == null
                         ? R.drawable.twotone_image_24 : R.drawable.twotone_hourglass_top_24);
-
-            tvCaption.setVisibility(TextUtils.isEmpty(attachment.name) ? View.GONE : View.VISIBLE);
-
-            tvCaption.setText(attachment.name);
         }
 
         @Override
@@ -116,6 +131,8 @@ public class AdapterImage extends RecyclerView.Adapter<AdapterImage.ViewHolder> 
                             long id = args.getLong("id");
                             long mid = args.getLong("message");
 
+                            Long reload = null;
+
                             DB db = DB.getInstance(context);
                             try {
                                 db.beginTransaction();
@@ -123,6 +140,13 @@ public class AdapterImage extends RecyclerView.Adapter<AdapterImage.ViewHolder> 
                                 EntityMessage message = db.message().getMessage(mid);
                                 if (message == null || message.uid == null)
                                     return null;
+
+                                EntityAccount account = db.account().getAccount(message.account);
+                                if (account == null)
+                                    return null;
+
+                                if (!"connected".equals(account.state) && !account.isTransient(context))
+                                    reload = account.id;
 
                                 EntityAttachment attachment = db.attachment().getAttachment(id);
                                 if (attachment == null || attachment.progress != null || attachment.available)
@@ -135,7 +159,10 @@ public class AdapterImage extends RecyclerView.Adapter<AdapterImage.ViewHolder> 
                                 db.endTransaction();
                             }
 
-                            ServiceSynchronize.eval(context, "attachment");
+                            if (reload == null)
+                                ServiceSynchronize.eval(context, "image");
+                            else
+                                ServiceSynchronize.reload(context, reload, true, "image");
 
                             return null;
                         }

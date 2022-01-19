@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name" translatable="false">FairEmail</string>
-    <string name="app_copyright" translatable="false">Copyright &#x24B8; 2018–2021 by M. Bokhorst</string>
+    <string name="app_copyright" translatable="false">Copyright &#x24B8; 2018–2022 by M. Bokhorst</string>
     <string name="app_search">FairEmail search</string>
     <string name="app_answer" translatable="false">FairEmail template</string>
     <string name="app_changelog">Changelog</string>
@@ -351,11 +351,14 @@
     <string name="title_advanced_delete_unseen">Delete old unread messages</string>
     <string name="title_advanced_kept_removed">Check if old messages were removed from the server</string>
     <string name="title_advanced_gmail_thread">Gmail message grouping style for Gmail accounts</string>
+    <string name="title_advanced_outlook_thread" translatable="false">Use Outlook thread index</string>
+    <string name="title_advanced_subject_threading">Group messages by sender and subject</string>
     <string name="title_advanced_sync_folders">Synchronize folder list</string>
     <string name="title_advanced_sync_folders_poll">Actively synchronize folder list</string>
     <string name="title_advanced_sync_shared_folders">Synchronize shared folder lists</string>
     <string name="title_advanced_subscriptions">Manage folder subscriptions</string>
     <string name="title_advanced_check_authentication">Check message authentication</string>
+    <string name="title_advanced_check_tls">Check transport layer security (TLS)</string>
     <string name="title_advanced_check_reply_domain">Check reply address on synchronizing messages</string>
     <string name="title_advanced_check_mx">Check sender email addresses on synchronizing messages</string>
     <string name="title_advanced_check_blocklist">Check if the sender\'s domain name is on a spam block list</string>
@@ -378,6 +381,7 @@
 
     <string name="title_advanced_compose_font">Default font</string>
     <string name="title_advanced_prefix_once">Prefix subject only once on replying or forwarding</string>
+    <string name="title_advanced_prefix_count">Add count to reply prefix</string>
     <string name="title_advanced_separate_reply">Insert a horizontal line before a reply/forward header</string>
     <string name="title_advanced_extended_reply">Use extended reply/forward header</string>
     <string name="title_advanced_write_above">Write above the sender\'s text</string>
@@ -429,6 +433,8 @@
     <string name="title_advanced_landscape">Landscape mode</string>
     <string name="title_advanced_two_row">Use two rows</string>
     <string name="title_advanced_two_col">Use two columns</string>
+    <string name="title_advanced_min_screen_size">Minimum screen size for splitting the screen</string>
+    <string name="title_advanced_close_pane">Collapse row or column when closing a conversation</string>
     <string name="title_advanced_nav_options">Show navigation menu options</string>
     <string name="title_advanced_nav_pin">Pin navigation menu</string>
     <string name="title_advanced_nav_hide_title">Hide navigation menu options?</string>
@@ -670,6 +676,11 @@
     <string name="title_advanced_protocol">Protocol logging</string>
     <string name="title_advanced_log_info">Debug logging</string>
     <string name="title_advanced_debug">Debug mode</string>
+    <string name="title_advanced_test1" translatable="false">Test #1</string>
+    <string name="title_advanced_test2" translatable="false">Test #2</string>
+    <string name="title_advanced_test3" translatable="false">Test #3</string>
+    <string name="title_advanced_test4" translatable="false">Test #4</string>
+    <string name="title_advanced_test5" translatable="false">Test #5</string>
     <string name="title_advanced_repair" translatable="false">Repair</string>
     <string name="title_advanced_autostart" translatable="false">Autostart</string>
     <string name="title_advanced_room_query_threads" translatable="false">ROOM query threads: %1$s</string>
@@ -677,9 +688,12 @@
     <string name="title_advanced_checkpoints" translatable="false">Checkpoints</string>
     <string name="title_advanced_sqlite_cache" translatable="false">Sqlite cache: %1$s %% - %2$s</string>
     <string name="title_advanced_chunk_size" translatable="false">Chunk size: %1$d</string>
+    <string name="title_advanced_undo_manager" translatable="false">Use Android\'s undo manager</string>
+    <string name="title_advanced_webview_legacy" translatable="false">Old WebView behavior</string>
     <string name="title_advanced_modseq" translatable="false">MODSEQ</string>
     <string name="title_advanced_expunge" translatable="false">AUTO EXPUNGE</string>
     <string name="title_advanced_uid_expunge" translatable="false">UID EXPUNGE</string>
+    <string name="title_advanced_hide_deleted" translatable="false">Hide deleted messages</string>
     <string name="title_advanced_auth_plain" translatable="false">PLAIN</string>
     <string name="title_advanced_auth_login" translatable="false">LOGIN</string>
     <string name="title_advanced_auth_ntlm" translatable="false">NTLM</string>
@@ -714,9 +728,11 @@
     <string name="title_advanced_deleted_unseen">When disabled, unread messages are kept on the device forever</string>
     <string name="title_advanced_sync_kept_hint">This will transfer extra data and consume extra battery power, especially if a lot of messages are stored on the device</string>
     <string name="title_advanced_gmail_thread_hint">This only applies to newly received messages and can break existing groups</string>
+    <string name="title_advanced_subject_threading_hint">Only messages received in the last %1$d hours</string>
     <string name="title_advanced_sync_folders_hint">Disabling this will reduce data and battery usage somewhat, but will disable updating the list of folders too</string>
     <string name="title_advanced_poll_folders_hint">Periodically synchronize the folder list in addition to after connecting to an account</string>
     <string name="title_advanced_check_authentication_hint">This will check the results of DKIM, SPF and DMARC authentication as performed by the email server</string>
+    <string name="title_advanced_check_tls_hint">This will show a green shield only if a message was transported securely by all servers</string>
     <string name="title_advanced_check_reply_hint">This will check if the domain name of the sender and the reply address are the same</string>
     <string name="title_advanced_lookup_mx_hint">This will check if DNS MX records exist</string>
     <string name="title_advanced_sync_delay_hint">This will slow down synchronizing messages</string>
@@ -746,6 +762,7 @@
     <string name="title_advanced_date_hint">Messages are only grouped by date if they are sorted by time</string>
     <string name="title_advanced_navbar_colorize_hint">Whether this works depends on the Android version and variant</string>
     <string name="title_advanced_split_hint">This will split the screen into parts</string>
+    <string name="title_advanced_split_min_hint">This is a condition intended for foldable devices</string>
     <string name="title_advanced_threading_hint">Group messages related to each other</string>
     <string name="title_advanced_highlight_hint">The accent color of the theme will be used for highlighting</string>
     <string name="title_advanced_gravatars_hint">There might be a privacy risk</string>
@@ -755,6 +772,7 @@
     <string name="title_advanced_preview_issue">Scrolling can be slow due to a bug in some Android versions when the number of lines is more than one</string>
     <string name="title_advanced_overview_mode_hint">This can result in very small fonts</string>
     <string name="title_advanced_override_width_hint">This can make messages narrower, but also look strange</string>
+    <string name="title_advanced_monospaced_pre_hint">Plain text only messages will be considered as preformatted</string>
     <string name="title_advanced_placeholders_hint">This applies to reformatted messages only</string>
     <string name="title_advanced_inline_hint">Inline images are images included in the message</string>
     <string name="title_advanced_parse_classes_hint">This will more accurately display messages, but possibly with a delay</string>
@@ -808,6 +826,8 @@
     <string name="title_select">Select &#8230;</string>
     <string name="title_identity_name">Your name</string>
     <string name="title_identity_email">Your email address</string>
+    <string name="title_identity_tenant" translatable="false">Tenant ID</string>
+    <string name="title_identity_tenant_hint">This field should be empty in most cases</string>
     <string name="title_identity_color_hint">Identity colors take precedence over folder and account colors</string>
     <string name="title_advanced_sender">Allow editing sender address</string>
     <string name="title_advanced_sender_name">Use name when sender address has been edited</string>
@@ -902,6 +922,8 @@
     <string name="title_identity_required">An identity is required to send emails</string>
     <string name="title_drafts_required">A drafts folder is required to send emails</string>
     <string name="title_drafts_select">Sending emails requires a drafts folder to be selected in the account settings</string>
+    <string name="title_account_auth_update">Update authorization</string>
+    <string name="title_account_auth_password">Switch to password authentication</string>
     <string name="title_account_delete">Delete this account permanently?</string>
     <string name="title_identity_delete">Delete this identity permanently?</string>
     <string name="title_edit_html">Edit as HTML</string>
@@ -919,6 +941,7 @@
     <string name="title_hint_alias">Long press an identity to display options, like copy to create alias identities</string>
     <string name="title_service_auth">The email server said: \'%1$s\'</string>
     <string name="title_service_vpn">This might be caused by the VPN that is being used</string>
+    <string name="title_service_token">The Android account manager could be blocked by a VPN, firewall, ad blocker, etc., preventing it from obtaining an access token</string>
     <string name="title_service_port">Please double check the port number</string>
     <string name="title_service_protocol">Please double check the protocol (SSL/TLS or STARTTLS)</string>
 
@@ -929,6 +952,10 @@
     <string name="title_synchronize_subfolders">Subfolders</string>
     <string name="title_synchronize_more">Fetch more messages</string>
     <string name="title_synchronize_more_hint">This will result in a single download of older messages, so it will not result in more battery usage for everyday use</string>
+    <string name="title_synchronize_more_hint2">
+        Messages will be fetched as fast as the email server can deliver them and stored as fast as the device can store and index them.
+        The limiting factor is usually the speed of the device\'s internal storage space.
+    </string>
     <string name="title_synchronize_enabled">Synchronize</string>
     <string name="title_synchronize_batch_enable">Enable synchronization</string>
     <string name="title_synchronize_batch_disable">Disable synchronization</string>
@@ -1053,6 +1080,7 @@
     <string name="title_search_in_text">Search in text &#8230;</string>
     <string name="title_forward">Forward</string>
     <string name="title_resend">Resend</string>
+    <string name="title_fetching_headers">Downloading message headers &#8230;</string>
     <string name="title_new_message">New message</string>
     <string name="title_editasnew">Edit as new</string>
     <string name="title_edit_notes">Edit local notes</string>
@@ -1094,6 +1122,7 @@
     <string name="title_copy_to">Copy to &#8230;</string>
     <string name="title_subscribe">Subscribe</string>
     <string name="title_delete">Delete</string>
+    <string name="title_delete_all">Delete all</string>
     <string name="title_more">More</string>
     <string name="title_less">Less</string>
     <string name="title_spam">Spam</string>
@@ -1108,7 +1137,6 @@
     <string name="title_move_to_account">Move to %1$s &#8230;</string>
     <string name="title_report_spam">Treat as spam</string>
     <string name="title_delete_permanently">Delete permanently</string>
-    <string name="title_no_undo">I understand this cannot be undone</string>
     <string name="title_snooze">Snooze &#8230;</string>
     <string name="title_archive">Archive</string>
     <string name="title_reply">Reply</string>
@@ -1221,6 +1249,7 @@
     <string name="title_send_auto_archive">Archive replied message</string>
     <string name="title_send_encryption">Encryption</string>
     <string name="title_send_priority">Priority</string>
+    <string name="title_send_sensitivity">Sensitivity</string>
     <string name="title_no_server">No server found at \'%1$s\'</string>
 
     <string name="title_style">Style</string>
@@ -1408,6 +1437,7 @@
     <string name="title_filter_unflagged">Unstarred</string>
     <string name="title_filter_unknown">Unknown senders</string>
     <string name="title_filter_hidden">Hidden</string>
+    <string name="title_filter_deleted">Deleted</string>
     <string name="title_filter_duplicates">Duplicates</string>
     <string name="title_filter_trash">Trashed</string>
 
@@ -1462,6 +1492,8 @@
     <string name="title_rule_answer">Reply/forward</string>
     <string name="title_rule_tts">Text to speech</string>
     <string name="title_rule_automation">Automation</string>
+    <string name="title_rule_delete">Delete permanently</string>
+    <string name="title_rule_sound">Play sound</string>
 
     <string name="title_rule_caption">Edit rule</string>
     <string name="title_rule_title">Rule applies to</string>
@@ -1477,6 +1509,7 @@
     <string name="title_rule_mime_type" translatable="false">Mime type</string>
     <string name="title_rule_header">Header contains</string>
     <string name="title_rule_body">Text contains</string>
+    <string name="title_rule_skip_quotes">Skip quoted text</string>
     <string name="title_rule_body_remark">Using this condition will always download the message text, which may slow down the synchronization of the message list</string>
     <string name="title_rule_time_abs">Absolute time (received) between</string>
     <string name="title_rule_time_after">Received after</string>
@@ -1503,6 +1536,7 @@
     <string name="title_rule_answer_missing">Template missing</string>
     <string name="title_rule_keyword_missing">Keyword missing</string>
     <string name="title_rule_automation_hint">This will send the intent \'%1$s\' with the extras \'%2$s\'</string>
+    <string name="title_rule_delete_hint">Permanent deletion is irreversible, so make sure the rule conditions are correct!</string>
 
     <string name="title_rule_execute">Execute now</string>
     <string name="title_rule_applied">Affected messages: %1$d</string>
@@ -1520,6 +1554,11 @@
     <string name="title_rule_tts_from">From</string>
     <string name="title_rule_tts_subject">Subject</string>
     <string name="title_rule_tts_content">Text</string>
+
+    <string name="title_rule_select_sound">Select sound</string>
+    <string name="title_rule_use_as_alarm">Use as alarm</string>
+    <string name="title_rule_alarm_hint">This will ignore "do not disturb" rules</string>
+    <string name="title_rule_alarm_duration">Maximum alarm duration (seconds)</string>
 
     <string name="title_legend_section_synchronize">Synchronize</string>
     <string name="title_legend_section_folders">Folders</string>
@@ -1547,6 +1586,7 @@
 
     <string name="title_legend_unified">Unified inbox / primary account</string>
     <string name="title_legend_inbox">Inbox</string>
+    <string name="title_legend_outbox">Outbox</string>
     <string name="title_legend_drafts">Drafts</string>
     <string name="title_legend_sent">Sent</string>
     <string name="title_legend_archive">Archive</string>
@@ -1567,6 +1607,9 @@
     <string name="title_legend_draft">Has draft</string>
     <string name="title_legend_priority">Has high priority</string>
     <string name="title_legend_priority_low">Has low priority</string>
+    <string name="title_legend_sensitivity_personal">Is personal</string>
+    <string name="title_legend_sensitivity_private">Is private</string>
+    <string name="title_legend_sensitivity_confidential">Is confidential</string>
     <string name="title_legend_importance">Is important</string>
     <string name="title_legend_importance_low">Is not important</string>
     <string name="title_legend_signed">Is signed</string>
@@ -1841,6 +1884,7 @@
     <string name="infra_mandrill" translatable="false">Mandrill</string>
     <string name="infra_netcore" translatable="false">Pepipost/netcore</string>
     <string name="infra_outlook" translatable="false">Outlook/Office 365</string>
+    <string name="infra_paypal" translatable="false">PayPal</string>
     <string name="infra_phpmailer" translatable="false">PHPMailer</string>
     <string name="infra_postmark" translatable="false">Postmark</string>
     <string name="infra_salesforce" translatable="false">Salesforce</string>
@@ -2009,6 +2053,13 @@
         <item>High</item>
     </string-array>
 
+    <string-array name="sensitivityNames">
+        <item>Normal</item>
+        <item>Personal</item>
+        <item>Private</item>
+        <item>Confidential</item>
+    </string-array>
+
     <string-array name="linesNames">
         <item>1</item>
         <item>2</item>
@@ -2142,6 +2193,13 @@
         <item>AES-128</item>
         <item>AES-192</item>
         <item>AES-256</item>
+    </string-array>
+
+    <string-array name="minScreenSizes">
+        <item>Small</item>
+        <item>Medium</item>
+        <item>Large</item>
+        <item>Extra large</item>
     </string-array>
 
     <string name="fingerprint" translatable="false">17BA15C1AF55D925F98B99CEA4375D4CDF4C174B</string>

@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import android.database.Cursor;
@@ -42,6 +42,7 @@ public interface DaoMessage {
     String is_drafts = "folder.type = '" + EntityFolder.DRAFTS + "'";
     String is_outbox = "folder.type = '" + EntityFolder.OUTBOX + "'";
     String is_sent = "folder.type = '" + EntityFolder.SENT + "'";
+    String is_outgoing = is_drafts + " OR " + is_outbox + " OR " + is_sent;
 
     @Transaction
     @SuppressWarnings(RoomWarnings.CURSOR_MISMATCH)
@@ -71,9 +72,9 @@ public interface DaoMessage {
             ", message.priority AS ui_priority" +
             ", message.importance AS ui_importance" +
             ", MAX(CASE WHEN" +
-            "   ((:found AND folder.type <> '" + EntityFolder.ARCHIVE + "' AND folder.type <> '" + EntityFolder.DRAFTS + "')" +
+            "   (:found AND folder.type <> '" + EntityFolder.ARCHIVE + "' AND NOT (" + is_outgoing + "))" +
             "   OR (NOT :found AND :type IS NULL AND folder.unified)" +
-            "   OR (NOT :found AND folder.type = :type))" +
+            "   OR (NOT :found AND folder.type = :type)" +
             "   THEN message.received ELSE 0 END) AS dummy" +
             " FROM (SELECT * FROM message" +
             "  WHERE message.thread IN" +
@@ -99,6 +100,7 @@ public interface DaoMessage {
             " AND (NOT :filter_unflagged OR COUNT(message.id) - SUM(1 - message.ui_flagged) > 0)" +
             " AND (NOT :filter_unknown OR SUM(message.avatar IS NOT NULL AND message.sender <> identity.email) > 0)" +
             " AND (NOT :filter_snoozed OR message.ui_snoozed IS NULL OR " + is_drafts + ")" +
+            " AND (NOT :filter_deleted OR NOT message.ui_deleted)" +
             " AND (:filter_language IS NULL OR SUM(message.language = :filter_language) > 0)" +
             " ORDER BY -IFNULL(message.importance, 1)" +
             ", account.category COLLATE NOCASE" +
@@ -118,7 +120,7 @@ public interface DaoMessage {
             String type,
             boolean threading,
             String sort, boolean ascending,
-            boolean filter_seen, boolean filter_unflagged, boolean filter_unknown, boolean filter_snoozed, String filter_language,
+            boolean filter_seen, boolean filter_unflagged, boolean filter_unknown, boolean filter_snoozed, boolean filter_deleted, String filter_language,
             boolean found,
             boolean debug);
 
@@ -149,7 +151,10 @@ public interface DaoMessage {
             ", SUM(message.total) AS totalSize" +
             ", message.priority AS ui_priority" +
             ", message.importance AS ui_importance" +
-            ", MAX(CASE WHEN folder.id = :folder THEN message.received ELSE 0 END) AS dummy" +
+            ", MAX(CASE WHEN" +
+            "   (:found AND folder.type <> '" + EntityFolder.ARCHIVE + "' AND NOT (" + is_outgoing + "))" +
+            "   OR (NOT :found AND folder.id = :folder)" +
+            "   THEN message.received ELSE 0 END) AS dummy" +
             " FROM (SELECT * FROM message" +
             " WHERE message.thread IN" +
             "  (SELECT DISTINCT mm.thread FROM message mm" +
@@ -171,6 +176,7 @@ public interface DaoMessage {
             " AND (NOT :filter_unknown OR SUM(message.avatar IS NOT NULL AND message.sender <> identity.email) > 0" +
             "   OR " + is_outbox + " OR " + is_drafts + " OR " + is_sent + ")" +
             " AND (NOT :filter_snoozed OR message.ui_snoozed IS NULL OR " + is_outbox + " OR " + is_drafts + ")" +
+            " AND (NOT :filter_deleted OR NOT message.ui_deleted)" +
             " AND (:filter_language IS NULL OR SUM(message.language = :filter_language) > 0 OR " + is_outbox + ")" +
             " ORDER BY -IFNULL(message.importance, 1)" +
             ", CASE" +
@@ -188,7 +194,7 @@ public interface DaoMessage {
     DataSource.Factory<Integer, TupleMessageEx> pagedFolder(
             long folder, boolean threading,
             String sort, boolean ascending,
-            boolean filter_seen, boolean filter_unflagged, boolean filter_unknown, boolean filter_snoozed, String filter_language,
+            boolean filter_seen, boolean filter_unflagged, boolean filter_unknown, boolean filter_snoozed, boolean filter_deleted, String filter_language,
             boolean found,
             boolean debug);
 
@@ -237,10 +243,8 @@ public interface DaoMessage {
             " WHEN folder.type = '" + EntityFolder.JUNK + "' THEN 6" +
             " WHEN folder.type = '" + EntityFolder.SYSTEM + "' THEN 7" +
             " WHEN folder.type = '" + EntityFolder.USER + "' THEN 8" +
-            " WHEN folder.type = '" + EntityFolder.ARCHIVE + "' THEN" +
-            "  CASE WHEN :filter_archive THEN 9 ELSE 0 END" +
+            " WHEN folder.type = '" + EntityFolder.ARCHIVE + "' THEN 9" +
             " ELSE 999 END")
-        // The folder type sort order should match the duplicate algorithm
     DataSource.Factory<Integer, TupleMessageEx> pagedThread(
             long account, String thread, Long id,
             boolean filter_archive,
@@ -421,6 +425,18 @@ public interface DaoMessage {
             " AND inreplyto = :inreplyto")
     List<EntityMessage> getMessagesByInReplyTo(long account, String inreplyto);
 
+    @Query("SELECT thread, msgid, hash, inreplyto FROM message" +
+            " WHERE account = :account" +
+            " AND (msgid IN (:msgids) OR inreplyto IN (:msgids))")
+    List<TupleThreadInfo> getThreadInfo(long account, List<String> msgids);
+
+    @Query("SELECT * FROM message" +
+            " WHERE account = :account" +
+            " AND sender = :sender" +
+            " AND subject = :subject" +
+            " AND received >= :since")
+    List<EntityMessage> getMessagesBySubject(long account, String sender, String subject, long since);
+
     @Query("SELECT message.* FROM message" +
             " LEFT JOIN message AS base ON base.id = :id" +
             " WHERE message.account = :account" +
@@ -447,6 +463,9 @@ public interface DaoMessage {
             " WHERE folder = :folder" +
             " AND sender = :sender")
     int countSender(long folder, String sender);
+
+    @Query("SELECT COUNT(*) FROM message")
+    int countTotal();
 
     @Query("SELECT message.*" +
             ", account.pop AS accountProtocol, account.name AS accountName, account.category AS accountCategory, identity.color AS accountColor" +
@@ -554,6 +573,7 @@ public interface DaoMessage {
             " ORDER BY folder")
     LiveData<List<TupleMessageWidgetCount>> liveWidgetUnified();
 
+    @SuppressWarnings(RoomWarnings.CURSOR_MISMATCH)
     @Query("SELECT message.*" +
             ", account.name AS accountName, COALESCE(identity.color, folder.color, account.color) AS accountColor" +
             ", SUM(1 - message.ui_seen) AS unseen" +
@@ -573,7 +593,6 @@ public interface DaoMessage {
             " GROUP BY account.id" +
             ", CASE WHEN message.thread IS NULL OR NOT :threading THEN message.id ELSE message.thread END" +
             " ORDER BY message.received DESC")
-    @SuppressWarnings(RoomWarnings.CURSOR_MISMATCH)
     List<TupleMessageWidget> getWidgetUnified(Long account, Long folder, boolean threading, boolean unseen, boolean flagged);
 
     @Query("SELECT uid FROM message" +
@@ -641,8 +660,10 @@ public interface DaoMessage {
     int updateMessage(EntityMessage message);
 
     @Query("UPDATE message SET thread = :thread" +
-            " WHERE account = :account AND thread = :old AND NOT (:old IS :thread)")
-    int updateMessageThread(long account, String old, String thread);
+            " WHERE account = :account" +
+            " AND thread = :old AND NOT (:old IS :thread)" +
+            " AND (:since IS NULL OR received >= :since)")
+    int updateMessageThread(long account, String old, String thread, Long since);
 
     @Query("UPDATE message SET uid = :uid WHERE id = :id AND NOT (uid IS :uid)")
     int setMessageUid(long id, Long uid);
@@ -655,6 +676,9 @@ public interface DaoMessage {
 
     @Query("UPDATE message SET priority = :priority WHERE id = :id AND NOT (priority IS :priority)")
     int setMessagePriority(long id, Integer priority);
+
+    @Query("UPDATE message SET sensitivity = :sensitivity WHERE id = :id AND NOT (sensitivity IS :sensitivity)")
+    int setMessageSensitivity(long id, Integer sensitivity);
 
     @Query("UPDATE message SET importance = :importance WHERE id = :id AND NOT (importance IS :importance)")
     int setMessageImportance(long id, Integer importance);
@@ -815,8 +839,8 @@ public interface DaoMessage {
             "   OR (:folder IS NULL AND :type IS NULL AND unified)))")
     int ignoreAll(Long account, Long folder, String type);
 
-    @Query("UPDATE message SET ui_found = 1 WHERE id = :id AND NOT (ui_found IS 1)")
-    int setMessageFound(long id);
+    @Query("UPDATE message SET ui_found = :found WHERE id = :id AND NOT (ui_found IS :found)")
+    int setMessageFound(long id, boolean found);
 
     @Query("UPDATE message SET ui_found = 0 WHERE NOT (ui_found IS 0)")
     int resetSearch();
@@ -840,6 +864,11 @@ public interface DaoMessage {
             " WHERE headers IS NOT NULL" +
             " AND account IN (SELECT id FROM account WHERE pop = " + EntityAccount.TYPE_IMAP + ")")
     int clearMessageHeaders();
+
+    @Query("UPDATE message SET raw = NULL" +
+            " WHERE raw IS NOT NULL" +
+            " AND account IN (SELECT id FROM account WHERE pop = " + EntityAccount.TYPE_IMAP + ")")
+    int clearRawMessages();
 
     @Query("UPDATE message SET fts = 0 WHERE NOT (fts IS 0)")
     int resetFts();

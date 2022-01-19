@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -48,7 +48,7 @@ public class EntityLog {
     private static Long last_cleanup = null;
 
     private static final long LOG_CLEANUP_INTERVAL = 3600 * 1000L; // milliseconds
-    private static final long LOG_KEEP_DURATION = 6 * 3600 * 1000L; // milliseconds
+    private static final long LOG_KEEP_DURATION = 12 * 3600 * 1000L; // milliseconds
     private static final int LOG_DELETE_BATCH_SIZE = 50;
 
     @PrimaryKey(autoGenerate = true)

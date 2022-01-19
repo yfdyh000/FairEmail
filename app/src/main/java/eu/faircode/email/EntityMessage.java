@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import android.app.AlarmManager;
@@ -41,6 +41,7 @@ import org.jsoup.nodes.Element;
 import java.io.File;
 import java.io.Serializable;
 import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -48,6 +49,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.mail.Address;
 import javax.mail.internet.InternetAddress;
@@ -101,6 +104,10 @@ public class EntityMessage implements Serializable {
     static final Integer PRIORITIY_NORMAL = 1;
     static final Integer PRIORITIY_HIGH = 2;
 
+    static final Integer SENSITIVITY_PERSONAL = 1;
+    static final Integer SENSITIVITY_PRIVATE = 2;
+    static final Integer SENSITIVITY_CONFIDENTIAL = 3;
+
     static final Integer DSN_NONE = 0;
     static final Integer DSN_RECEIPT = 1;
     static final Integer DSN_HARD_BOUNCE = 2;
@@ -136,12 +143,14 @@ public class EntityMessage implements Serializable {
     public String thread; // compose = null
     public Integer priority;
     public Integer importance;
+    public Integer sensitivity;
     public Boolean auto_submitted;
     @ColumnInfo(name = "receipt")
     public Integer dsn;
     public Boolean receipt_request;
     public Address[] receipt_to;
     public String bimi_selector;
+    public Boolean tls;
     public Boolean dkim;
     public Boolean spf;
     public Boolean dmarc;
@@ -174,6 +183,7 @@ public class EntityMessage implements Serializable {
     public Boolean content = false;
     public String language = null; // classified
     public Boolean plain_only = null;
+    public Boolean resend = null;
     public Integer encrypt = null;
     public Integer ui_encrypt = null;
     @NonNull
@@ -317,40 +327,89 @@ public class EntityMessage implements Serializable {
         return MessageHelper.equalDomain(context, reply, from);
     }
 
-    static String collapsePrefixes(Context context, String language, String subject, boolean forward) {
+    static String getSubject(Context context, String language, String subject, boolean forward) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean prefix_once = prefs.getBoolean("prefix_once", true);
+        boolean prefix_count = prefs.getBoolean("prefix_count", false);
+        boolean alt = prefs.getBoolean(forward ? "alt_fwd" : "alt_re", false);
+
+        if (subject == null)
+            subject = "";
+
+        int resid = forward
+                ? (alt ? R.string.title_subject_forward_alt : R.string.title_subject_forward)
+                : (alt ? R.string.title_subject_reply_alt : R.string.title_subject_reply);
+
+        if (!prefix_once)
+            return Helper.getString(context, language, resid, subject);
+
         List<Pair<String, Boolean>> prefixes = new ArrayList<>();
         for (String re : Helper.getStrings(context, language, R.string.title_subject_reply, ""))
-            prefixes.add(new Pair<>(re.trim().toLowerCase(), false));
+            prefixes.add(new Pair<>(re, false));
         for (String re : Helper.getStrings(context, language, R.string.title_subject_reply_alt, ""))
-            prefixes.add(new Pair<>(re.trim().toLowerCase(), false));
+            prefixes.add(new Pair<>(re, false));
         for (String fwd : Helper.getStrings(context, language, R.string.title_subject_forward, ""))
-            prefixes.add(new Pair<>(fwd.trim().toLowerCase(), true));
+            prefixes.add(new Pair<>(fwd, true));
         for (String fwd : Helper.getStrings(context, language, R.string.title_subject_forward_alt, ""))
-            prefixes.add(new Pair<>(fwd.trim().toLowerCase(), true));
+            prefixes.add(new Pair<>(fwd, true));
 
+        int replies = 0;
+        boolean re = !forward;
         List<Boolean> scanned = new ArrayList<>();
-        subject = subject.trim();
+        String subj = subject.trim();
         while (true) {
             boolean found = false;
-            for (Pair<String, Boolean> prefix : prefixes)
-                if (subject.toLowerCase().startsWith(prefix.first)) {
+            for (Pair<String, Boolean> prefix : prefixes) {
+                Matcher m = getPattern(prefix.first.trim()).matcher(subj);
+                if (m.matches()) {
                     found = true;
+                    subj = m.group(m.groupCount()).trim();
+
+                    re = (re && !prefix.second);
+                    if (re)
+                        if (prefix.first.trim().endsWith(":"))
+                            try {
+                                String n = m.group(2);
+                                if (n == null)
+                                    replies++;
+                                else
+                                    replies += Integer.parseInt(n.substring(1, n.length() - 1));
+                            } catch (NumberFormatException ex) {
+                                Log.e(ex);
+                                replies++;
+                            }
+                        else
+                            replies++;
+
                     int count = scanned.size();
                     if (!prefix.second.equals(count == 0 ? forward : scanned.get(count - 1)))
                         scanned.add(prefix.second);
-                    subject = subject.substring(prefix.first.length()).trim();
+
                     break;
                 }
+            }
             if (!found)
                 break;
         }
 
-        StringBuilder result = new StringBuilder();
+        String pre = Helper.getString(context, language, resid, "");
+        int semi = pre.lastIndexOf(':');
+        if (prefix_count && replies > 0 && semi > 0)
+            pre = pre.substring(0, semi) + "[" + (replies + 1) + "]" + pre.substring(semi);
+
+        StringBuilder result = new StringBuilder(pre);
         for (int i = 0; i < scanned.size(); i++)
             result.append(context.getString(scanned.get(i) ? R.string.title_subject_forward : R.string.title_subject_reply, ""));
-        result.append(subject);
+        result.append(subj);
 
         return result.toString();
+    }
+
+    private static Pattern getPattern(String prefix) {
+        String pat = prefix.endsWith(":")
+                ? "(^" + Pattern.quote(prefix.substring(0, prefix.length() - 1)) + ")" + "((\\[\\d+\\])|(\\(\\d+\\)))?" + ":"
+                : "(^" + Pattern.quote(prefix) + ")";
+        return Pattern.compile(pat + "(\\s*)(.*)", Pattern.CASE_INSENSITIVE);
     }
 
     Element getReplyHeader(Context context, Document document, boolean separate, boolean extended) {
@@ -358,10 +417,9 @@ public class EntityMessage implements Serializable {
         boolean language_detection = prefs.getBoolean("language_detection", false);
         String l = (language_detection ? language : null);
 
-        DateFormat DF = Helper.getDateTimeInstance(context);
-
         Element p = document.createElement("p");
         if (extended) {
+            DateFormat DTF = Helper.getDateTimeInstance(context, SimpleDateFormat.LONG, SimpleDateFormat.LONG);
             if (from != null && from.length > 0) {
                 Element strong = document.createElement("strong");
                 strong.text(Helper.getString(context, l, R.string.title_from) + " ");
@@ -387,7 +445,7 @@ public class EntityMessage implements Serializable {
                 Element strong = document.createElement("strong");
                 strong.text(Helper.getString(context, l, R.string.title_date) + " ");
                 p.appendChild(strong);
-                p.appendText(DF.format(received));
+                p.appendText(DTF.format(received));
                 p.appendElement("br");
             }
             if (!TextUtils.isEmpty(subject)) {
@@ -397,8 +455,10 @@ public class EntityMessage implements Serializable {
                 p.appendText(subject);
                 p.appendElement("br");
             }
-        } else
-            p.text(DF.format(new Date(received)) + " " + MessageHelper.formatAddresses(from) + ":");
+        } else {
+            DateFormat DTF = Helper.getDateTimeInstance(context);
+            p.text(DTF.format(new Date(received)) + " " + MessageHelper.formatAddresses(from) + ":");
+        }
 
         Element div = document.createElement("div")
                 .attr("fairemail", "reply");
@@ -507,10 +567,13 @@ public class EntityMessage implements Serializable {
                     Objects.equals(this.wasforwardedfrom, other.wasforwardedfrom) &&
                     Objects.equals(this.thread, other.thread) &&
                     Objects.equals(this.priority, other.priority) &&
+                    Objects.equals(this.importance, other.importance) &&
+                    Objects.equals(this.sensitivity, other.sensitivity) &&
                     Objects.equals(this.dsn, other.dsn) &&
                     Objects.equals(this.receipt_request, other.receipt_request) &&
                     MessageHelper.equal(this.receipt_to, other.receipt_to) &&
                     Objects.equals(this.bimi_selector, other.bimi_selector) &&
+                    Objects.equals(this.tls, other.tls) &&
                     Objects.equals(this.dkim, other.dkim) &&
                     Objects.equals(this.spf, other.spf) &&
                     Objects.equals(this.dmarc, other.dmarc) &&

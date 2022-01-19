@@ -4,6 +4,7 @@
     <string name="app_changelog">Histórico de mudanças</string>
     <string name="app_welcome">FairEmail é um aplicativo de e-mail de código aberto focado em privacidade e segurança. Por esse motivo, alguns recursos podem funcionar de maneira diferente do que você está acostumado.</string>
     <string name="app_limitations">Por exemplo, as mensagens são reformatadas por padrão para remover elementos inseguros e melhorar a legibilidade, e a abertura de links precisa ser confirmada para segurança. Ambos podem ser desativados se desejados.</string>
+    <string name="app_continue">Continuar mesmo assim</string>
     <string name="app_exit">Pressione \'voltar\' novamente para sair</string>
     <string name="app_cake">Espaço de armazenamento insuficiente</string>
     <string name="app_updated">Última atualização: %1$s</string>
@@ -71,6 +72,7 @@
     <string name="title_junk_hint">Seu provedor de e-mail é responsável por filtrar spam. Um aplicativo de e-mail não possui todos os dados necessários para fazer isso de forma confiável.</string>
     <string name="title_block">Bloquear %1$s</string>
     <string name="title_block_sender">Bloquear remetente</string>
+    <string name="title_block_sender_domain">Bloquear domínio \'%1$s\'</string>
     <string name="title_junk_filter">Usar filtro de spam local</string>
     <string name="title_junk_filter_hint">Isso pode aumentar o uso de bateria e incorretamente marcar mensagens como spam</string>
     <string name="title_junk_blocklist">Usar listas de bloqueio por spam</string>
@@ -175,6 +177,7 @@
     <string name="title_setup_doze_battery">Alto uso de bateria?</string>
     <string name="title_setup_doze_stopped">A sincronização parou?</string>
     <string name="title_setup_doze_device">Isto é provavelmente exigido para este dispositivo</string>
+    <string name="title_setup_alarm_12">O app não funcionará</string>
     <string name="title_setup_inexact">Alarmes &amp; os lembretes estão desativados</string>
     <string name="title_setup_background">Restrições de fundo estão habilitadas</string>
     <string name="title_setup_data">Economia de dados está habilitada</string>
@@ -186,6 +189,7 @@
     <string name="title_setup_still">Ainda por fazer</string>
     <string name="title_setup_error">Erro</string>
     <string name="title_setup_configuring">Configurando conta &#8230;</string>
+    <string name="title_setup_app_password">Talvez seja necessário usar uma senha do app</string>
     <string name="title_setup_close">Fechar configurações</string>
     <string name="title_setup_export">Exportar configurações</string>
     <string name="title_setup_import">Importar configurações</string>
@@ -238,8 +242,7 @@
     <string name="title_setup_reset_full">Mostrar mensagens originais</string>
     <string name="title_setup_reset_images">Mostrar Imagens</string>
     <string name="title_advanced_hint_title">Opções mais avançadas</string>
-    <string name="title_advanced_hint_message">        Você está navegando para as opções mais avançadas.
-        Todas as opções têm comumente usados valores padrão, que você não precisa mudar a menos que você tenha uma preferência diferente.
+    <string name="title_advanced_hint_message">        Você está navegando para as opções mais avançadas.        Todas as opções têm comumente usados valores padrão, que você não precisa mudar a menos que você tenha uma preferência diferente.
     </string>
     <string name="title_advanced_hint_setup">Você pode configurar uma conta tocando no botão do assistente na tela de configuração principal.</string>
     <string name="title_advanced_section_main">Principal</string>
@@ -499,8 +502,7 @@
     <string name="title_advanced_import_key">Importar chave privada</string>
     <string name="title_advanced_manage_keys">Gerenciar chaves privadas</string>
     <string name="title_advanced_ca">Certificados CA instalados</string>
-    <string name="title_advanced_manage_keys_hint">        Isso abrirá as configurações de segurança do Android.
-        Chaves e certificados geralmente podem ser encontrados em Avançado - Criptografia e credenciais.
+    <string name="title_advanced_manage_keys_hint">        Isso abrirá as configurações de segurança do Android.        Chaves e certificados geralmente podem ser encontrados em Avançado - Criptografia e credenciais.
     </string>
     <string name="title_advanced_power_menu">Adicionar ações ao menu de energia do Android</string>
     <string name="title_advanced_external_search">Permitir que outros aplicativos pesquisem nas mensagens</string>
@@ -527,6 +529,7 @@
     <string name="title_advanced_log_info">Log de depuração</string>
     <string name="title_advanced_debug">Modo de depuração</string>
     <string name="title_advanced_manual_hint">Se o recebimento de mensagens estiver desativado, ainda é possível receber mensagens manualmente arrastando para baixo a lista de mensagens</string>
+    <string name="title_advanced_poll_battery">Isso pode causar alto uso de bateria!</string>
     <string name="title_advanced_poll_hint">A verificação periódica por novas mensagens irá sempre comparar mensagens locais e remotas todas as vezes, o que é uma operação pesada e que pode resultar em uso extra de bateria, especialmente se houver muitas mensagens. A opção \'sempre receber\' irá prevenir isso por meio da busca contínua por mudanças.</string>
     <string name="title_advanced_optimize_hint">Isto pode alterar a frequência de sincronização para economizar o uso da bateria, dependendo dos recursos e comportamento dos servidores de e-mail</string>
     <string name="title_advanced_schedule_hint">Toque uma vez para definir um tempo</string>
@@ -536,6 +539,7 @@
     <string name="title_advanced_deleted_unseen">Quando desativado, as mensagens não lidas são mantidas no dispositivo para sempre</string>
     <string name="title_advanced_sync_kept_hint">Isto irá transferir dados extras e consumir energia extra da bateria, especialmente se uma série de mensagens forem armazenadas no dispositivo</string>
     <string name="title_advanced_gmail_thread_hint">Isso só se aplica a mensagens recém-recebidas e pode quebrar grupos existentes</string>
+    <string name="title_advanced_subject_threading_hint">Apenas mensagens recebidas nas últimas %1$d horas</string>
     <string name="title_advanced_sync_folders_hint">Desativar isto irá reduzir um pouco o uso de dados e bateria, mas irá também desativar a atualização da lista de pastas</string>
     <string name="title_advanced_check_authentication_hint">Isto verificará os resultados de autenticação do DKIM, SPF e DMARC realizados pelo servidor do E-mail</string>
     <string name="title_advanced_check_reply_hint">Isto irá verificar se o nome do domínio do remetente e o endereço de resposta são os mesmos</string>
@@ -765,6 +769,8 @@
     <string name="title_show_folders">Mostrar pastas ocultas</string>
     <string name="title_show_flagged">Exibir contagem de mensagens favoritas</string>
     <string name="title_subscribed_only">Somente inscritos</string>
+    <string name="title_search_folder">Pesquisar pasta</string>
+    <string name="title_apply_to_all">Aplicar a todos</string>
     <string name="title_edit_account_name">Editar nome da conta</string>
     <string name="title_hide_folder">Ocultar pasta</string>
     <string name="title_unified_folder">Mostrar na caixa de entrada unificada</string>
@@ -787,8 +793,7 @@
     <string name="title_auto_delete">Excluir permanentemente mensagens antigas</string>
     <string name="title_auto_delete_hint">Mensagens antigas são mensagens que não são mais mantidas no dispositivo</string>
     <string name="title_auto_delete_archive_hint">A exclusão na pasta de arquivamento nem sempre é permitida pelo servidor de e-mail</string>
-    <string name="title_inbox_root_hint">        Alguns provedores exigem que novas pastas sejam criadas abaixo da caixa de entrada.
-        Neste caso, você pode pressionar longamente a caixa de entrada na lista de pastas e selecionar \'Criar subpasta\'.
+    <string name="title_inbox_root_hint">        Alguns provedores exigem que novas pastas sejam criadas abaixo da caixa de entrada.        Neste caso, você pode pressionar longamente a caixa de entrada na lista de pastas e selecionar \'Criar subpasta\'.
     </string>
     <string name="title_folder_name_missing">Nome da pasta faltando</string>
     <string name="title_folder_exists">A pasta %1$s já existe</string>
@@ -883,7 +888,6 @@
     <string name="title_move_to_account">Mover para %1$s &#8230;</string>
     <string name="title_report_spam">Tratar como spam</string>
     <string name="title_delete_permanently">Apagar permanentemente</string>
-    <string name="title_no_undo">Isto não pode ser desfeito</string>
     <string name="title_snooze">Adiar &#8230;</string>
     <string name="title_archive">Arquivar</string>
     <string name="title_reply">Responder</string>
@@ -937,8 +941,7 @@
     <string name="title_ask_reporting">Enviar relatórios de erro?</string>
     <string name="title_reporting_why">Relatório de erro ajudará a melhorar o FairEmail</string>
     <string name="title_ask_review">Por favor, reveja o FairEmail</string>
-    <string name="title_ask_review_rationale">        Você tem usado o FaitEmail já há algum tempo.
-        Nós apreciaríamos se você pudesse nos dar uma nota na Play Store.
+    <string name="title_ask_review_rationale">        Você tem usado o FaitEmail já há algum tempo.        Nós apreciaríamos se você pudesse nos dar uma nota na Play Store.
     </string>
     <string name="title_need_help">Preciso de ajuda</string>
     <string name="title_ask_once">Essa mensagem só aparecerá uma vez, a menos que selecione \'Mais tarde\'</string>
@@ -1191,6 +1194,7 @@
     <string name="title_rule_answer">Responder/encaminhar</string>
     <string name="title_rule_tts">Texto para voz</string>
     <string name="title_rule_automation">Automatização</string>
+    <string name="title_rule_delete">Apagar permanentemente</string>
     <string name="title_rule_caption">Editar regra</string>
     <string name="title_rule_title">Regra se aplica a</string>
     <string name="title_rule_name">Nome</string>
@@ -1232,6 +1236,7 @@
     <string name="title_rule_applied">Mensagens afetadas: %1$d</string>
     <string name="title_rule_check">Verificar</string>
     <string name="title_rule_no_headers">As condições de cabeçalho não podem ser verificadas</string>
+    <string name="title_rule_no_body">Texto da mensagem não disponível</string>
     <string name="title_rule_matched">Mensagens correspondentes</string>
     <string name="title_rule_no_matches">Nenhuma mensagem correspondente</string>
     <string name="title_rule_tts_ok">Configuração okay</string>
@@ -1265,6 +1270,7 @@
     <string name="title_legend_closing">Fechando</string>
     <string name="title_legend_unified">Caixa de entrada unificada / conta principal</string>
     <string name="title_legend_inbox">Caixa de entrada</string>
+    <string name="title_legend_outbox">Caixa de saída</string>
     <string name="title_legend_drafts">Rascunhos</string>
     <string name="title_legend_sent">Enviado</string>
     <string name="title_legend_archive">Arquivo</string>
@@ -1425,6 +1431,7 @@
     <string name="title_snooze_now">Adiar</string>
     <string name="title_loading">Carregando &#8230;</string>
     <string name="title_fetching_again">Buscando a mensagem novamente do servidor</string>
+    <string name="title_go_back">Voltar</string>
     <string name="title_conversation_actions">Ações</string>
     <string name="title_conversation_action_reply">Resposta com: \'%1$s\'</string>
     <string name="title_conversation_action_copy">Copiar: \'%1$s\'</string>
@@ -1437,8 +1444,7 @@
     <string name="title_pro_purchase">Comprar</string>
     <string name="title_pro_one_time">%1$s (compra única)</string>
     <string name="title_pro_no_play">Play Store não encontrada</string>
-    <string name="title_pro_info">        O desenvolvimento do FairEmail levou literalmente milhares de horas e, apesar disso, a maioria dos recursos é gratuita.
-        O FairEmail leva sua privacidade a sério e não mostra propagandas nem usa rastreadores ou análises para ganhar dinheiro.
+    <string name="title_pro_info">        O desenvolvimento do FairEmail levou literalmente milhares de horas e, apesar disso, a maioria dos recursos é gratuita.        O FairEmail leva sua privacidade a sério e não mostra propagandas nem usa rastreadores ou análises para ganhar dinheiro.
         Para tornar o FairEmail sustentável a longo prazo, algumas conveniências e recursos avançados não são gratuitos.
         O FairEmail exibe uma pequena mensagem para lembrá-lo disso, que será removida se você comprar os recursos pro.
     </string>
@@ -1483,6 +1489,7 @@
     <string name="title_widget_font_size">Tamanho do texto</string>
     <string name="title_widget_padding">Tamanho do preenchimento</string>
     <string name="title_widget_semi_transparent">Fundo semi-transparente</string>
+    <string name="title_widget_compose">Mostrar botão compor nova mensagem</string>
     <string name="title_widget_background">Cor de fundo</string>
     <string name="title_accessibility_collapsed">Desabou</string>
     <string name="title_accessibility_expanded">Expandido</string>
@@ -1595,6 +1602,12 @@
         <item>Normal</item>
         <item>Alta</item>
     </string-array>
+    <string-array name="sensitivityNames">
+        <item>Normal</item>
+        <item>Pessoal</item>
+        <item>Private</item>
+        <item>Confidential</item>
+    </string-array>
     <string-array name="linesNames">
         <item>1</item>
         <item>2</item>
@@ -1661,4 +1674,10 @@
     <!-- https://www.bouncycastle.org/specifications.html -->
     <!-- https://datatracker.ietf.org/doc/html/rfc5751#page-29 -->
     <!-- https://datatracker.ietf.org/doc/html/rfc5751#section-2.7 -->
+    <string-array name="minScreenSizes">
+        <item>Pequeno</item>
+        <item>Médio</item>
+        <item>Grande</item>
+        <item>Muito grande</item>
+    </string-array>
 </resources>

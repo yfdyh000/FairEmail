@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -35,14 +35,21 @@ import androidx.appcompat.widget.AppCompatEditText;
 public class FixedEditText extends AppCompatEditText {
     public FixedEditText(@NonNull Context context) {
         super(context);
+        init(context);
     }
 
     public FixedEditText(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
+        init(context);
     }
 
     public FixedEditText(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+        init(context);
+    }
+
+    private void init(Context context) {
+        setCustomSelectionActionModeCallback(Helper.getActionModeWrapper(context));
     }
 
     @Override

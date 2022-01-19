@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import androidx.lifecycle.LiveData;
@@ -33,7 +33,7 @@ public interface DaoIdentity {
     LiveData<List<TupleIdentityView>> liveIdentityView();
 
     @Query("SELECT identity.*" +
-            ", account.name AS accountName, account.category AS accountCategory" +
+            ", account.name AS accountName, account.category AS accountCategory, account.synchronize AS accountSynchronize" +
             ", folder.id AS drafts" +
             " FROM identity" +
             " JOIN account ON account.id = identity.account" +
@@ -41,7 +41,7 @@ public interface DaoIdentity {
     LiveData<List<TupleIdentityEx>> liveIdentities();
 
     @Query("SELECT identity.*" +
-            ", account.name AS accountName, account.category AS accountCategory" +
+            ", account.name AS accountName, account.category AS accountCategory, account.synchronize AS accountSynchronize" +
             ", folder.id AS drafts" +
             " FROM identity" +
             " JOIN account ON account.id = identity.account" +
@@ -51,7 +51,7 @@ public interface DaoIdentity {
     LiveData<List<TupleIdentityEx>> liveComposableIdentities();
 
     @Query("SELECT identity.*" +
-            ", account.name AS accountName, account.category AS accountCategory" +
+            ", account.name AS accountName, account.category AS accountCategory, account.synchronize AS accountSynchronize" +
             ", folder.id AS drafts" +
             " FROM identity" +
             " JOIN account ON account.id = identity.account" +
@@ -104,19 +104,21 @@ public interface DaoIdentity {
     @Query("UPDATE identity SET password = :password WHERE id = :id AND NOT (password IS :password)")
     int setIdentityPassword(long id, String password);
 
-    @Query("UPDATE identity SET password = :password" +
+    @Query("UPDATE identity" +
+            " SET password = :password, auth_type = :auth_type" +
             " WHERE account = :account" +
             " AND user = :user" +
-            " AND NOT (password IS :password)" +
+            " AND NOT (password IS :password AND auth_type = :auth_type)" +
             " AND host LIKE :domain")
-    int setIdentityPassword(long account, String user, String password, String domain);
+    int setIdentityPassword(long account, String user, String password, int auth_type, String domain);
 
-    @Query("UPDATE identity SET password = :password" +
+    @Query("UPDATE identity" +
+            " SET password = :password, auth_type = :new_auth_type" +
             " WHERE account = :account" +
             " AND user = :user" +
-            " AND NOT (password IS :password)" +
-            " AND auth_type = :auth_type")
-    int setIdentityPassword(long account, String user, String password, int auth_type);
+            " AND auth_type = :auth_type" +
+            " AND NOT (password IS :password AND auth_type IS :new_auth_type)")
+    int setIdentityPassword(long account, String user, String password, int auth_type, int new_auth_type);
 
     @Query("UPDATE identity SET last_connected = :last_connected WHERE id = :id AND NOT (last_connected IS :last_connected)")
     int setIdentityConnected(long id, long last_connected);

@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import static androidx.room.ForeignKey.CASCADE;
@@ -171,11 +171,18 @@ public class EntityAttachment {
         if ("csv".equals(extension))
             return "text/csv";
 
+        if ("gpx".equals(extension))
+            return "application/gpx+xml";
+
+        // Adobe
+
         if ("dxf".equals(extension))
             return "application/dxf";
 
-        if ("gpx".equals(extension))
-            return "application/gpx+xml";
+        if ("pdf".equals(extension))
+            return "application/pdf";
+
+        // Microsoft
 
         if ("doc".equals(extension))
             return "application/msword";
@@ -195,8 +202,22 @@ public class EntityAttachment {
         if ("pptx".equals(extension))
             return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
-        if ("pdf".equals(extension))
-            return "application/pdf";
+        // OpenOffice
+
+        if ("odt".equals(extension))
+            return "application/vnd.oasis.opendocument.text";
+
+        if ("ods".equals(extension))
+            return "application/vnd.oasis.opendocument.spreadsheet";
+
+        if ("odp".equals(extension))
+            return "application/vnd.oasis.opendocument.presentation";
+
+        // Other
+
+        if ("zip".equals(extension) ||
+                "application/x-zip-compressed".equals(type))
+            return "application/zip"; //
 
         if ("text/plain".equals(type) &&
                 ("ics".equals(extension) || "vcs".equals(extension)))
@@ -224,6 +245,7 @@ public class EntityAttachment {
                     type.endsWith("/unknown") ||
                     "application/base64".equals(type) ||
                     "application/octet-stream".equals(type) ||
+                    "application/x-unknown-content-type".equals(type) ||
                     "application/zip".equals(type))
                 return gtype;
 

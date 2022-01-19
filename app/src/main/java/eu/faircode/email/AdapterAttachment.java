@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -291,6 +291,8 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
                     long id = args.getLong("id");
                     long mid = args.getLong("message");
 
+                    Long reload = null;
+
                     DB db = DB.getInstance(context);
                     try {
                         db.beginTransaction();
@@ -298,6 +300,13 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
                         EntityMessage message = db.message().getMessage(mid);
                         if (message == null || message.uid == null)
                             return null;
+
+                        EntityAccount account = db.account().getAccount(message.account);
+                        if (account == null)
+                            return null;
+
+                        if (!"connected".equals(account.state) && !account.isTransient(context))
+                            reload = account.id;
 
                         EntityAttachment attachment = db.attachment().getAttachment(id);
                         if (attachment == null || attachment.progress != null || attachment.available)
@@ -310,7 +319,10 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
                         db.endTransaction();
                     }
 
-                    ServiceSynchronize.eval(context, "attachment");
+                    if (reload == null)
+                        ServiceSynchronize.eval(context, "attachment");
+                    else
+                        ServiceSynchronize.reload(context, reload, true, "attachment");
 
                     return null;
                 }

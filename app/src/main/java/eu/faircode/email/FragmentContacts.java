@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import static android.app.Activity.RESULT_OK;
@@ -213,8 +213,8 @@ public class FragmentContacts extends FragmentBase {
         } else if (itemId == R.id.menu_export) {
             onMenuVcard(true);
             return true;
-        } else if (itemId == R.id.menu_delete) {
-            onMenuDelete();
+        } else if (itemId == R.id.menu_delete_all) {
+            onMenuDeleteAll();
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -242,7 +242,7 @@ public class FragmentContacts extends FragmentBase {
         fragment.show(getParentFragmentManager(), "messages:accounts");
     }
 
-    private void onMenuDelete() {
+    private void onMenuDeleteAll() {
         new FragmentDelete().show(getParentFragmentManager(), "contacts:delete");
     }
 
@@ -392,7 +392,6 @@ public class FragmentContacts extends FragmentBase {
                 if (uri == null)
                     throw new FileNotFoundException();
 
-                String password = args.getString("password");
                 EntityLog.log(context, "Exporting " + uri);
 
                 if (!"content".equals(uri.getScheme())) {

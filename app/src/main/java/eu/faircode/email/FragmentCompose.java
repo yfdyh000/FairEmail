@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import static android.app.Activity.RESULT_CANCELED;
@@ -79,7 +79,6 @@ import android.text.style.ImageSpan;
 import android.text.style.ParagraphStyle;
 import android.text.style.QuoteSpan;
 import android.text.style.RelativeSizeSpan;
-import android.text.style.StyleSpan;
 import android.text.style.URLSpan;
 import android.util.LogPrinter;
 import android.util.Pair;
@@ -91,7 +90,6 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
-import android.view.SubMenu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -164,7 +162,6 @@ import org.jsoup.select.Elements;
 import org.jsoup.select.NodeFilter;
 import org.openintents.openpgp.OpenPgpError;
 import org.openintents.openpgp.util.OpenPgpApi;
-import org.openintents.openpgp.util.OpenPgpServiceConnection;
 import org.w3c.dom.css.CSSStyleSheet;
 
 import java.io.BufferedOutputStream;
@@ -273,9 +270,6 @@ public class FragmentCompose extends FragmentBase {
     private ContentResolver resolver;
     private AdapterAttachment adapter;
 
-    private boolean prefix_once = false;
-    private boolean alt_re = false;
-    private boolean alt_fwd = false;
     private boolean monospaced = false;
     private String compose_font;
     private Integer encrypt = null;
@@ -334,9 +328,6 @@ public class FragmentCompose extends FragmentBase {
         super.onCreate(savedInstanceState);
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
-        prefix_once = prefs.getBoolean("prefix_once", true);
-        alt_re = prefs.getBoolean("alt_re", false);
-        alt_fwd = prefs.getBoolean("alt_fwd", false);
         monospaced = prefs.getBoolean("monospaced", false);
         compose_font = prefs.getString("compose_font", monospaced ? "monospace" : "sans-serif");
         media = prefs.getBoolean("compose_media", true);
@@ -1399,7 +1390,7 @@ public class FragmentCompose extends FragmentBase {
                     args.putString("subject", a.getString("subject"));
                     args.putString("body", a.getString("body"));
                     args.putString("text", a.getString("text"));
-                    args.putString("selected", a.getString("selected"));
+                    args.putCharSequence("selected", a.getCharSequence("selected"));
 
                     if (a.containsKey("attachments")) {
                         args.putParcelableArrayList("attachments", a.getParcelableArrayList("attachments"));
@@ -1900,138 +1891,15 @@ public class FragmentCompose extends FragmentBase {
 
             @Override
             protected void onExecuted(Bundle args, final List<EntityAnswer> answers) {
+                final Context context = getContext();
+
                 if (answers.size() == 0) {
-                    ToastEx.makeText(getContext(), R.string.title_no_answers, Toast.LENGTH_LONG).show();
+                    ToastEx.makeText(context, R.string.title_no_answers, Toast.LENGTH_LONG).show();
                     return;
                 }
 
-                boolean grouped = BuildConfig.DEBUG;
-                PopupMenuLifecycle popupMenu = new PopupMenuLifecycle(getContext(), getViewLifecycleOwner(), vwAnchorMenu);
-                Menu main = popupMenu.getMenu();
-
-                List<EntityAnswer> favorites = new ArrayList<>();
-                List<String> groups = new ArrayList<>();
-                for (EntityAnswer answer : answers)
-                    if (answer.favorite)
-                        favorites.add(answer);
-                    else if (answer.group != null && !groups.contains(answer.group))
-                        groups.add(answer.group);
-
-                Collator collator = Collator.getInstance(Locale.getDefault());
-                collator.setStrength(Collator.SECONDARY); // Case insensitive, process accents etc
-                Collections.sort(groups, collator);
-
-                Collections.sort(answers, new Comparator<EntityAnswer>() {
-                    @Override
-                    public int compare(EntityAnswer a1, EntityAnswer a2) {
-                        if (!grouped || a1.applied.equals(a2.applied))
-                            return collator.compare(a1.name, a2.name);
-                        else
-                            return -a1.applied.compareTo(a2.applied);
-                    }
-                });
-
-                Collections.sort(favorites, new Comparator<EntityAnswer>() {
-                    @Override
-                    public int compare(EntityAnswer a1, EntityAnswer a2) {
-                        return collator.compare(a1.name, a2.name);
-                    }
-                });
-
-                int order = 0;
-
-                Map<String, SubMenu> map = new HashMap<>();
-                for (String group : groups)
-                    map.put(group, main.addSubMenu(Menu.NONE, order, order++, group));
-
-                NumberFormat NF = NumberFormat.getNumberInstance();
-                for (EntityAnswer answer : answers) {
-                    if (answer.favorite)
-                        continue;
-                    order++;
-
-                    SpannableStringBuilder name = new SpannableStringBuilder(answer.name);
-                    if (grouped && answer.applied > 0) {
-                        name.append(" (").append(NF.format(answer.applied)).append(")");
-                        name.setSpan(new RelativeSizeSpan(HtmlHelper.FONT_SMALL),
-                                answer.name.length() + 1, name.length(), 0);
-                    }
-
-                    MenuItem item;
-                    if (answer.group == null)
-                        item = main.add(Menu.NONE, order, order++, name);
-                    else {
-                        SubMenu smenu = map.get(answer.group);
-                        item = smenu.add(answer.applied > 0 ? Menu.FIRST : Menu.NONE,
-                                smenu.size(), smenu.size() + 1, name);
-                    }
-                    item.setIntent(new Intent().putExtra("id", answer.id));
-                }
-
-                for (EntityAnswer answer : favorites)
-                    main.add(Menu.NONE, order, order++, answer.toString())
-                            .setIntent(new Intent().putExtra("id", answer.id));
-
-                if (BuildConfig.DEBUG) {
-                    SubMenu profiles = main.addSubMenu(Menu.NONE, order, order++, "Profiles");
-                    for (EmailProvider p : EmailProvider.loadProfiles(getContext())) {
-                        SpannableStringBuilder ssb = new SpannableStringBuilderEx();
-                        int start;
-                        ssb.append("IMAP (account, receive)");
-
-                        ssb.append(" host ");
-                        start = ssb.length();
-                        ssb.append(p.imap.host);
-                        ssb.setSpan(new StyleSpan(Typeface.BOLD),
-                                start, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-
-                        ssb.append(" port ");
-                        start = ssb.length();
-                        ssb.append(Integer.toString(p.imap.port));
-                        ssb.setSpan(new StyleSpan(Typeface.BOLD),
-                                start, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-
-                        ssb.append(" encryption ");
-                        start = ssb.length();
-                        ssb.append(p.imap.starttls ? "STARTTLS" : "SSL/TLS");
-                        ssb.setSpan(new StyleSpan(Typeface.BOLD),
-                                start, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-
-                        ssb.append("\n\n");
-
-                        ssb.append("SMTP (identity, send)");
-
-                        ssb.append(" host ");
-                        start = ssb.length();
-                        ssb.append(p.smtp.host);
-                        ssb.setSpan(new StyleSpan(Typeface.BOLD),
-                                start, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-
-                        ssb.append(" port ");
-                        start = ssb.length();
-                        ssb.append(Integer.toString(p.smtp.port));
-                        ssb.setSpan(new StyleSpan(Typeface.BOLD),
-                                start, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-
-                        ssb.append(" encryption ");
-                        start = ssb.length();
-                        ssb.append(p.smtp.starttls ? "STARTTLS" : "SSL/TLS");
-                        ssb.setSpan(new StyleSpan(Typeface.BOLD),
-                                start, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-
-                        ssb.append("\n\n");
-
-                        if (!TextUtils.isEmpty(p.link))
-                            ssb.append(p.link).append("\n\n");
-
-                        profiles.add(999, profiles.size(), profiles.size() + 1, p.name +
-                                (p.appPassword ? "+" : ""))
-                                .setIntent(new Intent().putExtra("config", ssb));
-                    }
-                }
-
-                if (grouped)
-                    MenuCompat.setGroupDividerEnabled(popupMenu.getMenu(), true);
+                PopupMenuLifecycle popupMenu = new PopupMenuLifecycle(context, getViewLifecycleOwner(), vwAnchorMenu);
+                EntityAnswer.fillMenu(popupMenu.getMenu(), true, answers, context);
 
                 popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
                     @Override
@@ -2040,8 +1908,8 @@ public class FragmentCompose extends FragmentBase {
                         if (intent == null)
                             return false;
 
-                        if (!ActivityBilling.isPro(getContext())) {
-                            startActivity(new Intent(getContext(), ActivityBilling.class));
+                        if (!ActivityBilling.isPro(context)) {
+                            startActivity(new Intent(context, ActivityBilling.class));
                             return true;
                         }
 
@@ -2306,9 +2174,8 @@ public class FragmentCompose extends FragmentBase {
         } else
             try {
                 startActivityForResult(intent, REQUEST_RECORD_AUDIO);
-            } catch (SecurityException ex) {
-                Log.w(ex);
-                Helper.reportNoViewer(getContext(), intent);
+            } catch (Throwable ex) {
+                Helper.reportNoViewer(getContext(), intent, ex);
             }
     }
 
@@ -2778,12 +2645,9 @@ public class FragmentCompose extends FragmentBase {
                     photoURI = FileProvider.getUriForFile(getContext(), BuildConfig.APPLICATION_ID, file);
                     intent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
                     startActivityForResult(intent, REQUEST_TAKE_PHOTO);
-                } catch (SecurityException ex) {
-                    Log.w(ex);
-                    Helper.reportNoViewer(getContext(), intent);
                 } catch (Throwable ex) {
-                    // / java.lang.IllegalArgumentException: Failed to resolve canonical path for ...
-                    Log.unexpectedError(getParentFragmentManager(), ex);
+                    // java.lang.IllegalArgumentException: Failed to resolve canonical path for ...
+                    Helper.reportNoViewer(getContext(), intent, ex);
                 }
             }
         } else {
@@ -4250,7 +4114,7 @@ public class FragmentCompose extends FragmentBase {
             String external_subject = args.getString("subject", "");
             String external_body = args.getString("body", "");
             String external_text = args.getString("text");
-            String selected_text = args.getString("selected");
+            CharSequence selected_text = args.getCharSequence("selected");
             ArrayList<Uri> uris = args.getParcelableArrayList("attachments");
 
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
@@ -4398,7 +4262,9 @@ public class FragmentCompose extends FragmentBase {
 
                     EntityLog.log(context, "Selected=" + selected.email);
 
-                    if (plain_only)
+                    if (plain_only &&
+                            !"resend".equals(action) &&
+                            !"editasnew".equals(action))
                         data.draft.plain_only = true;
 
                     if (encrypt_default || selected.encrypt_default)
@@ -4467,8 +4333,10 @@ public class FragmentCompose extends FragmentBase {
                         // - reply
                         // - reply_all
                         // - forward
+                        // - resend
                         // - editasnew
                         // - list
+                        // - dsn
                         // - receipt
                         // - participation
 
@@ -4565,6 +4433,7 @@ public class FragmentCompose extends FragmentBase {
                             data.draft.thread = data.draft.msgid; // new thread
                             data.draft.wasforwardedfrom = ref.msgid;
                         } else if ("resend".equals(action)) {
+                            data.draft.resend = true;
                             data.draft.thread = data.draft.msgid;
                             data.draft.headers = ref.headers;
                         } else if ("editasnew".equals(action))
@@ -4573,12 +4442,8 @@ public class FragmentCompose extends FragmentBase {
                         // Subject
                         String subject = (ref.subject == null ? "" : ref.subject);
                         if ("reply".equals(action) || "reply_all".equals(action)) {
-                            if (prefix_once)
-                                subject = EntityMessage.collapsePrefixes(context, ref.language, subject, false);
-                            data.draft.subject = Helper.getString(context,
-                                    ref.language,
-                                    alt_re ? R.string.title_subject_reply_alt : R.string.title_subject_reply,
-                                    subject);
+                            data.draft.subject =
+                                    EntityMessage.getSubject(context, ref.language, subject, false);
 
                             if (external_text != null) {
                                 Element div = document.createElement("div");
@@ -4591,12 +4456,8 @@ public class FragmentCompose extends FragmentBase {
                                 document.body().appendChild(div);
                             }
                         } else if ("forward".equals(action)) {
-                            if (prefix_once)
-                                subject = EntityMessage.collapsePrefixes(context, ref.language, subject, true);
-                            data.draft.subject = Helper.getString(context,
-                                    ref.language,
-                                    alt_fwd ? R.string.title_subject_forward_alt : R.string.title_subject_forward,
-                                    subject);
+                            data.draft.subject =
+                                    EntityMessage.getSubject(context, ref.language, subject, true);
                         } else if ("resend".equals(action)) {
                             data.draft.subject = ref.subject;
                         } else if ("editasnew".equals(action)) {
@@ -4797,12 +4658,16 @@ public class FragmentCompose extends FragmentBase {
                                 d = Document.createShell("");
 
                                 Element div = d.createElement("div");
-                                for (String line : selected_text.split("\\r?\\n")) {
-                                    Element span = document.createElement("span");
-                                    span.text(line);
-                                    div.appendChild(span);
-                                    div.appendElement("br");
-                                }
+                                if (selected_text instanceof Spanned)
+                                    div.html(HtmlHelper.toHtml((Spanned) selected_text, context));
+                                else
+                                    for (String line : selected_text.toString().split("\\r?\\n")) {
+                                        Element span = document.createElement("span");
+                                        span.text(line);
+                                        div.appendChild(span);
+                                        div.appendElement("br");
+                                    }
+
                                 d.body().appendChild(div);
                             }
 
@@ -5008,7 +4873,7 @@ public class FragmentCompose extends FragmentBase {
                         Log.i("Selected external identity=" + data.draft.identity);
                     }
 
-                    if (data.draft.revision == null) {
+                    if (data.draft.revision == null || data.draft.revisions == null) {
                         data.draft.revision = 1;
                         data.draft.revisions = 1;
                         db.message().setMessageRevision(data.draft.id, data.draft.revision);
@@ -5085,6 +4950,15 @@ public class FragmentCompose extends FragmentBase {
         protected void onExecuted(Bundle args, final DraftData data) {
             final String action = getArguments().getString("action");
             Log.i("Loaded draft id=" + data.draft.id + " action=" + action);
+
+            FragmentActivity activity = getActivity();
+            if (activity != null) {
+                Intent intent = activity.getIntent();
+                if (intent != null) {
+                    intent.putExtra("id", data.draft.id);
+                    intent.putExtra("action", "edit");
+                }
+            }
 
             working = data.draft.id;
             encrypt = data.draft.ui_encrypt;
@@ -5257,7 +5131,6 @@ public class FragmentCompose extends FragmentBase {
                                     @Override
                                     public void run() {
                                         try {
-
                                             boolean image_dialog = prefs.getBoolean("image_dialog", true);
                                             if (image_dialog) {
                                                 Helper.hideKeyboard(view);
@@ -5286,7 +5159,9 @@ public class FragmentCompose extends FragmentBase {
                                 draft.dsn != null && !EntityMessage.DSN_NONE.equals(draft.dsn)
                                         ? View.VISIBLE : View.GONE);
 
-                        tvResend.setVisibility(draft.headers == null ? View.GONE : View.VISIBLE);
+                        tvResend.setVisibility(
+                                draft.headers != null && Boolean.TRUE.equals(draft.resend)
+                                        ? View.VISIBLE : View.GONE);
 
                         tvPlainTextOnly.setVisibility(
                                 draft.plain_only != null && draft.plain_only && !plain_only
@@ -5534,37 +5409,6 @@ public class FragmentCompose extends FragmentBase {
                     if (TextUtils.isEmpty(extra))
                         extra = null;
 
-                    if (action == R.id.action_send) {
-                        if (draft.plain_only == null || !draft.plain_only) {
-                            // Remove unused inline images
-                            List<String> cids = new ArrayList<>();
-                            Document d = JsoupEx.parse(body);
-                            for (Element element : d.select("img")) {
-                                String src = element.attr("src");
-                                if (src.startsWith("cid:"))
-                                    cids.add("<" + src.substring(4) + ">");
-                            }
-
-                            for (EntityAttachment attachment : new ArrayList<>(attachments))
-                                if (attachment.isInline() && attachment.isImage() &&
-                                        attachment.cid != null && !cids.contains(attachment.cid)) {
-                                    Log.i("Removing unused inline attachment cid=" + attachment.cid);
-                                    attachments.remove(attachment);
-                                    db.attachment().deleteAttachment(attachment.id);
-                                    dirty = true;
-                                }
-                        } else {
-                            // Convert inline images to attachments
-                            for (EntityAttachment attachment : new ArrayList<>(attachments))
-                                if (attachment.isInline() && attachment.isImage()) {
-                                    Log.i("Converting to attachment cid=" + attachment.cid);
-                                    attachment.disposition = Part.ATTACHMENT;
-                                    db.attachment().setDisposition(attachment.id, attachment.disposition);
-                                    dirty = true;
-                                }
-                        }
-                    }
-
                     List<Integer> eparts = new ArrayList<>();
                     for (EntityAttachment attachment : attachments)
                         if (attachment.available)
@@ -5721,6 +5565,35 @@ public class FragmentCompose extends FragmentBase {
                                     " action=" + getActionName(action));
 
                         dirty = true;
+                    } else if (action == R.id.action_send) {
+                        if (draft.plain_only == null || !draft.plain_only) {
+                            // Remove unused inline images
+                            List<String> cids = new ArrayList<>();
+                            Document d = JsoupEx.parse(body);
+                            for (Element element : d.select("img")) {
+                                String src = element.attr("src");
+                                if (src.startsWith("cid:"))
+                                    cids.add("<" + src.substring(4) + ">");
+                            }
+
+                            for (EntityAttachment attachment : new ArrayList<>(attachments))
+                                if (attachment.isInline() && attachment.isImage() &&
+                                        attachment.cid != null && !cids.contains(attachment.cid)) {
+                                    Log.i("Removing unused inline attachment cid=" + attachment.cid);
+                                    attachments.remove(attachment);
+                                    db.attachment().deleteAttachment(attachment.id);
+                                    dirty = true;
+                                }
+                        } else {
+                            // Convert inline images to attachments
+                            for (EntityAttachment attachment : new ArrayList<>(attachments))
+                                if (attachment.isInline() && attachment.isImage()) {
+                                    Log.i("Converting to attachment cid=" + attachment.cid);
+                                    attachment.disposition = Part.ATTACHMENT;
+                                    db.attachment().setDisposition(attachment.id, attachment.disposition);
+                                    dirty = true;
+                                }
+                        }
                     }
 
                     Helper.writeText(draft.getFile(context), body);
@@ -5928,25 +5801,28 @@ public class FragmentCompose extends FragmentBase {
                                 args.putBoolean("remind_dsn", true);
 
                             // Check size
-                            if (identity != null && identity.max_size != null) {
-                                Properties props = MessageHelper.getSessionProperties();
-                                if (identity.unicode)
-                                    props.put("mail.mime.allowutf8", "true");
-                                Session isession = Session.getInstance(props, null);
-                                Message imessage = MessageHelper.from(context, draft, identity, isession, false);
+                            if (identity != null && identity.max_size != null)
+                                try {
+                                    Properties props = MessageHelper.getSessionProperties();
+                                    if (identity.unicode)
+                                        props.put("mail.mime.allowutf8", "true");
+                                    Session isession = Session.getInstance(props, null);
+                                    Message imessage = MessageHelper.from(context, draft, identity, isession, false);
 
-                                File file = draft.getRawFile(context);
-                                try (OutputStream os = new BufferedOutputStream(new FileOutputStream(file))) {
-                                    imessage.writeTo(os);
-                                }
+                                    File file = draft.getRawFile(context);
+                                    try (OutputStream os = new BufferedOutputStream(new FileOutputStream(file))) {
+                                        imessage.writeTo(os);
+                                    }
 
-                                long size = file.length();
-                                if (size > identity.max_size) {
-                                    args.putBoolean("remind_size", true);
-                                    args.putLong("size", size);
-                                    args.putLong("max_size", identity.max_size);
+                                    long size = file.length();
+                                    if (size > identity.max_size) {
+                                        args.putBoolean("remind_size", true);
+                                        args.putLong("size", size);
+                                        args.putLong("max_size", identity.max_size);
+                                    }
+                                } catch (Throwable ex) {
+                                    Log.e(ex);
                                 }
-                            }
                         } else {
                             int mid;
                             if (action == R.id.action_undo)
@@ -6244,7 +6120,7 @@ public class FragmentCompose extends FragmentBase {
         div.attr("fairemail", "signature");
 
         if (usenet) {
-            // https://www.ietf.org/rfc/rfc3676.txt
+            // https://datatracker.ietf.org/doc/html/rfc3676#section-4.3
             Element span = document.createElement("span");
             span.text("-- ");
             span.appendElement("br");
@@ -6929,8 +6805,6 @@ public class FragmentCompose extends FragmentBase {
             final int[] sendDelayedValues = getResources().getIntArray(R.array.sendDelayedValues);
             final String[] sendDelayedNames = getResources().getStringArray(R.array.sendDelayedNames);
 
-            final String pkgOpenKeyChain = Helper.getOpenKeychainPackage(context);
-
             final ViewGroup dview = (ViewGroup) LayoutInflater.from(context).inflate(R.layout.dialog_send, null);
             final Button btnFixSent = dview.findViewById(R.id.btnFixSent);
             final TextView tvAddressError = dview.findViewById(R.id.tvAddressError);
@@ -6958,6 +6832,9 @@ public class FragmentCompose extends FragmentBase {
             final Spinner spEncrypt = dview.findViewById(R.id.spEncrypt);
             final ImageButton ibEncryption = dview.findViewById(R.id.ibEncryption);
             final Spinner spPriority = dview.findViewById(R.id.spPriority);
+            final ImageButton ibPriority = dview.findViewById(R.id.ibPriority);
+            final Spinner spSensitivity = dview.findViewById(R.id.spSensitivity);
+            final ImageButton ibSensitivity = dview.findViewById(R.id.ibSensitivity);
             final TextView tvSendAt = dview.findViewById(R.id.tvSendAt);
             final ImageButton ibSendAt = dview.findViewById(R.id.ibSendAt);
             final CheckBox cbArchive = dview.findViewById(R.id.cbArchive);
@@ -7006,6 +6883,8 @@ public class FragmentCompose extends FragmentBase {
             spEncrypt.setSelection(0);
             spPriority.setTag(1);
             spPriority.setSelection(1);
+            spSensitivity.setTag(0);
+            spSensitivity.setSelection(0);
             tvSendAt.setText(null);
             cbArchive.setEnabled(false);
             cbNotAgain.setChecked(!send_dialog);
@@ -7218,7 +7097,62 @@ public class FragmentCompose extends FragmentBase {
                 }
             });
 
-            ibSendAt.setOnClickListener(new View.OnClickListener() {
+            ibPriority.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    // Invisible
+                }
+            });
+
+            spSensitivity.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                    int last = (int) spSensitivity.getTag();
+                    if (last != position) {
+                        spSensitivity.setTag(position);
+                        setSensitivity(position);
+                    }
+                }
+
+                @Override
+                public void onNothingSelected(AdapterView<?> parent) {
+                    spSensitivity.setTag(0);
+                    setSensitivity(0);
+                }
+
+                private void setSensitivity(int sensitivity) {
+                    Bundle args = new Bundle();
+                    args.putLong("id", id);
+                    args.putInt("sensitivity", sensitivity);
+
+                    new SimpleTask<Void>() {
+                        @Override
+                        protected Void onExecute(Context context, Bundle args) {
+                            long id = args.getLong("id");
+                            int sensitivity = args.getInt("sensitivity");
+
+                            DB db = DB.getInstance(context);
+                            db.message().setMessageSensitivity(id, sensitivity < 1 ? null : sensitivity);
+
+                            return null;
+                        }
+
+                        @Override
+                        protected void onException(Bundle args, Throwable ex) {
+                            Log.unexpectedError(getParentFragmentManager(), ex);
+                        }
+                    }.setExecutor(executor).execute(FragmentDialogSend.this, args, "compose:sensitivity");
+                }
+            });
+
+            ibSensitivity.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Helper.viewFAQ(v.getContext(), 177);
+                }
+            });
+
+            View.OnClickListener sendAt = new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
                     Bundle args = new Bundle();
@@ -7230,7 +7164,10 @@ public class FragmentCompose extends FragmentBase {
                     fragment.setTargetFragment(FragmentDialogSend.this, 1);
                     fragment.show(getParentFragmentManager(), "send:snooze");
                 }
-            });
+            };
+
+            tvSendAt.setOnClickListener(sendAt);
+            ibSendAt.setOnClickListener(sendAt);
 
             cbArchive.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
                 @Override
@@ -7287,6 +7224,10 @@ public class FragmentCompose extends FragmentBase {
                     int priority = (draft.priority == null ? 1 : draft.priority);
                     spPriority.setTag(priority);
                     spPriority.setSelection(priority);
+
+                    int sensitivity = (draft.sensitivity == null ? 0 : draft.sensitivity);
+                    spSensitivity.setTag(sensitivity);
+                    spSensitivity.setSelection(sensitivity);
 
                     if (draft.ui_snoozed == null) {
                         if (send_delayed == 0)

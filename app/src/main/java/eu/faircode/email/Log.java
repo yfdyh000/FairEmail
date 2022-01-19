@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import android.app.ActivityManager;
@@ -51,10 +51,12 @@ import android.os.DeadSystemException;
 import android.os.Debug;
 import android.os.IBinder;
 import android.os.OperationCanceledException;
+import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.TransactionTooLargeException;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.util.Printer;
 import android.view.Display;
 import android.view.InflateException;
 import android.view.LayoutInflater;
@@ -423,7 +425,7 @@ public class Log {
                 @Override
                 public boolean onSession(@NonNull Session session) {
                     // opt-in
-                    return prefs.getBoolean("crash_reports", false);
+                    return prefs.getBoolean("crash_reports", false) || BuildConfig.TEST_RELEASE;
                 }
             });
 
@@ -432,7 +434,7 @@ public class Log {
                 public boolean onError(@NonNull Event event) {
                     // opt-in
                     boolean crash_reports = prefs.getBoolean("crash_reports", false);
-                    if (!crash_reports)
+                    if (!crash_reports && !BuildConfig.TEST_RELEASE)
                         return false;
 
                     Throwable ex = event.getOriginalError();
@@ -535,7 +537,7 @@ public class Log {
             Log.i("uuid=" + uuid);
             client.setUser(uuid, null, null);
 
-            if (prefs.getBoolean("crash_reports", false))
+            if (prefs.getBoolean("crash_reports", false) || BuildConfig.TEST_RELEASE)
                 Bugsnag.startSession();
         } catch (Throwable ex) {
             Log.e(ex);
@@ -595,8 +597,47 @@ public class Log {
                 result.add(key + "=" + value + (value == null ? "" :
                         " (" + v.getClass().getSimpleName() + (length < 0 ? "" : ":" + length) + ")"));
             }
-        } catch (BadParcelableException ex) {
+        } catch (Throwable ex) {
             // android.os.BadParcelableException: ClassNotFoundException when unmarshalling: ...
+
+            // java.lang.RuntimeException: Failure delivering result ResultInfo{who=null, request=1172374955, result=0, data=Intent { (has extras) }} to activity {eu.faircode.email/eu.faircode.email.ActivityCompose}: java.lang.RuntimeException: Parcelable encountered ClassNotFoundException reading a Serializable object (name = com.lyrebirdstudio.imagecameralib.utils.ImageCameraLibReturnTypes)
+            //        at android.app.ActivityThread.deliverResults(ActivityThread.java:4382)
+            //        at android.app.ActivityThread.handleSendResult(ActivityThread.java:4426)
+            //        at android.app.ActivityThread.-wrap20(Unknown)
+            //        at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1685)
+            //        at android.os.Handler.dispatchMessage(Handler.java:106)
+            //        at android.os.Looper.loop(Looper.java:164)
+            //        at android.app.ActivityThread.main(ActivityThread.java:6626)
+            //        at java.lang.reflect.Method.invoke(Method.java:-2)
+            //        at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:438)
+            //        at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:811)
+            //
+            // Caused by: java.lang.RuntimeException: Parcelable encountered ClassNotFoundException reading a Serializable object (name = com.lyrebirdstudio.imagecameralib.utils.ImageCameraLibReturnTypes)
+            //        at android.os.Parcel.readSerializable(Parcel.java:3019)
+            //        at android.os.Parcel.readValue(Parcel.java:2805)
+            //        at android.os.Parcel.readArrayMapInternal(Parcel.java:3123)
+            //        at android.os.BaseBundle.initializeFromParcelLocked(BaseBundle.java:273)
+            //        at android.os.BaseBundle.unparcel(BaseBundle.java:226)
+            //        at android.os.BaseBundle.keySet(BaseBundle.java:520)
+            //        at eu.faircode.email.Log.getExtras(Log:565)
+            //        at eu.faircode.email.Log.logBundle(Log:555)
+            //        at eu.faircode.email.Log.logExtras(Log:551)
+            //        at eu.faircode.email.ActivityBase.onActivityResult(ActivityBase:376)
+            //        at android.app.Activity.dispatchActivityResult(Activity.java:7305)
+            //        at android.app.ActivityThread.deliverResults(ActivityThread.java:4378)
+            //        at android.app.ActivityThread.handleSendResult(ActivityThread.java:4426)
+            //        at android.app.ActivityThread.-wrap20(Unknown)
+            //        at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1685)
+            //        at android.os.Handler.dispatchMessage(Handler.java:106)
+            //        at android.os.Looper.loop(Looper.java:164)
+            //        at android.app.ActivityThread.main(ActivityThread.java:6626)
+            //        at java.lang.reflect.Method.invoke(Method.java:-2)
+            //        at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:438)
+            //        at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:811)
+            //
+            // Caused by: java.lang.ClassNotFoundException: com.lyrebirdstudio.imagecameralib.utils.ImageCameraLibReturnTypes
+            //
+            // Caused by: java.lang.ClassNotFoundException: Didn't find class "com.lyrebirdstudio.imagecameralib.utils.ImageCameraLibReturnTypes" on path: DexPathList[[zip file "/data/app/eu.faircode.email-b4dvFM1MrZ5iBeNXAXRJhQ==/base.apk"],nativeLibraryDirectories=[/data/app/eu.faircode.email-b4dvFM1MrZ5iBeNXAXRJhQ==/lib/arm, /data/app/eu.faircode.email-b4dvFM1MrZ5iBeNXAXRJhQ==/base.apk!/lib/armeabi-v7a, /system/lib, /system/vendor/lib]]
             Log.e(ex);
         }
 
@@ -1075,6 +1116,31 @@ public class Log {
                   at android.os.Handler.dispatchMessage(Handler.java:102)
                   at android.os.Looper.loop(Looper.java:158)
                   at android.app.ActivityThread.main(ActivityThread.java:7224)
+             */
+            return false;
+
+        if (ex instanceof NullPointerException &&
+                ex.getCause() instanceof RemoteException)
+            /*
+                java.lang.NullPointerException: Attempt to invoke virtual method 'boolean com.android.server.autofill.RemoteFillService$PendingRequest.cancel()' on a null object reference
+                    at android.os.Parcel.createException(Parcel.java:1956)
+                    at android.os.Parcel.readException(Parcel.java:1918)
+                    at android.os.Parcel.readException(Parcel.java:1868)
+                    at android.app.IActivityManager$Stub$Proxy.reportAssistContextExtras(IActivityManager.java:7079)
+                    at android.app.ActivityThread.handleRequestAssistContextExtras(ActivityThread.java:3338)
+                    at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1839)
+                    at android.os.Handler.dispatchMessage(Handler.java:106)
+                    at android.os.Looper.loop(Looper.java:193)
+                    at android.app.ActivityThread.main(ActivityThread.java:6971)
+                    at java.lang.reflect.Method.invoke(Native Method)
+                    at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:493)
+                    at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:865)
+                Caused by: android.os.RemoteException: Remote stack trace:
+                    at com.android.server.autofill.RemoteFillService.cancelCurrentRequest(RemoteFillService.java:177)
+                    at com.android.server.autofill.Session.cancelCurrentRequestLocked(Session.java:465)
+                    at com.android.server.autofill.Session.access$1000(Session.java:118)
+                    at com.android.server.autofill.Session$1.onHandleAssistData(Session.java:322)
+                    at com.android.server.am.ActivityManagerService.reportAssistContextExtras(ActivityManagerService.java:14510)
              */
             return false;
 
@@ -1696,37 +1762,48 @@ public class Log {
 
         PackageManager pm = context.getPackageManager();
         String installer = pm.getInstallerPackageName(BuildConfig.APPLICATION_ID);
+
         int targetSdk = -1;
         try {
             ApplicationInfo ai = pm.getApplicationInfo(BuildConfig.APPLICATION_ID, 0);
             targetSdk = ai.targetSdkVersion;
-        } catch (PackageManager.NameNotFoundException ignore) {
+        } catch (PackageManager.NameNotFoundException ex) {
+            sb.append(ex).append("\r\n");
         }
 
         // Get version info
-        sb.append(String.format("%s: %s/%s %s/%s%s%s%s%s\r\n",
+        sb.append(String.format("%s %s/%d%s%s%s%s\r\n",
                 context.getString(R.string.app_name),
-                BuildConfig.APPLICATION_ID,
-                installer,
                 BuildConfig.VERSION_NAME + BuildConfig.REVISION,
-                Helper.hasValidFingerprint(context) ? "1" : "3",
+                Helper.hasValidFingerprint(context) ? 1 : 3,
                 BuildConfig.PLAY_STORE_RELEASE ? "p" : "",
                 Helper.hasPlayStore(context) ? "s" : "",
                 BuildConfig.DEBUG ? "d" : "",
-                ActivityBilling.isPro(context) ? "+" : ""));
+                ActivityBilling.isPro(context) ? "+" : "-"));
+        sb.append(String.format("Package: %s\r\n", BuildConfig.APPLICATION_ID));
         sb.append(String.format("Android: %s (SDK %d/%d)\r\n",
                 Build.VERSION.RELEASE, Build.VERSION.SDK_INT, targetSdk));
 
         boolean reporting = prefs.getBoolean("crash_reports", false);
-        if (reporting) {
+        if (reporting || BuildConfig.TEST_RELEASE) {
             String uuid = prefs.getString("uuid", null);
             sb.append(String.format("UUID: %s\r\n", uuid == null ? "-" : uuid));
         }
 
+        sb.append(String.format("Installer: %s\r\n", installer));
+        sb.append(String.format("Installed: %s\r\n", new Date(Helper.getInstallTime(context))));
+        sb.append(String.format("Now: %s\r\n", new Date()));
+
         sb.append("\r\n");
 
+        String osVersion = null;
+        try {
+            osVersion = System.getProperty("os.version");
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
+
         // Get device info
-        sb.append(String.format("uid: %s\r\n", android.os.Process.myUid()));
         sb.append(String.format("Brand: %s\r\n", Build.BRAND));
         sb.append(String.format("Manufacturer: %s\r\n", Build.MANUFACTURER));
         sb.append(String.format("Model: %s\r\n", Build.MODEL));
@@ -1736,19 +1813,18 @@ public class Log {
         sb.append(String.format("Time: %s\r\n", new Date(Build.TIME).toString()));
         sb.append(String.format("Display: %s\r\n", Build.DISPLAY));
         sb.append(String.format("Id: %s\r\n", Build.ID));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+            sb.append(String.format("SoC: %s/%s\r\n", Build.SOC_MANUFACTURER, Build.SOC_MODEL));
+        sb.append(String.format("OS version: %s\r\n", osVersion));
+        sb.append(String.format("uid: %d\r\n", android.os.Process.myUid()));
         sb.append("\r\n");
-
-        Locale slocale = Resources.getSystem().getConfiguration().locale;
-        String language = prefs.getString("language", null);
-        sb.append(String.format("Locale: def=%s sys=%s lang=%s\r\n",
-                Locale.getDefault(), slocale, language));
 
         sb.append(String.format("Processors: %d\r\n", Runtime.getRuntime().availableProcessors()));
 
         ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
         ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
         am.getMemoryInfo(mi);
-        sb.append(String.format("Memory class: %d/%d MB/%s\r\n",
+        sb.append(String.format("Memory class: %d/%d MB Total: %s\r\n",
                 am.getMemoryClass(), am.getLargeMemoryClass(), Helper.humanReadableByteCount(mi.totalMem)));
 
         long storage_available = Helper.getAvailableStorageSpace();
@@ -1771,32 +1847,70 @@ public class Log {
             sb.append(String.format("IPC max: %s\r\n", Helper.humanReadableByteCount(ipc)));
         }
 
-        Configuration config = context.getResources().getConfiguration();
-        String size;
-        if (config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_XLARGE))
-            size = "XL";
-        else if (config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_LARGE))
-            size = "L";
-        else if (config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_NORMAL))
-            size = "M";
-        else if (config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_SMALL))
-            size = "M";
-        else
-            size = "?";
+        try {
+            int maxKeySize = javax.crypto.Cipher.getMaxAllowedKeyLength("AES");
+            sb.append(context.getString(R.string.title_advanced_aes_key_size,
+                    Helper.humanReadableByteCount(maxKeySize, false))).append("\r\n");
+        } catch (Throwable ex) {
+            sb.append(ex).append("\r\n");
+        }
+
+        sb.append("\r\n");
+
+        Locale slocale = Resources.getSystem().getConfiguration().locale;
+        String language = prefs.getString("language", null);
+        sb.append(String.format("Locale: def=%s sys=%s lang=%s\r\n",
+                Locale.getDefault(), slocale, language));
+
+        String charset = MimeUtility.getDefaultJavaCharset();
+        sb.append(String.format("Default charset: %s/%s\r\n", charset, MimeUtility.mimeCharset(charset)));
+
+        sb.append("Transliterate: ")
+                .append(TextHelper.canTransliterate())
+                .append("\r\n");
+
+        sb.append("\r\n");
+
+
         WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         Display display = wm.getDefaultDisplay();
         Point dim = new Point();
         display.getSize(dim);
         float density = context.getResources().getDisplayMetrics().density;
-        sb.append(String.format("Density %f resolution: %.2f x %.2f dp %s\r\n",
-                density, dim.x / density, dim.y / density, size));
+        sb.append(String.format("Density %f\r\n", density));
+        sb.append(String.format("Resolution: %.2f x %.2f dp\r\n", dim.x / density, dim.y / density));
+
+        Configuration config = context.getResources().getConfiguration();
+
+        String size;
+        if (config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_XLARGE))
+            size = "XLarge";
+        else if (config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_LARGE))
+            size = "Large";
+        else if (config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_NORMAL))
+            size = "Medium";
+        else if (config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_SMALL))
+            size = "Small";
+        else
+            size = "size=" + (config.screenLayout & Configuration.SCREENLAYOUT_SIZE_MASK);
+
+        String orientation;
+        if (config.orientation == Configuration.ORIENTATION_LANDSCAPE)
+            orientation = "Landscape";
+        else if (config.orientation == Configuration.ORIENTATION_PORTRAIT)
+            orientation = "Portrait";
+        else
+            orientation = "orientation=" + config.orientation;
+
+        sb.append(String.format("%s %s\r\n", size, orientation));
 
         try {
             float animation_scale = Settings.Global.getFloat(resolver,
                     Settings.Global.WINDOW_ANIMATION_SCALE, 0f);
-            sb.append(String.format("Animation scale: %f\r\n", animation_scale));
+            sb.append(String.format("Animation scale: %f %s\r\n", animation_scale,
+                    animation_scale == 1f ? "" : "!!!"));
         } catch (Throwable ex) {
-            Log.w(ex);
+            sb.append(ex).append("\r\n");
         }
 
         int uiMode = context.getResources().getConfiguration().uiMode;
@@ -1805,30 +1919,20 @@ public class Log {
                 .append(" night=").append(Helper.isNight(context))
                 .append("\r\n");
 
-        sb.append(String.format("UI type: %s\r\n", Helper.getUiModeType(context)));
+        String uiType = Helper.getUiModeType(context);
+        sb.append(String.format("UI type: %s %s\r\n", uiType,
+                "normal".equals(uiType) ? "" : "!!!"));
 
-        sb.append("ExactAlarms")
-                .append(" can=")
-                .append(AlarmManagerCompatEx.canScheduleExactAlarms(context))
-                .append(" has=")
-                .append(AlarmManagerCompatEx.hasExactAlarms(context))
-                .append("\r\n");
-
-        sb.append("Transliterate: ")
-                .append(TextHelper.canTransliterate())
-                .append("\r\n");
-
-        try {
-            int maxKeySize = javax.crypto.Cipher.getMaxAllowedKeyLength("AES");
-            sb.append(context.getString(R.string.title_advanced_aes_key_size,
-                    Helper.humanReadableByteCount(maxKeySize, false))).append("\r\n");
-        } catch (Throwable ex) {
-            sb.append(ex.toString()).append("\r\n");
-        }
+        sb.append("\r\n");
 
         Boolean ignoring = Helper.isIgnoringOptimizations(context);
-        sb.append(String.format("Battery optimizations: %s\r\n",
-                ignoring == null ? null : Boolean.toString(!ignoring)));
+        sb.append(String.format("Battery optimizations: %s %s\r\n",
+                ignoring == null ? null : Boolean.toString(!ignoring),
+                Boolean.FALSE.equals(ignoring) ? "!!!" : ""));
+
+        PowerManager power = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        boolean psaving = power.isPowerSaveMode();
+        sb.append(String.format("Battery saving: %s %s\r\n", psaving, psaving ? "!!!" : ""));
 
         sb.append(String.format("Charging: %b; level: %d\r\n",
                 Helper.isCharging(context), Helper.getBatteryLevel(context)));
@@ -1841,24 +1945,34 @@ public class Log {
                     bucket, Helper.getStandbyBucketName(bucket), inactive));
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-            sb.append(String.format("Background restricted: %b\r\n", am.isBackgroundRestricted()));
+        boolean canExact = AlarmManagerCompatEx.canScheduleExactAlarms(context);
+        boolean hasExact = AlarmManagerCompatEx.hasExactAlarms(context);
+        sb.append(String.format("ExactAlarms can=%b has=%b %s\r\n", canExact, hasExact,
+                canExact ? "" : "!!!"));
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
-            sb.append(String.format("Data saving: %b\r\n", ConnectionHelper.isDataSaving(context)));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            boolean restricted = am.isBackgroundRestricted();
+            sb.append(String.format("Background restricted: %b %s\r\n", restricted,
+                    restricted ? "!!!" : ""));
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            boolean saving = ConnectionHelper.isDataSaving(context);
+            sb.append(String.format("Data saving: %b %s\r\n", saving,
+                    saving ? "!!!" : ""));
+        }
 
         try {
             int finish_activities = Settings.Global.getInt(resolver,
                     Settings.Global.ALWAYS_FINISH_ACTIVITIES, 0);
-            sb.append(String.format("Always finish: %d\r\n", finish_activities));
+            sb.append(String.format("Always finish: %d %s\r\n", finish_activities,
+                    finish_activities == 0 ? "" : "!!!"));
         } catch (Throwable ex) {
-            Log.w(ex);
+            sb.append(ex).append("\r\n");
         }
 
-        String charset = MimeUtility.getDefaultJavaCharset();
-        sb.append(String.format("Default charset: %s/%s\r\n", charset, MimeUtility.mimeCharset(charset)));
-
-        sb.append(String.format("Configuration: %s\r\n", config.toString()));
+        sb.append("\r\n");
+        sb.append(String.format("Configuration: %s\r\n", config));
 
         sb.append("\r\n");
         for (Provider p : Security.getProviders())
@@ -1876,7 +1990,7 @@ public class Log {
                             .append('=').append(granted).append("\r\n");
                 }
         } catch (Throwable ex) {
-            sb.append(ex.toString()).append("\r\n");
+            sb.append(ex).append("\r\n");
         }
 
         sb.append("\r\n");
@@ -1893,7 +2007,7 @@ public class Log {
                             Helper.humanReadableByteCount(info.getRss() * 1024L),
                             info.getReason(), info.getStatus(), info.getReason()));
             } catch (Throwable ex) {
-                Log.e(ex);
+                sb.append(ex).append("\r\n");
             }
             sb.append("\r\n");
         }
@@ -1905,13 +2019,8 @@ public class Log {
                     sb.append(key).append('=').append(stats.get(key)).append("\r\n");
                 sb.append("\r\n");
             } catch (Throwable ex) {
-                sb.append(ex.toString()).append("\r\n");
+                sb.append(ex).append("\r\n");
             }
-
-        sb.append(String.format("Installed: %s\r\n", new Date(Helper.getInstallTime(context))));
-        sb.append(String.format("Now: %s\r\n", new Date()));
-
-        sb.append("\r\n");
 
         return sb;
     }
@@ -1971,14 +2080,17 @@ public class Log {
             boolean auto_optimize = prefs.getBoolean("auto_optimize", false);
             boolean schedule = prefs.getBoolean("schedule", false);
 
-            size += write(os, "accounts=" + accounts.size() +
-                    " enabled=" + enabled +
+            size += write(os, "enabled=" + enabled +
                     " interval=" + pollInterval + "\r\n" +
-                    " metered=" + metered +
+                    "metered=" + metered +
                     " VPN=" + ConnectionHelper.vpnActive(context) +
                     " NetGuard=" + Helper.isInstalled(context, "eu.faircode.netguard") + "\r\n" +
-                    " optimizing=" + (ignoring == null ? null : !ignoring) +
-                    " auto_optimize=" + auto_optimize +
+                    "optimizing=" + (ignoring == null ? null : !ignoring) +
+                    " auto_optimize=" + auto_optimize + "\r\n" +
+                    "accounts=" + accounts.size() +
+                    " folders=" + db.folder().countTotal() +
+                    " messages=" + db.message().countTotal() +
+                    " rules=" + db.rule().countTotal() +
                     "\r\n\r\n");
 
             if (schedule) {
@@ -2162,13 +2274,14 @@ public class Log {
                 size += write(os, ex.getMessage() + "\r\n");
             }
 
-            size += write(os, "VPN active=" + ConnectionHelper.vpnActive(context) + "\r\n\r\n");
-
             ConnectionHelper.NetworkState state = ConnectionHelper.getNetworkState(context);
             size += write(os, "Connected=" + state.isConnected() + "\r\n");
             size += write(os, "Suitable=" + state.isSuitable() + "\r\n");
             size += write(os, "Unmetered=" + state.isUnmetered() + "\r\n");
-            size += write(os, "Roaming=" + state.isRoaming() + "\r\n");
+            size += write(os, "Roaming=" + state.isRoaming() + "\r\n\r\n");
+
+            size += write(os, "VPN active=" + ConnectionHelper.vpnActive(context) + "\r\n");
+            size += write(os, "Data saving=" + ConnectionHelper.isDataSaving(context) + "\r\n");
             size += write(os, "Airplane=" + ConnectionHelper.airplaneMode(context) + "\r\n");
         }
 
@@ -2423,5 +2536,18 @@ public class Log {
 
     static InternetAddress myAddress() throws UnsupportedEncodingException {
         return new InternetAddress("marcel+fairemail@faircode.eu", "FairCode", StandardCharsets.UTF_8.name());
+    }
+
+    static StringBuilder getSpans(CharSequence text) {
+        StringBuilder sb = new StringBuilder();
+        TextUtils.dumpSpans(text, new Printer() {
+            @Override
+            public void println(String x) {
+                if (sb.length() > 0)
+                    sb.append(' ');
+                sb.append(x.replace('\n', '|')).append(']');
+            }
+        }, "[");
+        return sb;
     }
 }

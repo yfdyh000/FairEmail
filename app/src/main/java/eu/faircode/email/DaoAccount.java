@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import androidx.lifecycle.LiveData;
@@ -150,8 +150,8 @@ public interface DaoAccount {
 
     @Query("SELECT * FROM account" +
             " WHERE user = :user" +
-            " AND auth_type = :auth_type")
-    List<EntityAccount> getAccounts(String user, int auth_type);
+            " AND auth_type IN (:auth_type)")
+    List<EntityAccount> getAccounts(String user, int[] auth_type);
 
     @Query("SELECT * FROM account WHERE `primary`")
     EntityAccount getPrimaryAccount();
@@ -204,8 +204,11 @@ public interface DaoAccount {
     @Query("UPDATE account SET name = :name WHERE id = :id AND NOT (name IS :name)")
     int setAccountName(long id, String name);
 
-    @Query("UPDATE account SET password = :password WHERE id = :id AND NOT (password IS :password)")
-    int setAccountPassword(long id, String password);
+    @Query("UPDATE account" +
+            " SET password = :password, auth_type = :auth_type" +
+            " WHERE id = :id" +
+            " AND NOT (password IS :password AND auth_type = :auth_type)")
+    int setAccountPassword(long id, String password, int auth_type);
 
     @Query("UPDATE account SET last_connected = :last_connected WHERE id = :id AND NOT (last_connected IS :last_connected)")
     int setAccountConnected(long id, Long last_connected);

@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
@@ -213,11 +213,21 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         Configuration config = getResources().getConfiguration();
         boolean portrait2 = prefs.getBoolean("portrait2", false);
         boolean portrait2c = prefs.getBoolean("portrait2c", false);
+        int portrait_min_size = prefs.getInt("portrait_min_size", 0);
         boolean landscape = prefs.getBoolean("landscape", true);
-        Log.i("Orientation=" + config.orientation +
-                " portrait rows=" + portrait2 + " cols=" + portrait2c + " landscape cols=" + landscape);
+        int landscape_min_size = prefs.getInt("landscape_min_size", 0);
+        int layout = (config.screenLayout & Configuration.SCREENLAYOUT_SIZE_MASK);
+        Log.i("Orientation=" + config.orientation + " layout=" + layout +
+                " portrait rows=" + portrait2 + " cols=" + portrait2c + " min=" + portrait_min_size +
+                " landscape cols=" + landscape + " min=" + landscape);
 
-        if (config.orientation == ORIENTATION_PORTRAIT && portrait2c)
+        // 1=small, 2=normal, 3=large, 4=xlarge
+        if (layout > 0)
+            layout--;
+
+        if (layout < (config.orientation == ORIENTATION_PORTRAIT ? portrait_min_size : landscape_min_size))
+            layoutId = R.layout.activity_view_portrait;
+        else if (config.orientation == ORIENTATION_PORTRAIT && portrait2c)
             layoutId = R.layout.activity_view_landscape_split;
         else if (config.orientation == ORIENTATION_PORTRAIT || !landscape)
             layoutId = (portrait2 ? R.layout.activity_view_portrait_split : R.layout.activity_view_portrait);
@@ -543,7 +553,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             @Override
             public void getItemOffsets(Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
                 int pos = parent.getChildAdapterPosition(view);
-                NavMenuItem menu = adapterNavMenuExtra.get(pos);
+                NavMenuItem menu = (adapterNavMenuExtra == null ? null : adapterNavMenuExtra.get(pos));
                 outRect.set(0, 0, 0, menu != null && menu.isSeparated() ? d.getIntrinsicHeight() : 0);
             }
         };
@@ -1022,15 +1032,8 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         if (nav_pinned)
             return getDrawerWidthPinned();
         else {
+            int actionBarHeight = Helper.getActionBarHeight(this);
             DisplayMetrics dm = getResources().getDisplayMetrics();
-
-            int actionBarHeight;
-            TypedValue tv = new TypedValue();
-            if (getTheme().resolveAttribute(android.R.attr.actionBarSize, tv, true))
-                actionBarHeight = TypedValue.complexToDimensionPixelSize(tv.data, dm);
-            else
-                actionBarHeight = Helper.dp2pixels(this, 56);
-
             int screenWidth = Math.min(dm.widthPixels, dm.heightPixels);
             // Screen width 320 - action bar 56 = 264 dp
             // Icons 6 x (24 width + 2x6 padding) = 216 dp
@@ -1100,10 +1103,11 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             drawerToggle.setDrawerIndicatorEnabled(count == 1);
 
             if (content_pane != null) {
-                boolean duo = Helper.isSurfaceDuo();
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+                boolean close_pane = prefs.getBoolean("close_pane", !Helper.isSurfaceDuo());
                 boolean thread = "thread".equals(getSupportFragmentManager().getBackStackEntryAt(count - 1).getName());
                 Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.content_pane);
-                int visibility = (!thread || fragment == null ? (duo ? View.INVISIBLE : View.GONE) : View.VISIBLE);
+                int visibility = (!thread || fragment == null ? (close_pane ? View.GONE : View.INVISIBLE) : View.VISIBLE);
                 content_separator.setVisibility(visibility);
                 content_pane.setVisibility(visibility);
             }
@@ -1137,7 +1141,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             undo(undo_timeout, title, args, move, show);
     }
 
-    public void undo(long undo_timeout, String title, final Bundle args, final SimpleTask move, final SimpleTask show) {
+    private void undo(long undo_timeout, String title, final Bundle args, final SimpleTask move, final SimpleTask show) {
         if (drawerLayout == null || drawerLayout.getChildCount() == 0) {
             Log.e("Undo: drawer missing");
             if (show != null)
@@ -1166,7 +1170,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             @Override
             public void onClick(View v) {
                 Log.i("Undo cancel");
-                getMainHandler().removeCallbacks(timeout);
+                content.removeCallbacks(timeout);
                 snackbar.dismiss();
                 if (show != null)
                     show.execute(ActivityView.this, args, "undo:show");
@@ -1174,27 +1178,24 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         });
 
         snackbar.addCallback(new Snackbar.Callback() {
-            private int margin;
-
             @Override
             public void onShown(Snackbar sb) {
                 ViewGroup.MarginLayoutParams lparam = (ViewGroup.MarginLayoutParams) content.getLayoutParams();
-                margin = lparam.bottomMargin;
-                lparam.bottomMargin += snackbar.getView().getHeight();
+                lparam.bottomMargin = snackbar.getView().getHeight();
                 content.setLayoutParams(lparam);
             }
 
             @Override
             public void onDismissed(Snackbar transientBottomBar, int event) {
                 ViewGroup.MarginLayoutParams lparam = (ViewGroup.MarginLayoutParams) content.getLayoutParams();
-                lparam.bottomMargin = margin;
+                lparam.bottomMargin = 0;
                 content.setLayoutParams(lparam);
             }
         });
 
         snackbar.show();
 
-        getMainHandler().postDelayed(timeout, undo_timeout);
+        content.postDelayed(timeout, undo_timeout);
     }
 
     private void checkFirst() {

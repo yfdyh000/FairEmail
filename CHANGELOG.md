@@ -2,9 +2,179 @@
 
 &#x1F30E; [Google Translate](https://translate.google.com/translate?sl=en&u=https://github.com/M66B/FairEmail/blob/master/CHANGELOG.md)
 
+### [Epidexipteryx](https://en.wikipedia.org/wiki/Epidexipteryx)
+
+### 1.1815 - 2022-01-19
+
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1814 - 2022-01-18
+
+* Added support for sensivity indicator (personal, private, confidential)
+* Added batch setting of message flags (protocol level)
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1813 - 2022-01-17
+
+* Fixed downloading attachments on demand
+* Small improvements and minor bug fixes
+
+### 1.1812 - 2022-01-17
+
+* Small improvements and minor bug fixes
+* Updated translations
+
+### [Draconyx](https://en.wikipedia.org/wiki/Draconyx)
+
+### 1.1811 - 2022-01-14
+
+* Fixed scroll issue
+
+### 1.1810 - 2022-01-14
+
+* Fixed searching for options when swiping
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1809 - 2022-01-14
+
+* Reply with selected text in style
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1808 - 2022-01-13
+
+* Added share images button above mini gallery
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1807 - 2022-01-11
+
+* Fixed delay when going to a settings page
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1806 - 2022-01-11
+
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1805 - 2022-01-10
+
+* Long screenshots (Android 12+)
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1804 - 2022-01-08
+
+* Added check for secure (TLS) transport (experimental)
+* Removed double confirm for permanently deleting messages
+* Allowing three tries for biometric authentication
+* Fixed RTL for sent messages
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1803 - 2022-01-06
+
+* Added rule action to play (alarm) sound (experimental)
+* Small improvements and minor bug fixes
+* Updated build tools and libraries
+* Updated translations
+
+### 1.1802 - 2022-01-03
+
+* Improved original message view scrolling
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1801 - 2021-12-30
+
+* Added rule action to permanently delete messages
+* Using IMAP flags to store low/high importance
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1800 - 2021-12-27
+
+* Fixed crash when manually configuring an account
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1799 - 2021-12-27
+
+* Fixed removing inline images on replying/forwarding
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1798 - 2021-12-27
+
+* Play store only release
+* Fixed removing inline images on replying/forwarding
+* Changes: [see here](https://github.com/M66B/FairEmail/compare/1.1796...1.1798?w=1)
+
+### 1.1797 - 2021-12-27
+
+* Added Outlook Tenant ID field
+* Added option for numbered reply prefix
+* Added conversion of OAuth to password authentication
+* Improved handling of delivery/read receipts
+* Small improvements and minor bug fixes
+* Updated translations
+
 ### [Caudipteryx](https://en.wikipedia.org/wiki/Caudipteryx)
 
-### Next version
+### 1.1796 - 2021-12-23
+
+* Fixed incorrect background colors
+* Small improvements and minor bug fixes
+
+### 1.1795 - 2021-12-23
+
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1794 - 2021-12-22
+
+* Added logarithmic PIN failure delay of 3 seconds
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1793 - 2021-12-20
+
+* Fixed crash related to resending
+* Added compact mode for accounts on start screen
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1792 - 2021-12-18
+
+* Fixed always resending (2)
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1791 - 2021-12-18
+
+* Fixed always resending
+* Added receive option to group on sender/subject
+* Small improvements and minor bug fixes
+* Updated translations
+
+### 1.1790 - 2021-12-16
+
+* Small improvements and minor bug fixes
+* Updated AndroidX
+* Updated translations
+
+### 1.1789 - 2021-12-14
+
+* Added support for foldable devices
+* Small improvements and minor bug fixes
+* Updated build tools
+* Updated translations
+
+### 1.1788 - 2021-12-13
 
 * Added experimental resend support (RFC2822 section 3.6.6)
 * Small improvements and minor bug fixes

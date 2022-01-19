@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import androidx.lifecycle.LiveData;
@@ -30,15 +30,18 @@ import java.util.List;
 @Dao
 public interface DaoOperation {
     String priority = "CASE" +
-            " WHEN operation.name = '" + EntityOperation.BODY + "' THEN -4" +
-            " WHEN operation.name = '" + EntityOperation.ATTACHMENT + "' THEN -3" +
-            " WHEN operation.name = '" + EntityOperation.HEADERS + "' THEN -2" +
-            " WHEN operation.name = '" + EntityOperation.RAW + "' THEN -2" +
-            " WHEN operation.name = '" + EntityOperation.SYNC + "' AND folder.account IS NULL THEN -1" + // Outbox
+            " WHEN operation.name = '" + EntityOperation.BODY + "' THEN -5" +
+            " WHEN operation.name = '" + EntityOperation.ATTACHMENT + "' THEN -4" +
+            " WHEN operation.name = '" + EntityOperation.HEADERS + "' THEN -3" +
+            " WHEN operation.name = '" + EntityOperation.RAW + "' THEN -3" +
+            " WHEN operation.name = '" + EntityOperation.SYNC + "' AND folder.account IS NULL THEN -2" + // Outbox
+            " WHEN operation.name = '" + EntityOperation.ADD + "' THEN -1" +
+            " WHEN operation.name = '" + EntityOperation.DELETE + "' THEN -1" +
+            // Other operations: seen, answered, flag, keyword, label, subscribe, send, rule
             " WHEN operation.name = '" + EntityOperation.SYNC + "' AND folder.account IS NOT NULL THEN 1" +
-            // Other operations: add, delete, seen, answered, flag, keyword, label, subscribe, send
             " WHEN operation.name = '" + EntityOperation.FETCH + "' THEN 2" +
             " WHEN operation.name = '" + EntityOperation.EXISTS + "' THEN 3" +
+            " WHEN operation.name = '" + EntityOperation.REPORT + "' THEN 3" +
             " WHEN operation.name = '" + EntityOperation.COPY + "' THEN 4" +
             " WHEN operation.name = '" + EntityOperation.MOVE + "' THEN 5" +
             " WHEN operation.name = '" + EntityOperation.PURGE + "' THEN 6" +

@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import static eu.faircode.email.GmailState.TYPE_GOOGLE;
@@ -136,7 +136,8 @@ public class ServiceAuthenticator extends Authenticator {
             Log.e(ex);
         }
 
-        if (expiration != null && expiration - keep_alive < new Date().getTime())
+        long slack = Math.min(keep_alive, 30 * 60 * 1000L);
+        if (expiration != null && expiration - slack < new Date().getTime())
             throw new IllegalStateException(Log.TOKEN_REFRESH_REQUIRED);
     }
 

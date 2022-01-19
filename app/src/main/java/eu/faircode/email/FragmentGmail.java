@@ -16,13 +16,14 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import static android.accounts.AccountManager.newChooseAccountIntent;
 import static android.app.Activity.RESULT_OK;
 import static eu.faircode.email.GmailState.TYPE_GOOGLE;
 import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_GMAIL;
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
 
 import android.Manifest;
 import android.accounts.Account;
@@ -172,10 +173,8 @@ public class FragmentGmail extends FragmentBase {
                             null,
                             null);
                     PackageManager pm = getContext().getPackageManager();
-                    if (intent.resolveActivity(pm) == null) { // system whitelisted
+                    if (intent.resolveActivity(pm) == null) // system whitelisted
                         Log.e("newChooseAccountIntent unavailable");
-                        Helper.reportNoViewer(getContext(), intent);
-                    }
                     startActivityForResult(intent, ActivitySetup.REQUEST_CHOOSE_ACCOUNT);
                 } catch (Throwable ex) {
                     if (ex instanceof IllegalArgumentException)
@@ -459,7 +458,7 @@ public class FragmentGmail extends FragmentBase {
 
                     if (args.getBoolean("update")) {
                         List<EntityAccount> accounts =
-                                db.account().getAccounts(user, AUTH_TYPE_GMAIL);
+                                db.account().getAccounts(user, new int[]{AUTH_TYPE_GMAIL, AUTH_TYPE_PASSWORD});
                         if (accounts != null && accounts.size() == 1)
                             update = accounts.get(0);
                     }
@@ -536,8 +535,8 @@ public class FragmentGmail extends FragmentBase {
                         args.putLong("account", update.id);
                         EntityLog.log(context, "Gmail update account=" + update.name);
                         db.account().setAccountSynchronize(update.id, true);
-                        db.account().setAccountPassword(update.id, password);
-                        db.identity().setIdentityPassword(update.id, update.user, password, update.auth_type);
+                        db.account().setAccountPassword(update.id, password, AUTH_TYPE_GMAIL);
+                        db.identity().setIdentityPassword(update.id, update.user, password, update.auth_type, AUTH_TYPE_GMAIL);
                     }
 
                     db.setTransactionSuccessful();

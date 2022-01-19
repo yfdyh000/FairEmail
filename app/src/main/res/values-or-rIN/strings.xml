@@ -32,6 +32,9 @@
     </plurals>
     <string name="title_junk_hint">ସ୍ପାମ୍ ଫିଲ୍ଟର୍ କରିବା ପାଇଁ ଆପଣଙ୍କ ଇମେଲ୍ ପ୍ରଦାନକାରୀ ଦାୟୀ। ଏକ ଇମେଲ୍ ଆପ୍ ଏହା ବିଶ୍ୱସନୀୟ ଭାବରେ କରିବା ପାଇଁ ଆବଶ୍ୟକ ସମସ୍ତ ତଥ୍ୟ ନାହିଁ।</string>
     <string name="title_block_sender_domain">\'%1$s\' ଡୋମେନଟିକୁ ଅବରୋଧ କରନ୍ତୁ</string>
+    <string name="title_block_sender_hint">        ପ୍ରେରକକୁ ଅବରୋଧ କରିବା ଏକ ମାଗଣା ବୈଶିଷ୍ଟ୍ୟ।
+        ଗୋଟେ ପ୍ରେରକ ଡୋମେନ୍ ଅବରୋଧ କରିବାରେ ଫିଲ୍ଟର୍ ନିୟମ ବ୍ୟବହାର ହୁଏ, ଯାହା ଏକ ପ୍ରୋ ବୈଶିଷ୍ଟ୍ୟ ଅଟେ।
+    </string>
     <string name="title_junk_clear">ଖାଲି କରନ୍ତୁ</string>
     <string name="title_notification_idle">ନିଷ୍କ୍ରିୟ</string>
     <string name="title_notification_failed">\'%1$s\' ବିଫଳ ହେଲା</string>
@@ -88,6 +91,7 @@
     <string name="title_setup_alarm_12">ଆପ୍ କାମ କରିବ ନାହିଁ</string>
     <string name="title_setup_data">ଡାଟା ସେଭର୍ ସକ୍ଷମ ହୋଇଅଛି</string>
     <string name="title_setup_advanced_options">ବିକଶିତ ବିକଳ୍ପଗୁଡ଼ିକ ଦେଖାନ୍ତୁ</string>
+    <string name="title_setup_inbox">ଇନବକ୍ସ କୁ ଯାଆନ୍ତୁ</string>
     <string name="title_setup_error">ତ୍ରୁଟି</string>
     <string name="title_setup_configuring">ଆକାଉଣ୍ଟ୍ ବିନ୍ୟାସ କରୁଅଛି &#8230;</string>
     <string name="title_setup_app_password">ଆପଣଙ୍କୁ ଏକ ଆପ୍ ପାସ୍‍ୱାର୍ଡ଼ ବ୍ୟବହାର କରିବାକୁ ପଡ଼ିପାରେ</string>
@@ -152,14 +156,18 @@
     <string name="title_advanced_optimize">ସ୍ୱତଃସ୍ପୃତ ଭାବେ ଅପ୍ଟିମାଇଜ୍ କରନ୍ତୁ</string>
     <string name="title_advanced_advanced">ବିକଶିତ</string>
     <string name="title_advanced_quick_sync">ଦ୍ରୁତ ସିଙ୍କ୍</string>
+    <string name="title_advanced_subject_threading">ପ୍ରେରକ ଏବଂ ବିଷୟ ଅନୁଯାୟୀ ବାର୍ତ୍ତାଗୁଡ଼ିକର ଗୋଷ୍ଠୀ ପ୍ରସ୍ତୁତ କରନ୍ତୁ</string>
     <string name="title_advanced_sync_folders_poll">ଫୋଲ୍ଡର୍ ତାଲିକା ସକ୍ରିୟ ଭାବରେ ସିଙ୍କ୍ରୋନାଇଜ୍ କରିବା</string>
     <string name="title_advanced_keyboard_no_fullscreen">ପୂର୍ଣ୍ଣସ୍କ୍ରିନ୍ କୀବୋର୍ଡ୍ ପ୍ରତିରୋଧ କରନ୍ତୁ</string>
     <string name="title_advanced_compose_font">ଡିଫଲ୍ଟ ଫଣ୍ଟ</string>
+    <string name="title_advanced_prefix_count">ପ୍ରତ୍ୟୁତ୍ତର ଉପସର୍ଗ ରେ ଗଣନା ଯୋଡ଼ନ୍ତୁ</string>
     <string name="title_advanced_caption_general">ସାଧାରଣ</string>
     <string name="title_advanced_caption_conversation">ବାର୍ତ୍ତାଳାପ</string>
     <string name="title_advanced_caption_message">ବାର୍ତ୍ତା</string>
     <string name="title_advanced_portrait">ପୋଟ୍ରେଟ୍ ମୋଡ୍</string>
     <string name="title_advanced_landscape">ଲ୍ୟାଣ୍ଡସ୍କେପ୍ ମୋଡ୍</string>
+    <string name="title_advanced_min_screen_size">ସ୍କ୍ରିନ୍ ବିଭାଜନ ପାଇଁ ସର୍ବନିମ୍ନ ସ୍କ୍ରିନ୍ ଆକାର</string>
+    <string name="title_advanced_close_pane">ବାର୍ତ୍ତାଳାପ ବନ୍ଦ କରିବା ସମୟରେ ଧାଡ଼ି କିମ୍ବା ସ୍ତମ୍ଭକୁ ସଙ୍କୋଚନ କରନ୍ତୁ</string>
     <string name="title_advanced_startup">ଷ୍ଟାର୍ଟ ସ୍କ୍ରିନରେ ଦେଖାନ୍ତୁ</string>
     <string name="title_advanced_cards_shadow_highlight">ଆକ୍ସେଣ୍ଟ ରଙ୍ଗ ବଦଳରେ ହାଇଲାଇଟ୍ ରଙ୍ଗ ବ୍ୟବହାର କରିବା</string>
     <string name="title_advanced_color_stripe_wide">ପ୍ରଶସ୍ତ ରଙ୍ଗ ଷ୍ଟ୍ରାଇପ୍ ବ୍ୟବହାର କରନ୍ତୁ</string>
@@ -211,6 +219,7 @@
     <string name="title_advanced_app">ଆପ୍ ସେଟିଂସ୍</string>
     <string name="title_advanced_more">ଅଧିକ ବିକଳ୍ପ</string>
     <string name="title_advanced_poll_battery">ଏହା ଅଧିକ ବ୍ୟାଟେରୀ ବ୍ୟବହାର ର କାରଣ ହୋଇପାରେ!</string>
+    <string name="title_advanced_subject_threading_hint">କେବଳ %1$d ଘଣ୍ଟା ମଧ୍ୟରେ ପ୍ରାପ୍ତ ହୋଇଥିବା ବାର୍ତ୍ତାଗୁଡ଼ିକ</string>
     <string name="title_advanced_remove_signature_hint">ଏହା ଫଳରେ ବହୁତ କମ୍ କିମ୍ୱା ଅତ୍ୟଧିକ ପାଠ୍ୟ ଅପସାରଣ ହୋଇପାରେ</string>
     <string name="title_advanced_highlight_hint">ଥିମର ଆକ୍ସେଣ୍ଟ ରଙ୍ଗ ହାଇଲାଇଟ୍ କରିବା ପାଇଁ ବ୍ୟବହୃତ ହେବ</string>
     <string name="title_advanced_override_width_hint">ଏହା ବାର୍ତ୍ତାଗୁଡ଼ିକୁ ସଂକୀର୍ଣ୍ଣ କରିପାରେ, କିନ୍ତୁ ଅଦ୍ଭୁତ ଦେଖାଯାଏ</string>
@@ -220,6 +229,7 @@
     <string name="title_advanced_edit_name">ନାମ ସମ୍ପାଦନା</string>
     <string name="title_identity_name">ଆପଣଙ୍କର ନାମ</string>
     <string name="title_identity_email">ଆପଣଙ୍କ ଇମେଲ୍ ଠିକଣା</string>
+    <string name="title_identity_tenant_hint">ଅଧିକାଂଶ ସ୍ଥିତିରେ ଏହି କ୍ଷେତ୍ର ଖାଲି ରହିବା ଉଚିତ୍</string>
     <string name="title_identity_unicode_remark">ଅଧିକାଂଶ ସର୍ଭର ଏହାକୁ ସମର୍ଥନ କରନ୍ତି ନାହିଁ</string>
     <string name="title_identity_max_size">ସର୍ବାଧିକ ବାର୍ତ୍ତା ଆକାର (MB)</string>
     <string name="title_identity_receipt">ଡିଫଲ୍ଟ ଭାବେ ବିତରଣ/ପଠନ ରସିଦ ଅନୁରୋଧ କରନ୍ତୁ</string>
@@ -259,9 +269,12 @@
     <string name="title_no_user">ଉପଭୋକ୍ତା ନାମ ନିଖୋଜ</string>
     <string name="title_no_password">ପାସ୍‍ୱାର୍ଡ଼ ନିଖୋଜ</string>
     <string name="title_no_inbox">ଇନବକ୍ସ ମିଳିଲା ନାହିଁ</string>
+    <string name="title_account_auth_update">ପ୍ରାଧିକରଣ ଅଦ୍ୟତନ କରିବା</string>
+    <string name="title_account_auth_password">ପାସ୍‍ୱାର୍ଡ଼ ପ୍ରାମାଣିକିକରଣକୁ ସୁଇଚ୍ କରନ୍ତୁ</string>
     <string name="title_edit_html">HTML ଭାବରେ ସମ୍ପାଦନ କରନ୍ତୁ</string>
     <string name="title_storage_quota">ସର୍ଭର୍ ଷ୍ଟୋରେଜ୍ ବ୍ୟବହାର: %1$s/%2$s</string>
     <string name="title_review">ସମୀକ୍ଷା କର</string>
+    <string name="title_service_token">ଆଣ୍ଡ୍ରଏଡ୍ ଆକାଉଣ୍ଟ୍ ମ୍ୟାନେଜର୍ ଏକ VPN, ଫାୟାରୱାଲ୍, ବିଜ୍ଞାପନ ଅବରୋଧକ ଇତ୍ୟାଦି ଦ୍ୱାରା ଅବରୋଧ ହୋଇପାରେ, ଯାହା ଏହାକୁ ଏକ ଆକସେସ୍ ଟୋକନ୍ ପ୍ରାପ୍ତ କରିବାରୁ ପ୍ରତିରୋଧ କରିପାରେ</string>
     <string name="title_synchronize_now">ବର୍ତ୍ତମାନ ସିଙ୍କ୍ରୋନାଇଜ୍ କରନ୍ତୁ</string>
     <string name="title_synchronize_enabled">ସିଙ୍କ୍ରୋନାଇଜ୍</string>
     <string name="title_synchronize_batch_enable">ସିଙ୍କ୍ରୋନାଇଜେସନ୍ ସକ୍ଷମ କରନ୍ତୁ</string>
@@ -281,6 +294,8 @@
     <string name="title_hide_folder">ଫୋଲ୍ଡର୍ ଲୁଚାନ୍ତୁ</string>
     <string name="title_months">ମାସ</string>
     <string name="title_months_all">ସମସ୍ତ</string>
+    <string name="title_folder_inbox">ଇନବକ୍ସ</string>
+    <string name="title_folder_outbox">ଆଉଟବକ୍ସ</string>
     <string name="title_folder_trash">ଆବର୍ଜନା ପାତ୍ର</string>
     <string name="title_folder_system">ସିଷ୍ଟମ୍</string>
     <string name="title_filters_active">ଗୋଟିଏ କିମ୍ବା ଅଧିକ ଶୋଧକ ସକ୍ରିୟ</string>
@@ -288,16 +303,19 @@
     <string name="title_hide">ଲୁଚାଅ</string>
     <string name="title_unhide">ଦେଖାଅ</string>
     <string name="title_search_in_text">ପାଠ୍ୟରେ ଖୋଜନ୍ତୁ &#8230;</string>
+    <string name="title_resend">ପୁନଃପ୍ରେରଣ</string>
+    <string name="title_fetching_headers">ବାର୍ତ୍ତାର ଶୀର୍ଷଲେଖଗୁଡ଼ିକ ଡାଉନଲୋଡ୍ କରୁଛି &#8230;</string>
     <string name="title_force_light">ହାଲୁକା ଥିମ୍ ବାଧ୍ୟ କରନ୍ତୁ</string>
     <string name="title_raw_send_message">ବାର୍ତ୍ତା</string>
     <string name="title_raw_send_thread">ବାର୍ତ୍ତାଳାପ</string>
     <string name="title_trash">ଆବର୍ଜନା ପାତ୍ର</string>
     <string name="title_delete">ବିଲୋପ</string>
+    <string name="title_delete_all">ସମସ୍ତ ବିଲୋପ କରନ୍ତୁ</string>
     <string name="title_more">ଅଧିକ</string>
     <string name="title_less">କମ୍</string>
     <string name="title_move">ଘୁଞ୍ଚାନ୍ତୁ</string>
     <string name="title_copy_btn">କପି କରନ୍ତୁ</string>
-    <string name="title_no_undo">ମୁଁ ବୁଝିପାରୁଛି ଏହାକୁ ପୂର୍ବବତ୍ କରାଯାଇପାରିବ ନାହିଁ</string>
+    <string name="title_delete_permanently">ସବୁଦିନ ପାଇଁ ବିଲୋପ କରନ୍ତୁ</string>
     <string name="title_reply">ପ୍ରତ୍ୟୁତ୍ତର</string>
     <string name="title_reply_to_sender">ପ୍ରେରକଙ୍କୁ ପ୍ରତ୍ୟୁତ୍ତର ଦିଅ</string>
     <string name="title_reply_to_all">ସମସ୍ତଙ୍କୁ ପ୍ରତ୍ୟୁତ୍ତର ଦିଅ</string>
@@ -328,8 +346,12 @@
     <string name="title_send">ପଠାନ୍ତୁ</string>
     <string name="title_send_encryption">ଏନକ୍ରିପ୍ସନ୍</string>
     <string name="title_send_priority">ପ୍ରାଥମିକତା</string>
+    <string name="title_send_sensitivity">ସମ୍ବେଦନଶୀଳତା</string>
     <string name="title_style">ଶୈଳୀ</string>
     <string name="title_style_size">ଆକାର</string>
+    <string name="title_style_size_small">ଛୋଟ</string>
+    <string name="title_style_size_medium">ମଧ୍ୟମ</string>
+    <string name="title_style_size_large">ବଡ଼</string>
     <string name="title_style_align_start">ଆରମ୍ଭ</string>
     <string name="title_style_align_center">କେନ୍ଦ୍ର</string>
     <string name="title_style_align_end">ଶେଷ</string>
@@ -379,6 +401,7 @@
     <string name="title_sort_on_size">ଆକାର</string>
     <string name="title_sort_on_attachments">ସଂଲଗ୍ନକରଣ</string>
     <string name="title_filter_seen">ପଠିତ</string>
+    <string name="title_filter_deleted">ବିଲୋପିତ</string>
     <string name="title_filter_trash">ଆବର୍ଜନାରେ</string>
     <string name="title_zoom">ପାଠ୍ୟ ଆକାର</string>
     <string name="title_padding">ପ୍ୟାଡିଂ ଆକାର</string>
@@ -393,6 +416,7 @@
     <string name="title_answer_reply">ପ୍ରତ୍ୟୁତ୍ତର ଟେମ୍ପଲେଟ୍</string>
     <string name="title_answer_name">ଟେମ୍ପଲେଟ୍ ନାମ</string>
     <string name="title_answer_standard">ଡିଫଲ୍ଟ</string>
+    <string name="title_answer_favorite">ପସନ୍ଦିତା</string>
     <string name="title_answer_receipt">ପଠନ ରସିଦ ଭାବରେ ବ୍ୟବହାର କରନ୍ତୁ</string>
     <string name="title_answer_placeholder_name">ପ୍ରେରକଙ୍କ ସମ୍ପୂର୍ଣ୍ଣ ନାମ</string>
     <string name="title_answer_placeholder_email">ପ୍ରେରକଙ୍କ ଇମେଲ୍ ଠିକଣା</string>
@@ -401,6 +425,8 @@
     <string name="title_rule_hide">ଲୁଚାଅ</string>
     <string name="title_rule_snooze">ସ୍ନୁଜ୍</string>
     <string name="title_rule_move">ଘୁଞ୍ଚାନ୍ତୁ</string>
+    <string name="title_rule_delete">ସବୁଦିନ ପାଇଁ ବିଲୋପ କରନ୍ତୁ</string>
+    <string name="title_rule_sound">ଧ୍ୱନି ବଜାନ୍ତୁ</string>
     <string name="title_rule_enabled">ସକ୍ଷମ ହୋଇଛି</string>
     <string name="title_rule_body">ପାଠ୍ୟ ଧାରଣ କରେ</string>
     <string name="title_rule_body_remark">ଏହି ସର୍ତ୍ତ ବ୍ୟବହାର କରିବା ଦ୍ୱାରା ସର୍ବଦା ବାର୍ତ୍ତାର ପାଠ୍ୟ ଡାଉନଲୋଡ୍ ହେବ, ଯାହା ବାର୍ତ୍ତା ତାଲିକାର ସିଙ୍କ୍ରୋନାଇଜେସନ୍ ମନ୍ଥର କରିପାରେ</string>
@@ -408,17 +434,22 @@
     <string name="title_rule_identity">ପରିଚୟ</string>
     <string name="title_rule_template">ପ୍ରତ୍ୟୁତ୍ତର ଟେମ୍ପଲେଟ୍</string>
     <string name="title_rule_identity_missing">ପରିଚୟ ନିଖୋଜ</string>
+    <string name="title_rule_delete_hint">ସବୁଦିନ ପାଇଁ ବିଲୋପ କରିବା ଅପରିବର୍ତ୍ତନୀୟ ଅଟେ, ତେଣୁ ନିଶ୍ଚିତ କରନ୍ତୁ ଯେ ନିୟମ ସର୍ତ୍ତ ସବୁ ଠିକ୍ ଅଛି!</string>
     <string name="title_rule_check">ଯାଞ୍ଚ କର</string>
     <string name="title_rule_no_body">ବାର୍ତ୍ତାର ପାଠ୍ୟ ଉପଲବ୍ଧ ନାହିଁ</string>
     <string name="title_rule_tts_from">ପ୍ରେରକ</string>
     <string name="title_rule_tts_subject">ବିଷୟ</string>
     <string name="title_rule_tts_content">ପାଠ୍ୟ</string>
+    <string name="title_rule_select_sound">ଧ୍ୱନି ବାଛନ୍ତୁ</string>
+    <string name="title_rule_use_as_alarm">ଆଲାର୍ମ ଭାବେ ବ୍ୟବହାର କରିବା</string>
     <string name="title_legend_section_synchronize">ସିଙ୍କ୍ରୋନାଇଜ୍</string>
     <string name="title_legend_section_folders">ଫୋଲ୍ଡରଗୁଡ଼ିକ</string>
     <string name="title_legend_section_messages">ବାର୍ତ୍ତାଗୁଡ଼ିକ</string>
     <string name="title_legend_section_compose">ରଚନା କରନ୍ତୁ</string>
     <string name="title_legend_synchronize_on">ସିଙ୍କ୍ରୋନାଇଜ୍ ଚାଲୁ</string>
     <string name="title_legend_synchronize_off">ସିଙ୍କ୍ରୋନାଇଜ୍ ବନ୍ଦ</string>
+    <string name="title_legend_inbox">ଇନବକ୍ସ</string>
+    <string name="title_legend_outbox">ଆଉଟବକ୍ସ</string>
     <string name="title_legend_trash">ଆବର୍ଜନା ପାତ୍ର</string>
     <string name="title_legend_primary">ପ୍ରାଥମିକ</string>
     <string name="title_legend_thread">ବାର୍ତ୍ତାଳାପ</string>
@@ -482,13 +513,19 @@
         <item>Primary account folders</item>
         <item>ଆକାଉଣ୍ଟଗୁଡ଼ିକ</item>
     </string-array>
+    <string-array name="resizeNames">
+        <item>ଛୋଟ</item>
+        <item>ମଧ୍ୟମ</item>
+        <item>ବଡ଼</item>
+        <item>ଅତିରିକ୍ତ ବଡ଼</item>
+    </string-array>
     <!-- https://en.wikipedia.org/wiki/Display_resolution -->
     <!-- https://en.wikipedia.org/wiki/Comparison_of_high-definition_smartphone_displays -->
     <string-array name="fontSizeNames">
         <item>ଡିଫଲ୍ଟ</item>
-        <item>Small</item>
-        <item>Medium</item>
-        <item>Large</item>
+        <item>ଛୋଟ</item>
+        <item>ମଧ୍ୟମ</item>
+        <item>ବଡ଼</item>
     </string-array>
     <string-array name="receiptNames">
         <item>କେବଳ ପଠନ ରସିଦ</item>
@@ -518,4 +555,10 @@
     <!-- https://www.bouncycastle.org/specifications.html -->
     <!-- https://datatracker.ietf.org/doc/html/rfc5751#page-29 -->
     <!-- https://datatracker.ietf.org/doc/html/rfc5751#section-2.7 -->
+    <string-array name="minScreenSizes">
+        <item>ଛୋଟ</item>
+        <item>ମଧ୍ୟମ</item>
+        <item>ବଡ଼</item>
+        <item>ଅତିରିକ୍ତ ବଡ଼</item>
+    </string-array>
 </resources>

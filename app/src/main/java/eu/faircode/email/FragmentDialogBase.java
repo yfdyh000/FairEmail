@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import android.content.ActivityNotFoundException;
@@ -35,21 +35,17 @@ import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.LifecycleRegistry;
 
 import static android.app.Activity.RESULT_CANCELED;
+import static android.app.Activity.RESULT_OK;
 
 public class FragmentDialogBase extends DialogFragment {
-    private boolean once = false;
+    private boolean hasResult = false;
     private LifecycleOwner owner;
     private LifecycleRegistry registry;
-    private String requestKey = null;
     private String targetRequestKey;
     private int targetRequestCode;
 
-    private static int requestSequence = 0;
-
     public String getRequestKey() {
-        if (requestKey == null)
-            requestKey = getClass().getName() + "_" + (++requestSequence);
-        return requestKey;
+        return Helper.getRequestKey(this);
     }
 
     @Override
@@ -67,12 +63,14 @@ public class FragmentDialogBase extends DialogFragment {
         registry.setCurrentState(Lifecycle.State.CREATED);
 
         if (savedInstanceState != null) {
-            requestKey = savedInstanceState.getString("fair:request");
             targetRequestKey = savedInstanceState.getString("fair:key");
             targetRequestCode = savedInstanceState.getInt("fair:code");
         }
 
-        getParentFragmentManager().setFragmentResultListener(getRequestKey(), this, new FragmentResultListener() {
+        String requestKey = getRequestKey();
+        if (!BuildConfig.PLAY_STORE_RELEASE)
+            EntityLog.log(getContext(), "Listing key=" + requestKey);
+        getParentFragmentManager().setFragmentResultListener(requestKey, this, new FragmentResultListener() {
             @Override
             public void onFragmentResult(@NonNull String requestKey, @NonNull Bundle result) {
                 try {
@@ -84,7 +82,7 @@ public class FragmentDialogBase extends DialogFragment {
                     data.putExtra("args", result);
                     onActivityResult(requestCode, resultCode, data);
                 } catch (Throwable ex) {
-                    Log.w(ex);
+                    Log.e(ex);
                 }
             }
         });
@@ -94,7 +92,6 @@ public class FragmentDialogBase extends DialogFragment {
 
     @Override
     public void onSaveInstanceState(@NonNull Bundle outState) {
-        outState.putString("fair:request", requestKey);
         outState.putString("fair:key", targetRequestKey);
         outState.putInt("fair:code", targetRequestCode);
         super.onSaveInstanceState(outState);
@@ -182,14 +179,20 @@ public class FragmentDialogBase extends DialogFragment {
             Log.e("setTargetFragment=" + fragment.getClass().getName());
             throw new IllegalArgumentException();
         }
+
+        hasResult = false;
         targetRequestCode = requestCode;
-        Log.i("Set target " + this + " " + fragment + " request=" + requestCode);
     }
 
     protected void sendResult(int resultCode) {
-        if (!once) {
-            once = true;
-            Log.i("Dialog key=" + targetRequestKey + " result=" + resultCode);
+        EntityLog.log(getContext(), "Sending key=" + targetRequestKey +
+                " request=" + targetRequestCode +
+                " result=" + resultCode +
+                " has=" + hasResult);
+
+        if (!hasResult || resultCode == RESULT_OK) {
+            hasResult = true;
+
             if (targetRequestKey != null) {
                 Bundle args = getArguments();
                 if (args == null) // onDismiss
@@ -205,9 +208,8 @@ public class FragmentDialogBase extends DialogFragment {
     public void startActivity(Intent intent) {
         try {
             super.startActivity(intent);
-        } catch (ActivityNotFoundException ex) {
-            Log.w(ex);
-            Helper.reportNoViewer(getContext(), intent);
+        } catch (Throwable ex) {
+            Helper.reportNoViewer(getContext(), intent, ex);
         }
     }
 
@@ -215,9 +217,8 @@ public class FragmentDialogBase extends DialogFragment {
     public void startActivityForResult(Intent intent, int requestCode) {
         try {
             super.startActivityForResult(intent, requestCode);
-        } catch (ActivityNotFoundException ex) {
-            Log.w(ex);
-            Helper.reportNoViewer(getContext(), intent);
+        } catch (Throwable ex) {
+            Helper.reportNoViewer(getContext(), intent, ex);
         }
     }
 }

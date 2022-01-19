@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import android.Manifest;
@@ -201,7 +201,7 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
              */
         }
 
-        checkAuthentication();
+        checkAuthentication(true);
 
         super.onCreate(savedInstanceState);
     }
@@ -247,7 +247,7 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
             finish();
             startActivity(getIntent());
         } else
-            checkAuthentication();
+            checkAuthentication(true);
     }
 
     @Override
@@ -257,9 +257,7 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
 
         visible = false;
 
-        if (!this.getClass().equals(ActivityMain.class) &&
-                Helper.shouldAuthenticate(this, true))
-            finishAndRemoveTask();
+        checkAuthentication(false);
     }
 
     @Override
@@ -271,14 +269,7 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
     @Override
     public void onUserInteraction() {
         Log.d("User interaction");
-
-        if (!this.getClass().equals(ActivityMain.class) &&
-                Helper.shouldAuthenticate(this, false)) {
-            finishAndRemoveTask();
-            Intent main = new Intent(this, ActivityMain.class);
-            main.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(main);
-        }
+        checkAuthentication(true);
     }
 
     @Override
@@ -293,13 +284,9 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         if (pm != null && !pm.isInteractive()) {
             Log.i("Stop with screen off");
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-            boolean biometrics = prefs.getBoolean("biometrics", false);
-            String pin = prefs.getString("pin", null);
-            boolean autolock = prefs.getBoolean("autolock", true);
-            if (autolock && (biometrics || !TextUtils.isEmpty(pin))) {
+            if (Helper.shouldAutoLock(this)) {
                 Helper.clearAuthentication(this);
-                finish();
+                lock();
             }
         }
     }
@@ -379,18 +366,35 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
         super.onActivityResult(requestCode, resultCode, data);
     }
 
-    private void checkAuthentication() {
-        if (!this.getClass().equals(ActivityMain.class) &&
-                Helper.shouldAuthenticate(this, false)) {
-            Intent intent = getIntent();
-            finishAndRemoveTask();
-            finishAffinity();
-            processStreams(intent);
-            Intent main = new Intent(this, ActivityMain.class)
-                    .putExtra("intent", intent);
-            main.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(main);
+    private void checkAuthentication(boolean auth) {
+        if (this.getClass().equals(ActivityMain.class))
+            return;
+
+        if (!Helper.shouldAuthenticate(this, !auth))
+            return;
+
+        lock();
+
+        if (auth) {
+            if (this instanceof ActivityWidget ||
+                    this instanceof ActivityWidgetSync ||
+                    this instanceof ActivityWidgetUnified) {
+                Toast.makeText(this, R.string.title_notification_redacted, Toast.LENGTH_LONG).show();
+            } else {
+                Intent intent = getIntent();
+                processStreams(intent);
+                Intent main = new Intent(this, ActivityMain.class)
+                        .putExtra("intent", intent);
+                main.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(main);
+            }
         }
+    }
+
+    private void lock() {
+        finishAndRemoveTask();
+        setResult(RESULT_CANCELED);
+        finishAffinity();
     }
 
     private void processStreams(Intent intent) {
@@ -456,12 +460,8 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
             Log.i("Start intent=" + intent);
             Log.logExtras(intent);
             super.startActivity(intent);
-        } catch (ActivityNotFoundException ex) {
-            Log.w(ex);
-            Helper.reportNoViewer(this, intent);
         } catch (Throwable ex) {
-            Log.e(ex);
-            ToastEx.makeText(this, Log.formatThrowable(ex), Toast.LENGTH_LONG).show();
+            Helper.reportNoViewer(this, intent, ex);
         }
     }
 
@@ -471,15 +471,8 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
             Log.i("Start intent=" + intent + " request=" + requestCode);
             Log.logExtras(intent);
             super.startActivityForResult(intent, requestCode);
-        } catch (ActivityNotFoundException ex) {
-            Log.w(ex);
-            if (Helper.isTnef(intent.getType(), null))
-                Helper.viewFAQ(this, 155);
-            else
-                Helper.reportNoViewer(this, intent);
         } catch (Throwable ex) {
-            Log.e(ex);
-            ToastEx.makeText(this, Log.formatThrowable(ex), Toast.LENGTH_LONG).show();
+            Helper.reportNoViewer(this, intent, ex);
         }
     }
 

@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -128,6 +128,7 @@ public class ViewModelMessages extends ViewModel {
                                     args.filter_unflagged,
                                     args.filter_unknown,
                                     args.filter_snoozed,
+                                    args.filter_deleted,
                                     args.filter_language,
                                     false,
                                     args.debug),
@@ -149,6 +150,7 @@ public class ViewModelMessages extends ViewModel {
                                     args.filter_unflagged,
                                     args.filter_unknown,
                                     args.filter_snoozed,
+                                    args.filter_deleted,
                                     args.filter_language,
                                     false,
                                     args.debug),
@@ -182,7 +184,7 @@ public class ViewModelMessages extends ViewModel {
                                         null,
                                         args.threading,
                                         "time", false,
-                                        false, false, false, false,
+                                        false, false, false, false, false,
                                         null,
                                         true,
                                         args.debug),
@@ -192,7 +194,7 @@ public class ViewModelMessages extends ViewModel {
                                 db.message().pagedFolder(
                                         args.folder, args.threading,
                                         "time", false,
-                                        false, false, false, false,
+                                        false, false, false, false, false,
                                         null,
                                         true,
                                         args.debug),
@@ -269,6 +271,14 @@ public class ViewModelMessages extends ViewModel {
             intf.onFound(-1, 0);
             return;
         }
+
+        ObjectHolder<Boolean> alive = new ObjectHolder<>(true);
+        owner.getLifecycle().addObserver(new LifecycleObserver() {
+            @OnLifecycleEvent(Lifecycle.Event.ON_ANY)
+            public void onAny() {
+                alive.value = owner.getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED);
+            }
+        });
 
         Log.i("Observe previous/next id=" + id);
         //model.list.getValue().loadAround(lpos);
@@ -361,7 +371,7 @@ public class ViewModelMessages extends ViewModel {
                                     return getPair(plist, ds, count, from + j);
                         }
 
-                        for (int i = 0; i < count; i += CHUNK_SIZE) {
+                        for (int i = 0; i < count && alive.value; i += CHUNK_SIZE) {
                             Log.i("Observe previous/next load" +
                                     " range=" + i + "/#" + count);
                             List<TupleMessageEx> messages = ds.loadRange(i, Math.min(CHUNK_SIZE, count - i));
@@ -483,6 +493,7 @@ public class ViewModelMessages extends ViewModel {
         private boolean filter_unknown;
         private boolean filter_snoozed;
         private boolean filter_archive;
+        private boolean filter_deleted;
         private String filter_language;
         private boolean debug;
 
@@ -510,6 +521,7 @@ public class ViewModelMessages extends ViewModel {
             this.filter_unflagged = prefs.getBoolean(FragmentMessages.getFilter(context, "unflagged", viewType, type), false);
             this.filter_unknown = prefs.getBoolean(FragmentMessages.getFilter(context, "unknown", viewType, type), false);
             this.filter_snoozed = prefs.getBoolean(FragmentMessages.getFilter(context, "snoozed", viewType, type), true);
+            this.filter_deleted = prefs.getBoolean(FragmentMessages.getFilter(context, "deleted", viewType, type), false);
 
             boolean language_detection = prefs.getBoolean("language_detection", false);
             String filter_language = prefs.getString("filter_language", null);
@@ -538,6 +550,7 @@ public class ViewModelMessages extends ViewModel {
                         this.filter_unknown == other.filter_unknown &&
                         this.filter_snoozed == other.filter_snoozed &&
                         this.filter_archive == other.filter_archive &&
+                        this.filter_deleted == other.filter_deleted &&
                         Objects.equals(this.filter_language, other.filter_language) &&
                         this.debug == other.debug);
             } else

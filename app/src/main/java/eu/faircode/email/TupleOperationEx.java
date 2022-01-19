@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import androidx.annotation.NonNull;
@@ -59,9 +59,16 @@ public class TupleOperationEx extends EntityOperation {
 
         key.priority = this.priority;
 
-        if (ADD.equals(name) || DELETE.equals(name)) {
+        if (ADD.equals(name) ||
+                DELETE.equals(name))
             key.id = "msg:" + message;
-        } else if (FETCH.equals(name))
+        else if (SEEN.equals(name) ||
+                ANSWERED.equals(name) ||
+                FLAG.equals(name) ||
+                KEYWORD.equals(name) ||
+                LABEL.equals(name))
+            key.id = "flags:" + folder;
+        else if (FETCH.equals(name))
             try {
                 JSONArray jargs = new JSONArray(args);
                 long uid = jargs.getLong(0);

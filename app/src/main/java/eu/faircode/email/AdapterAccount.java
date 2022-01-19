@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
@@ -76,6 +76,7 @@ import java.util.List;
 public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHolder> {
     private Fragment parentFragment;
     private boolean settings;
+    private boolean compact;
 
     private Context context;
     private LifecycleOwner owner;
@@ -189,6 +190,7 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
 
         private void bindTo(TupleAccountEx account) {
             view.setActivated(account.tbd != null);
+            view.setAlpha(account.synchronize ? 1.0f : Helper.LOW_LIGHT);
             vwColor.setBackgroundColor(account.color == null ? Color.TRANSPARENT : account.color);
             vwColor.setVisibility(ActivityBilling.isPro(context) ? View.VISIBLE : View.INVISIBLE);
 
@@ -240,6 +242,7 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
             tvCreated.setVisibility(debug ? View.VISIBLE : View.GONE);
             tvCreated.setText(context.getString(R.string.title_created_at,
                     account.created == null ? null : DTF.format(account.created)));
+            tvLast.setVisibility(compact ? View.GONE : View.VISIBLE);
             tvLast.setText(context.getString(R.string.title_last_connected,
                     (account.last_connected == null ? "-" : DTF.format(account.last_connected)) +
                             (BuildConfig.DEBUG ?
@@ -254,7 +257,7 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
 
             Integer percent = (settings ? null : account.getQuotaPercentage());
             tvUsage.setText(percent == null ? null : NF.format(percent) + "%");
-            tvUsage.setVisibility(percent == null ? View.GONE : View.VISIBLE);
+            tvUsage.setVisibility(percent == null || compact ? View.GONE : View.VISIBLE);
             tvQuota.setText(context.getString(R.string.title_storage_quota,
                     (account.quota_usage == null ? "-" : Helper.humanReadableByteCount(account.quota_usage)),
                     (account.quota_limit == null ? "-" : Helper.humanReadableByteCount(account.quota_limit))));
@@ -498,9 +501,8 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
                             .putExtra(Settings.EXTRA_CHANNEL_ID, EntityAccount.getNotificationChannelId(account.id));
                     try {
                         context.startActivity(intent);
-                    } catch (ActivityNotFoundException ex) {
-                        Log.w(ex);
-                        Helper.reportNoViewer(context, intent);
+                    } catch (Throwable ex) {
+                        Helper.reportNoViewer(context, intent, ex);
                     }
                 }
 
@@ -606,9 +608,10 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
         }
     }
 
-    AdapterAccount(final Fragment parentFragment, boolean settings) {
+    AdapterAccount(final Fragment parentFragment, boolean settings, boolean compact) {
         this.parentFragment = parentFragment;
         this.settings = settings;
+        this.compact = compact;
 
         this.context = parentFragment.getContext();
         this.owner = parentFragment.getViewLifecycleOwner();
@@ -667,6 +670,11 @@ public class AdapterAccount extends RecyclerView.Adapter<AdapterAccount.ViewHold
             }
         });
         diff.dispatchUpdatesTo(this);
+    }
+
+    void setCompact(boolean compact) {
+        if (this.compact != compact)
+            this.compact = compact;
     }
 
     private static class DiffCallback extends DiffUtil.Callback {

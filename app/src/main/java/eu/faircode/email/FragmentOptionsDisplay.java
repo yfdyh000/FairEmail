@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -70,7 +70,10 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
     private SwitchCompat swNavBarColorize;
     private SwitchCompat swPortrait2;
     private SwitchCompat swPortrait2c;
+    private Spinner spPortraitMinSize;
     private SwitchCompat swLandscape;
+    private Spinner spLandscapeMinSize;
+    private SwitchCompat swClosePane;
     private SwitchCompat swNavOptions;
     private SwitchCompat swNavMessageCount;
     private SwitchCompat swNavUnseenDrafts;
@@ -164,7 +167,8 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
     private final static String[] RESET_OPTIONS = new String[]{
             "theme", "startup", "cards", "beige", "tabular_card_bg", "shadow_unread", "shadow_highlight",
             "date", "date_fixed", "date_bold",
-            "portrait2", "portrait2c", "landscape", "nav_options", "nav_count", "nav_unseen_drafts", "navbar_colorize",
+            "portrait2", "portrait2c", "landscape", "close_pane",
+            "nav_options", "nav_count", "nav_unseen_drafts", "navbar_colorize",
             "threading", "threading_unread", "indentation", "seekbar", "actionbar", "actionbar_color",
             "highlight_unread", "highlight_color", "color_stripe", "color_stripe_wide",
             "avatars", "bimi", "gravatars", "favicons", "generated_icons", "identicons", "circular", "saturation", "brightness", "threshold",
@@ -203,7 +207,10 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
         swDateBold = view.findViewById(R.id.swDateBold);
         swPortrait2 = view.findViewById(R.id.swPortrait2);
         swPortrait2c = view.findViewById(R.id.swPortrait2c);
+        spPortraitMinSize = view.findViewById(R.id.spPortraitMinSize);
         swLandscape = view.findViewById(R.id.swLandscape);
+        spLandscapeMinSize = view.findViewById(R.id.spLandscapeMinSize);
+        swClosePane = view.findViewById(R.id.swClosePane);
         swNavOptions = view.findViewById(R.id.swNavOptions);
         swNavMessageCount = view.findViewById(R.id.swNavMessageCount);
         swNavUnseenDrafts = view.findViewById(R.id.swNavUnseenDrafts);
@@ -404,10 +411,41 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             }
         });
 
+        spPortraitMinSize.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int position, long id) {
+                prefs.edit().putInt("portrait_min_size", position).apply();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                prefs.edit().remove("portrait_min_size").apply();
+            }
+        });
+
         swLandscape.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("landscape", checked).apply();
+            }
+        });
+
+        spLandscapeMinSize.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int position, long id) {
+                prefs.edit().putInt("landscape_min_size", position).apply();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                prefs.edit().remove("landscape_min_size").apply();
+            }
+        });
+
+        swClosePane.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("close_pane", checked).apply();
             }
         });
 
@@ -710,6 +748,7 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("prefer_contact", checked).apply();
+                WidgetUnified.updateData(getContext());
             }
         });
 
@@ -717,6 +756,7 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("only_contact", checked).apply();
+                WidgetUnified.updateData(getContext());
             }
         });
 
@@ -724,6 +764,7 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("distinguish_contacts", checked).apply();
+                WidgetUnified.updateData(getContext());
             }
         });
 
@@ -1114,7 +1155,10 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
         swDateBold.setEnabled(swDate.isChecked() || swDateFixed.isChecked());
         swPortrait2.setChecked(prefs.getBoolean("portrait2", false));
         swPortrait2c.setChecked(prefs.getBoolean("portrait2c", false) && !swPortrait2.isChecked());
+        spPortraitMinSize.setSelection(prefs.getInt("portrait_min_size", 0));
         swLandscape.setChecked(prefs.getBoolean("landscape", true));
+        spLandscapeMinSize.setSelection(prefs.getInt("landscape_min_size", 0));
+        swClosePane.setChecked(prefs.getBoolean("close_pane", !Helper.isSurfaceDuo()));
         swNavOptions.setChecked(prefs.getBoolean("nav_options", true));
         swNavMessageCount.setChecked(prefs.getBoolean("nav_count", false));
         swNavUnseenDrafts.setChecked(prefs.getBoolean("nav_unseen_drafts", false));

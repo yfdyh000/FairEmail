@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import android.app.AlarmManager;
@@ -44,6 +44,7 @@ import androidx.preference.PreferenceManager;
 import com.sun.mail.smtp.SMTPSendFailedException;
 import com.sun.mail.util.TraceOutputStream;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -527,6 +528,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         boolean reply_move = prefs.getBoolean("reply_move", false);
+        boolean protocol = prefs.getBoolean("protocol", false);
         boolean debug = (prefs.getBoolean("debug", false) || BuildConfig.DEBUG);
 
         if (message.identity == null)
@@ -667,6 +669,10 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
             iservice.setUseIp(ident.use_ip, ident.ehlo);
             iservice.setUnicode(ident.unicode);
 
+            // 0=Read receipt
+            // 1=Delivery receipt
+            // 2=Read+delivery receipt
+
             if (message.receipt_request != null && message.receipt_request) {
                 int receipt_type = prefs.getInt("receipt_type", 2);
                 if (receipt_type == 1 || receipt_type == 2) // Delivery receipt
@@ -684,7 +690,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                 max_size = iservice.getMaxSize();
 
             List<Address> recipients = new ArrayList<>();
-            if (message.headers == null) {
+            if (message.headers == null || !Boolean.TRUE.equals(message.resend)) {
                 Address[] all = imessage.getAllRecipients();
                 if (all != null)
                     recipients.addAll(Arrays.asList(all));
@@ -703,6 +709,13 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                 if (bcc != null)
                     for (Address a : InternetAddress.parse(bcc))
                         recipients.add(a);
+            }
+
+            if (protocol && BuildConfig.DEBUG) {
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                imessage.writeTo(bos);
+                for (String line : bos.toString().split("\n"))
+                    EntityLog.log(this, line);
             }
 
             String via = "via " + ident.host + "/" + ident.user +
@@ -775,6 +788,11 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
 
             // Show in sent folder
             if (sid != null) {
+                if (EntityMessage.PGP_SIGNENCRYPT.equals(message.ui_encrypt) ||
+                        EntityMessage.SMIME_SIGNENCRYPT.equals(message.ui_encrypt))
+                    db.attachment().deleteAttachments(sid,
+                            new int[]{EntityAttachment.PGP_MESSAGE, EntityAttachment.SMIME_MESSAGE});
+
                 db.message().setMessageReceived(sid, start);
                 db.message().setMessageSent(sid, end);
                 db.message().setMessageUiHide(sid, false);

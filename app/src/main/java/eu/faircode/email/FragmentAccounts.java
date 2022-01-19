@@ -16,13 +16,12 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2021 by Marcel Bokhorst (M66B)
+    Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
 import static androidx.recyclerview.widget.RecyclerView.NO_POSITION;
 
 import android.animation.ObjectAnimator;
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -44,6 +43,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.constraintlayout.widget.Group;
+import androidx.core.view.MenuCompat;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.Observer;
@@ -67,6 +67,7 @@ public class FragmentAccounts extends FragmentBase {
     private boolean settings;
 
     private boolean cards;
+    private boolean compact;
 
     private ViewGroup view;
     private SwipeRefreshLayout swipeRefresh;
@@ -91,6 +92,7 @@ public class FragmentAccounts extends FragmentBase {
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
         cards = prefs.getBoolean("cards", true);
+        compact = prefs.getBoolean("compact_accounts", false) && !settings;
     }
 
     @Override
@@ -176,6 +178,9 @@ public class FragmentAccounts extends FragmentBase {
                 if (pos == NO_POSITION)
                     return null;
 
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return null;
+
                 TupleAccountEx prev = adapter.getItemAtPosition(pos - 1);
                 TupleAccountEx account = adapter.getItemAtPosition(pos);
                 if (pos > 0 && prev == null)
@@ -212,7 +217,7 @@ public class FragmentAccounts extends FragmentBase {
         };
         rvAccount.addItemDecoration(categoryDecorator);
 
-        adapter = new AdapterAccount(this, settings);
+        adapter = new AdapterAccount(this, settings, compact);
         rvAccount.setAdapter(adapter);
 
         fab.setOnClickListener(new View.OnClickListener() {
@@ -273,18 +278,7 @@ public class FragmentAccounts extends FragmentBase {
             }
         });
 
-        animator = ObjectAnimator.ofFloat(fab, "alpha", 0.5f, 1.0f);
-        animator.setDuration(750L);
-        animator.setRepeatCount(ValueAnimator.INFINITE);
-        animator.setRepeatMode(ValueAnimator.REVERSE);
-        animator.addUpdateListener(new ObjectAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator animation) {
-                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-                    return;
-                fab.setAlpha((float) animation.getAnimatedValue());
-            }
-        });
+        animator = Helper.getFabAnimator(fab, this);
 
         // Initialize
         FragmentDialogTheme.setBackground(getContext(), view, false);
@@ -348,6 +342,7 @@ public class FragmentAccounts extends FragmentBase {
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.menu_accounts, menu);
+        MenuCompat.setGroupDividerEnabled(menu, true);
         super.onCreateOptionsMenu(menu, inflater);
     }
 
@@ -355,6 +350,8 @@ public class FragmentAccounts extends FragmentBase {
     public void onPrepareOptionsMenu(Menu menu) {
         menu.findItem(R.id.menu_search).setVisible(!settings);
         menu.findItem(R.id.menu_unified).setVisible(!settings);
+        menu.findItem(R.id.menu_compact).setChecked(compact);
+        menu.findItem(R.id.menu_compact).setVisible(!settings);
         menu.findItem(R.id.menu_theme).setVisible(!settings);
         menu.findItem(R.id.menu_force_sync).setVisible(!settings);
 
@@ -369,6 +366,9 @@ public class FragmentAccounts extends FragmentBase {
             return true;
         } else if (itemId == R.id.menu_unified) {
             onMenuUnified();
+            return true;
+        } else if (itemId == R.id.menu_compact) {
+            onMenuCompact();
             return true;
         } else if (itemId == R.id.menu_theme) {
             onMenuTheme();
@@ -395,6 +395,26 @@ public class FragmentAccounts extends FragmentBase {
         FragmentTransaction fragmentTransaction = getParentFragmentManager().beginTransaction();
         fragmentTransaction.replace(R.id.content_frame, fragment).addToBackStack("messages");
         fragmentTransaction.commit();
+    }
+
+    private void onMenuCompact() {
+        compact = !compact;
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+        prefs.edit().putBoolean("compact_accounts", compact).apply();
+
+        invalidateOptionsMenu();
+        adapter.setCompact(compact);
+        rvAccount.post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    adapter.notifyDataSetChanged();
+                } catch (Throwable ex) {
+                    Log.e(ex);
+                }
+            }
+        });
     }
 
     private void onMenuTheme() {
