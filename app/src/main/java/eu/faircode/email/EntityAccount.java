@@ -94,6 +94,9 @@ public class EntityAccount extends EntityOrder implements Serializable {
     public String realm;
     public String fingerprint;
 
+    public Integer ipPolicy;
+    public String ipPool;
+
     public String name;
     public String category;
     public String signature; // obsolete

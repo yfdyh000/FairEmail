@@ -514,10 +514,19 @@ public class EmailService implements AutoCloseable {
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
 
             String key = "dns." + host;
+            // an "ips.dns.work.inc" like "192.168.8.100;192.168.8.101"
+            // an "ips.dns.imap.gmail.com" like "74.125.137.109;74.125.137.108;[2607:f8b0:4023:c0b::6d]"
+            //   instead of the first host address being cached and attempted only.
+
+            // Skipping if the IP pool is invalid.
+            // Possibilities to randomization, efficiency scoring or other.
             try {
+                // TODO: if ipPolicy=2 (force), for{} and try only for ipPool[host].
+                // TODO: if ipPolicy=1 (active), for{} and try for ipPool[host] first.
                 main = InetAddress.getByName(host);
                 prefs.edit().putString(key, main.getHostAddress()).apply();
             } catch (UnknownHostException ex) {
+                // TODO: if ipPolicy=0 (fallback), try for ipPool[host]
                 String last = prefs.getString(key, null);
                 if (TextUtils.isEmpty(last))
                     throw new MessagingException(ex.getMessage(), ex);
