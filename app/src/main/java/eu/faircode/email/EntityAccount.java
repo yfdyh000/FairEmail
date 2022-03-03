@@ -142,6 +142,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
     @NonNull
     public Boolean use_received = false; // Received header
     public String prefix; // namespace, obsolete
+    public Boolean gimap_connected = false;
 
     public Long quota_usage;
     public Long quota_limit;
@@ -161,7 +162,8 @@ public class EntityAccount extends EntityOrder implements Serializable {
 
     boolean isGmail() {
         return "imap.gmail.com".equalsIgnoreCase(host) ||
-                "imap.googlemail.com".equalsIgnoreCase(host);
+                "imap.googlemail.com".equalsIgnoreCase(host) ||
+                this.gimap_connected;
     }
 
     boolean isOutlook() {
@@ -194,7 +196,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
     String getProtocol() {
         switch (protocol) {
             case TYPE_IMAP:
-                if (isGmail())
+                if (isGmail()) // unverified
                     return "gimaps";
                 else
                     return "imap" + (encryption == EmailService.ENCRYPTION_SSL ? "s" : "");
@@ -354,6 +356,8 @@ public class EntityAccount extends EntityOrder implements Serializable {
         if (json.has("poll_exempted"))
             account.poll_exempted = json.getBoolean("poll_exempted");
         account.primary = json.getBoolean("primary");
+        if (json.has("gimap_connected")) // doubtful
+            account.notify = json.getBoolean("gimap_connected");
         if (json.has("notify"))
             account.notify = json.getBoolean("notify");
         if (json.has("browse"))

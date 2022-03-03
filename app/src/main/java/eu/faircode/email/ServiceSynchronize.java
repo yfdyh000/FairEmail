@@ -1497,6 +1497,11 @@ public class ServiceSynchronize extends ServiceBase implements SharedPreferences
                     db.account().setAccountError(account.id, null);
                     db.account().setAccountWarning(account.id, null);
 
+                    boolean isGmail = iservice.isGImap();
+                    db.account().setIsGmail(account.id, isGmail);
+                    EntityLog.log(this, EntityLog.Type.Account, account,
+                            account.name + " isGmail: " + isGmail);
+
                     Store istore = iservice.getStore();
                     if (istore instanceof IMAPStore) {
                         Map<String, String> caps = ((IMAPStore) istore).getCapabilities();

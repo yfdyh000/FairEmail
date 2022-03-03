@@ -270,6 +270,9 @@ public interface DaoAccount {
             " AND (NOT (swipe_left IS :left) OR NOT (swipe_right IS :right))")
     int setAccountSwipes(long id, Long left, Long right);
 
+    @Query("UPDATE account SET `gimap_connected` = :state WHERE id = :id")
+    void setIsGmail(long id, boolean state);
+
     @Query("UPDATE account SET `primary` = 0 WHERE NOT (`primary` IS 0)")
     void resetPrimary();
 

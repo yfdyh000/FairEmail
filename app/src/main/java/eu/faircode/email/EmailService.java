@@ -159,6 +159,8 @@ public class EmailService implements AutoCloseable {
     // TLS_FALLBACK_SCSV https://tools.ietf.org/html/rfc7507
     // TLS_EMPTY_RENEGOTIATION_INFO_SCSV https://tools.ietf.org/html/rfc5746
 
+    private boolean gimap_connected = false;
+
     private EmailService() {
         // Prevent instantiation
     }
@@ -748,6 +750,10 @@ public class EmailService implements AutoCloseable {
                         Map<String, String> crumb = new HashMap<>();
                         for (String key : sid.keySet()) {
                             crumb.put(key, sid.get(key));
+                            if (key.equals("name") && sid.get(key).equals("GImap")) {
+                                this.gimap_connected = true;
+                            }
+
                             EntityLog.log(context, "Server " + key + "=" + sid.get(key));
                         }
                         Log.breadcrumb("server", crumb);
@@ -878,6 +884,9 @@ public class EmailService implements AutoCloseable {
             result.addAll(capabilities.keySet());
 
         return result;
+    }
+    boolean isGImap() {
+        return this.gimap_connected;
     }
 
     boolean hasCapability(String capability) throws MessagingException {
