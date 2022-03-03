@@ -25,7 +25,6 @@ import android.content.pm.PackageManager;
 import android.graphics.Paint;
 import android.net.Uri;
 import android.os.Bundle;
-import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -33,7 +32,6 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -43,6 +41,7 @@ import androidx.core.widget.TextViewCompat;
 
 import java.text.DateFormat;
 import java.util.List;
+import java.util.Objects;
 
 public class FragmentAbout extends FragmentBase {
     @Override
@@ -57,14 +56,29 @@ public class FragmentAbout extends FragmentBase {
 
         TextView tvVersion = view.findViewById(R.id.tvVersion);
         TextView tvRelease = view.findViewById(R.id.tvRelease);
+        TextView tvDownloaded = view.findViewById(R.id.tvDownloaded);
         TextView tvUpdated = view.findViewById(R.id.tvUpdated);
-        ImageButton ibUpdate = view.findViewById(R.id.ibUpdate);
         TextView tvGplV3 = view.findViewById(R.id.tvGplV3);
         LinearLayout llContributors = view.findViewById(R.id.llContributors);
 
         String version = BuildConfig.VERSION_NAME + BuildConfig.REVISION;
         tvVersion.setText(getString(R.string.title_version, version));
         tvRelease.setText(BuildConfig.RELEASE_NAME);
+
+        String fingerprint = Helper.getFingerprint(context);
+        boolean play = Objects.equals(fingerprint, getString(R.string.fingerprint));
+        boolean fdroid = Objects.equals(fingerprint, getString(R.string.fingerprint_fdroid));
+
+        String source;
+        if (play)
+            source = (BuildConfig.PLAY_STORE_RELEASE ? "Play store" : "GitHub");
+        else if (fdroid)
+            source = "F-Droid";
+        else if (BuildConfig.DEBUG)
+            source = "Debug";
+        else
+            source = "?";
+        tvDownloaded.setText(getString(R.string.app_download, source));
 
         long last = 0;
         try {
@@ -78,10 +92,7 @@ public class FragmentAbout extends FragmentBase {
         DateFormat DF = Helper.getDateTimeInstance(context, DateFormat.SHORT, DateFormat.SHORT);
         tvUpdated.setText(getString(R.string.app_updated, last == 0 ? "-" : DF.format(last)));
 
-        ibUpdate.setVisibility(
-                Helper.hasValidFingerprint(context) || BuildConfig.DEBUG
-                        ? View.VISIBLE : View.GONE);
-        ibUpdate.setOnClickListener(new View.OnClickListener() {
+        tvUpdated.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (BuildConfig.PLAY_STORE_RELEASE)

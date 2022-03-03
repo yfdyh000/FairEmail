@@ -29,7 +29,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
@@ -468,7 +467,8 @@ public class FragmentPop extends FragmentBase {
                         !account.insecure.equals(insecure) ||
                         !account.port.equals(Integer.parseInt(port)) ||
                         !account.user.equals(user) ||
-                        !account.password.equals(password)));
+                        !account.password.equals(password) ||
+                        BuildConfig.DEBUG));
                 Log.i("Account check=" + check);
 
                 Long last_connected = null;

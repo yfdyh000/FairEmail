@@ -37,6 +37,23 @@
         <item name="android:windowDisablePreview">true</item>
         <item name="android:windowAnimationStyle">@style/activityAnimationStyle</item>
 
+        <item name="android:textColorPrimary">@color/abc_primary_text_material_light</item>
+        <item name="android:textColorPrimaryInverse">@color/abc_primary_text_material_dark</item>
+        <item name="android:textColorSecondary">@color/abc_secondary_text_material_light</item>
+        <item name="android:textColorSecondaryInverse">@color/abc_secondary_text_material_dark</item>
+        <item name="android:textColorTertiary">@color/abc_secondary_text_material_light</item>
+        <item name="android:textColorTertiaryInverse">@color/abc_secondary_text_material_dark</item>
+        <item name="android:textColorPrimaryDisableOnly">@color/abc_primary_text_disable_only_material_light</item>
+        <item name="android:textColorPrimaryInverseDisableOnly">@color/abc_primary_text_disable_only_material_dark
+        </item>
+        <item name="android:textColorHint">@color/abc_hint_foreground_material_light</item>
+        <item name="android:textColorHintInverse">@color/abc_hint_foreground_material_dark</item>
+        <item name="android:textColorHighlight">@color/highlighted_text_material_light</item>
+        <item name="android:textColorHighlightInverse">@color/highlighted_text_material_dark</item>
+        <item name="android:textColorLink">?attr/colorAccent</item>
+        <item name="android:textColorLinkInverse">?attr/colorAccent</item>
+        <item name="android:textColorAlertDialogListItem">@color/abc_primary_text_material_light</item>
+
         <item name="colorRead">@color/colorReadLight</item>
         <item name="colorUnread">@color/colorUnreadLight</item>
 
@@ -90,6 +107,21 @@
         <item name="android:windowAnimationStyle">@style/activityAnimationStyle</item>
 
         <item name="android:navigationBarColor">@color/black</item>
+
+        <item name="android:textColorPrimary">@color/abc_primary_text_material_dark</item>
+        <item name="android:textColorPrimaryInverse">@color/abc_primary_text_material_light</item>
+        <item name="android:textColorPrimaryDisableOnly">@color/abc_primary_text_disable_only_material_dark</item>
+        <item name="android:textColorSecondary">@color/abc_secondary_text_material_dark</item>
+        <item name="android:textColorSecondaryInverse">@color/abc_secondary_text_material_light</item>
+        <item name="android:textColorTertiary">@color/abc_secondary_text_material_dark</item>
+        <item name="android:textColorTertiaryInverse">@color/abc_secondary_text_material_light</item>
+        <item name="android:textColorHint">@color/abc_hint_foreground_material_dark</item>
+        <item name="android:textColorHintInverse">@color/abc_hint_foreground_material_light</item>
+        <item name="android:textColorHighlight">@color/highlighted_text_material_dark</item>
+        <item name="android:textColorHighlightInverse">@color/highlighted_text_material_light</item>
+        <item name="android:textColorLink">?attr/colorAccent</item>
+        <item name="android:textColorLinkInverse">?attr/colorAccent</item>
+        <item name="android:textColorAlertDialogListItem">@color/abc_primary_text_material_dark</item>
 
         <item name="colorRead">@color/colorReadDark</item>
         <item name="colorUnread">@color/colorUnreadDark</item>
@@ -150,6 +182,7 @@
         <item name="colorInfoBackground">@color/lightBluePrimary</item>
 
         <item name="android:textColorLink">@color/lightAmberAccentDark</item>
+        <item name="android:textColorLinkInverse">@color/lightAmberAccentDark</item>
     </style>
 
     <style name="AppThemeOrangeBlueLight" parent="AppThemeBaseLight">
@@ -165,6 +198,7 @@
         <item name="colorInfoBackground">@color/lightAmberPrimary</item>
 
         <item name="android:textColorLink">@color/lightBlueAccent</item>
+        <item name="android:textColorLinkInverse">@color/lightBlueAccent</item>
     </style>
 
     <style name="AppThemeYellowPurpleLight" parent="AppThemeBaseLight">
@@ -180,6 +214,7 @@
         <item name="colorInfoBackground">@color/lightYellowPrimary</item>
 
         <item name="android:textColorLink">@color/lightPurpleAccent</item>
+        <item name="android:textColorLinkInverse">@color/lightPurpleAccent</item>
     </style>
 
     <style name="AppThemePurpleYellowLight" parent="AppThemeBaseLight">
@@ -195,6 +230,7 @@
         <item name="colorInfoBackground">@color/lightPurplePrimary</item>
 
         <item name="android:textColorLink">@color/lightYellowAccent</item>
+        <item name="android:textColorLinkInverse">@color/lightYellowAccent</item>
     </style>
 
     <style name="AppThemeRedGreenLight" parent="AppThemeBaseLight">
@@ -210,6 +246,7 @@
         <item name="colorInfoBackground">@color/lightRedPrimary</item>
 
         <item name="android:textColorLink">@color/lightGreenAccent</item>
+        <item name="android:textColorLinkInverse">@color/lightGreenAccent</item>
     </style>
 
     <style name="AppThemeGreenRedLight" parent="AppThemeBaseLight">
@@ -225,6 +262,7 @@
         <item name="colorInfoBackground">@color/lightGreenPrimary</item>
 
         <item name="android:textColorLink">@color/lightRedAccent</item>
+        <item name="android:textColorLinkInverse">@color/lightRedAccent</item>
     </style>
 
     <!-- Dark -->
@@ -268,6 +306,7 @@
         <item name="colorInfoBackground">@color/darkYellowPrimary</item>
 
         <item name="android:textColorLink">@color/darkPurpleAccent</item>
+        <item name="android:textColorLinkInverse">@color/darkPurpleAccent</item>
     </style>
 
     <style name="AppThemePurpleYellowDark" parent="AppThemeBaseDark">
@@ -283,6 +322,7 @@
         <item name="colorInfoBackground">@color/darkPurplePrimary</item>
 
         <item name="android:textColorLink">@color/darkYellowAccent</item>
+        <item name="android:textColorLinkInverse">@color/darkYellowAccent</item>
     </style>
 
     <style name="AppThemeRedGreenDark" parent="AppThemeBaseDark">
@@ -298,6 +338,7 @@
         <item name="colorInfoBackground">@color/darkRedPrimary</item>
 
         <item name="android:textColorLink">@color/darkGreenAccent</item>
+        <item name="android:textColorLinkInverse">@color/darkGreenAccent</item>
     </style>
 
     <style name="AppThemeGreenRedDark" parent="AppThemeBaseDark">
@@ -313,6 +354,7 @@
         <item name="colorInfoBackground">@color/darkGreenPrimary</item>
 
         <item name="android:textColorLink">@color/darkRedAccent</item>
+        <item name="android:textColorLinkInverse">@color/darkRedAccent</item>
     </style>
 
     <!-- Black -->
@@ -368,6 +410,34 @@
         <item name="colorDrawerBackground">@color/black</item>
     </style>
 
+    <style name="AppThemeWhite" parent="AppThemeBlueOrangeLight">
+        <item name="colorPrimary">@color/blackPrimary</item>
+        <item name="colorPrimaryDark">@color/blackPrimaryDark</item>
+        <item name="colorAccent">@color/blackAccent</item>
+
+        <item name="colorInfoForeground">@color/white</item>
+        <item name="colorInfoBackground">@color/blackPrimary</item>
+
+        <item name="actionBarTheme">@style/WhiteActionBar</item>
+        <item name="snackbarStyle">@style/WhiteSnackBar</item>
+    </style>
+
+    <style name="WhiteActionBar" parent="Base.Theme.AppCompat.Light.DarkActionBar">
+        <item name="colorPrimary">@color/blackPrimary</item>
+        <item name="colorPrimaryDark">@color/blackPrimaryDark</item>
+        <item name="colorAccent">@color/blackAccent</item>
+
+        <item name="android:background">@color/white</item>
+        <item name="android:titleTextStyle">@style/ActionBarTitle</item>
+        <!-- snackbar text color -->
+        <item name="android:textColor">@color/blackPrimaryDark</item>
+    </style>
+
+    <style name="WhiteSnackBar" parent="Widget.Design.Snackbar">
+        <item name="android:paddingLeft">0dp</item>
+        <item name="android:paddingRight">0dp</item>
+    </style>
+
     <style name="AppThemeBlackAndWhite" parent="AppThemeBaseDark">
         <item name="themeName">black</item>
         <item name="colorPrimary">@color/blackAndWhitePrimary</item>
@@ -376,12 +446,19 @@
 
         <item name="android:textColor">@color/bw_textcolor</item>
         <item name="android:textColorPrimary">@color/bw_textcolor</item>
+        <item name="android:textColorPrimaryDisableOnly">@color/bw_textcolor</item>
         <item name="android:textColorSecondary">@color/bw_textcolor</item>
         <item name="android:textColorTertiary">@color/bw_textcolor</item>
         <item name="android:textColorPrimaryInverse">@color/bw_textcolor_inverse</item>
         <item name="android:textColorSecondaryInverse">@color/bw_textcolor_inverse</item>
         <item name="android:textColorTertiaryInverse">@color/bw_textcolor_inverse</item>
         <item name="android:textColorLink">@color/lightBluePrimary</item>
+        <item name="android:textColorLinkInverse">@color/lightBluePrimary</item>
+        <item name="android:textColorHint">@color/bw_textcolor</item>
+        <item name="android:textColorHintInverse">@color/bw_textcolor_inverse</item>
+        <item name="android:textColorAlertDialogListItem">@color/bw_textcolor</item>
+        <item name="android:textColorHighlight">@color/lightBluePrimary</item>
+        <item name="android:textColorHighlightInverse">@color/lightBluePrimary</item>
 
         <item name="colorRead">@color/white</item>
         <item name="colorUnread">@color/white</item>
@@ -410,6 +487,10 @@
 
         <item name="colorInfoForeground">@color/white</item>
         <item name="colorInfoBackground">@color/greyPrimary</item>
+    </style>
+
+    <style name="ActionBarTitle" parent="Widget.AppCompat.ActionBar">
+        <item name="android:textColor">@color/black</item>
     </style>
 
     <style name="AppThemeGreySteelBlueDark" parent="AppThemeBaseDark">
@@ -447,6 +528,7 @@
         <item name="colorInfoBackground">@color/darkSolarizedAccent</item>
 
         <item name="android:textColorLink">@color/darkSolarizedAccent</item>
+        <item name="android:textColorLinkInverse">@color/darkSolarizedAccent</item>
 
         <item name="colorCardBackground">@color/lightSolarizedPaper</item>
         <item name="android:windowBackground">@drawable/background_white</item>
@@ -470,6 +552,7 @@
         <item name="colorInfoBackground">@color/darkSolarizedAccent</item>
 
         <item name="android:textColorLink">@color/darkSolarizedAccent</item>
+        <item name="android:textColorLinkInverse">@color/darkSolarizedAccent</item>
 
         <item name="colorCardBackground">@color/darkSolarizedPrimaryDark</item>
         <item name="android:windowBackground">@drawable/background_black</item>
@@ -535,5 +618,13 @@
     <style name="fullScreenDialog" parent="android:Theme">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowIsFloating">false</item>
+    </style>
+
+    <style name="ChipLight" parent="Base.Theme.Material3.Light">
+        <item name="chipCornerRadius">6dp</item>
+    </style>
+
+    <style name="ChipDark" parent="Base.Theme.Material3.Dark">
+        <item name="chipCornerRadius">6dp</item>
     </style>
 </resources>

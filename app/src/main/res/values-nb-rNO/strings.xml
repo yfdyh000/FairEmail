@@ -1317,6 +1317,7 @@
         <item>Gå til neste samtale</item>
     </string-array>
     <string-array name="resizeNames">
+        <item>Extra small</item>
         <item>Liten</item>
         <item>Medium</item>
         <item>Stor</item>
@@ -1400,6 +1401,7 @@
         <item>5 s</item>
         <item>7,5 s</item>
         <item>10 s</item>
+        <item>15 s</item>
     </string-array>
     <string-array name="fontNameNames">
         <item>Kursiv</item>
@@ -1407,7 +1409,6 @@
         <item>Sans-serif</item>
         <item>Fastbredde-skrift</item>
         <item>Fantasy</item>
-        <item>OpenDyslexic</item>
     </string-array>
     <!-- https://www.w3.org/TR/css-fonts-4/#generic-font-families -->
     <!-- https://www.bouncycastle.org/specifications.html -->

@@ -24,7 +24,6 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
-import android.text.style.TypefaceSpan;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -62,10 +61,11 @@ public class FragmentOptionsSend extends FragmentBase implements SharedPreferenc
     private SwitchCompat swPrefixCount;
     private RadioGroup rgRe;
     private RadioGroup rgFwd;
+    private SwitchCompat swSendChips;
     private SwitchCompat swSendReminders;
     private Spinner spSendDelayed;
     private SwitchCompat swAttachNew;
-    private SwitchCompat swReplyAll;
+    private Spinner spAnswerAction;
     private SwitchCompat swSendPending;
 
     private Spinner spComposeFont;
@@ -90,19 +90,20 @@ public class FragmentOptionsSend extends FragmentBase implements SharedPreferenc
     private SwitchCompat swRemoveSignatures;
     private SwitchCompat swReceipt;
     private Spinner spReceiptType;
+    private SwitchCompat swReceiptLegacy;
     private SwitchCompat swLookupMx;
 
     private final static String[] RESET_OPTIONS = new String[]{
             "keyboard", "keyboard_no_fullscreen",
             "suggest_names", "suggest_sent", "suggested_received", "suggest_frequently",
             "alt_re", "alt_fwd",
-            "send_reminders", "send_delayed",
-            "attach_new", "reply_all", "send_pending",
+            "send_reminders", "send_chips", "send_delayed",
+            "attach_new", "answer_action", "send_pending",
             "compose_font", "prefix_once", "prefix_count", "separate_reply", "extended_reply", "write_below", "quote_reply", "quote_limit", "resize_reply",
             "signature_location", "signature_new", "signature_reply", "signature_forward",
             "discard_delete", "reply_move",
             "auto_link", "plain_only", "format_flowed", "usenet_signature", "remove_signatures",
-            "receipt_default", "receipt_type", "lookup_mx"
+            "receipt_default", "receipt_type", "receipt_legacy", "lookup_mx"
     };
 
     @Override
@@ -126,10 +127,11 @@ public class FragmentOptionsSend extends FragmentBase implements SharedPreferenc
         swPrefixCount = view.findViewById(R.id.swPrefixCount);
         rgRe = view.findViewById(R.id.rgRe);
         rgFwd = view.findViewById(R.id.rgFwd);
+        swSendChips = view.findViewById(R.id.swSendChips);
         swSendReminders = view.findViewById(R.id.swSendReminders);
         spSendDelayed = view.findViewById(R.id.spSendDelayed);
         swAttachNew = view.findViewById(R.id.swAttachNew);
-        swReplyAll = view.findViewById(R.id.swReplyAll);
+        spAnswerAction = view.findViewById(R.id.spAnswerAction);
         swSendPending = view.findViewById(R.id.swSendPending);
 
         spComposeFont = view.findViewById(R.id.spComposeFont);
@@ -154,16 +156,18 @@ public class FragmentOptionsSend extends FragmentBase implements SharedPreferenc
         swRemoveSignatures = view.findViewById(R.id.swRemoveSignatures);
         swReceipt = view.findViewById(R.id.swReceipt);
         spReceiptType = view.findViewById(R.id.spReceiptType);
+        swReceiptLegacy = view.findViewById(R.id.swReceiptLegacy);
         swLookupMx = view.findViewById(R.id.swLookupMx);
 
-        String[] fontNameNames = getResources().getStringArray(R.array.fontNameNames);
-        String[] fontNameValues = getResources().getStringArray(R.array.fontNameValues);
+        List<StyleHelper.FontDescriptor> fonts = StyleHelper.getFonts(getContext());
 
         List<CharSequence> fn = new ArrayList<>();
         fn.add("-");
-        for (int i = 0; i < fontNameNames.length; i++) {
-            SpannableStringBuilder ssb = new SpannableStringBuilderEx(fontNameNames[i]);
-            ssb.setSpan(new TypefaceSpan(fontNameValues[i]), 0, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        for (int i = 0; i < fonts.size(); i++) {
+            StyleHelper.FontDescriptor font = fonts.get(i);
+            SpannableStringBuilder ssb = new SpannableStringBuilderEx(font.toString());
+            ssb.setSpan(StyleHelper.getTypefaceSpan(font.type, getContext()),
+                    0, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             fn.add(ssb);
         }
 
@@ -233,7 +237,7 @@ public class FragmentOptionsSend extends FragmentBase implements SharedPreferenc
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("prefix_once", checked).apply();
-                swPrefixOnce.setEnabled(checked);
+                swPrefixCount.setEnabled(checked);
             }
         });
 
@@ -255,6 +259,13 @@ public class FragmentOptionsSend extends FragmentBase implements SharedPreferenc
             @Override
             public void onCheckedChanged(RadioGroup group, int checkedId) {
                 prefs.edit().putBoolean("alt_fwd", checkedId == R.id.rbFwd2).apply();
+            }
+        });
+
+        swSendChips.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("send_chips", checked).apply();
             }
         });
 
@@ -285,10 +296,16 @@ public class FragmentOptionsSend extends FragmentBase implements SharedPreferenc
             }
         });
 
-        swReplyAll.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+        spAnswerAction.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("reply_all", checked).apply();
+            public void onItemSelected(AdapterView<?> adapterView, View view, int position, long id) {
+                String[] values = getResources().getStringArray(R.array.answerValues);
+                prefs.edit().putString("answer_action", values[position]).apply();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                prefs.edit().remove("sender_ellipsize").apply();
             }
         });
 
@@ -302,12 +319,10 @@ public class FragmentOptionsSend extends FragmentBase implements SharedPreferenc
         spComposeFont.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> adapterView, View view, int position, long id) {
-                String value = (position == 0 ? "" : fontNameValues[position - 1]);
-                boolean monospaced = prefs.getBoolean("monospaced", false);
-                if (value.equals(monospaced ? "monospace" : "sans-serif"))
+                if (position == 0)
                     prefs.edit().remove("compose_font").apply();
                 else
-                    prefs.edit().putString("compose_font", value).apply();
+                    prefs.edit().putString("compose_font", fonts.get(position - 1).type).apply();
             }
 
             @Override
@@ -474,6 +489,13 @@ public class FragmentOptionsSend extends FragmentBase implements SharedPreferenc
             }
         });
 
+        swReceiptLegacy.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("receipt_legacy", checked).apply();
+            }
+        });
+
         swLookupMx.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
@@ -549,6 +571,7 @@ public class FragmentOptionsSend extends FragmentBase implements SharedPreferenc
         rgRe.check(prefs.getBoolean("alt_re", false) ? R.id.rbRe2 : R.id.rbRe1);
         rgFwd.check(prefs.getBoolean("alt_fwd", false) ? R.id.rbFwd2 : R.id.rbFwd1);
 
+        swSendChips.setChecked(prefs.getBoolean("send_chips", true));
         swSendReminders.setChecked(prefs.getBoolean("send_reminders", true));
 
         int send_delayed = prefs.getInt("send_delayed", 0);
@@ -560,17 +583,27 @@ public class FragmentOptionsSend extends FragmentBase implements SharedPreferenc
             }
 
         swAttachNew.setChecked(prefs.getBoolean("attach_new", true));
-        swReplyAll.setChecked(prefs.getBoolean("reply_all", false));
+
+        boolean reply_all = prefs.getBoolean("reply_all", false);
+        String answer_action = prefs.getString("answer_action", reply_all ? "reply_all" : "reply");
+        String[] answerValues = getResources().getStringArray(R.array.answerValues);
+        for (int pos = 0; pos < answerValues.length; pos++)
+            if (answerValues[pos].equals(answer_action)) {
+                spAnswerAction.setSelection(pos);
+                break;
+            }
+
         swSendPending.setChecked(prefs.getBoolean("send_pending", true));
 
-        boolean monospaced = prefs.getBoolean("monospaced", false);
-        String compose_font = prefs.getString("compose_font", monospaced ? "monospace" : "sans-serif");
-        String[] fontNameValues = getResources().getStringArray(R.array.fontNameValues);
-        for (int pos = 0; pos < fontNameValues.length; pos++)
-            if (fontNameValues[pos].equals(compose_font)) {
+        String compose_font = prefs.getString("compose_font", "");
+        List<StyleHelper.FontDescriptor> fonts = StyleHelper.getFonts(getContext());
+        for (int pos = 0; pos < fonts.size(); pos++) {
+            StyleHelper.FontDescriptor font = fonts.get(pos);
+            if (font.type.equals(compose_font)) {
                 spComposeFont.setSelection(pos + 1);
                 break;
             }
+        }
 
         swSeparateReply.setChecked(prefs.getBoolean("separate_reply", false));
         swExtendedReply.setChecked(prefs.getBoolean("extended_reply", false));
@@ -597,6 +630,8 @@ public class FragmentOptionsSend extends FragmentBase implements SharedPreferenc
 
         int receipt_type = prefs.getInt("receipt_type", 2);
         spReceiptType.setSelection(receipt_type);
+
+        swReceiptLegacy.setChecked(prefs.getBoolean("receipt_legacy", false));
 
         swLookupMx.setChecked(prefs.getBoolean("lookup_mx", false));
     }

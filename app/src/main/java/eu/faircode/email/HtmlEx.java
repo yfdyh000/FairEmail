@@ -16,6 +16,8 @@ package eu.faircode.email;
  * limitations under the License.
  */
 
+import static android.text.Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE;
+
 import android.content.Context;
 import android.graphics.Typeface;
 import android.text.Layout;
@@ -43,8 +45,6 @@ import android.text.style.UnderlineSpan;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static android.text.Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE;
 
 public class HtmlEx {
     private Context context;
@@ -252,6 +252,13 @@ public class HtmlEx {
                 if (i != text.length())
                     out.append("<br>\n");
             } else {
+                eu.faircode.email.LineSpan[] line = text.getSpans(i, next, eu.faircode.email.LineSpan.class);
+                if (line.length > 0) {
+                    for (int l = 0; l < line.length; l++)
+                        out.append("<hr>");
+                    continue;
+                }
+
                 int level = 0;
                 Boolean isBulletListItem = null;
                 ParagraphStyle[] paragraphStyles = text.getSpans(i, next, ParagraphStyle.class);
@@ -374,7 +381,7 @@ public class HtmlEx {
                     //    out.append("<tt>");
                     //}
 
-                    out.append("<span style=\"font-family:" + s + ";\">");
+                    out.append("<span style='font-family:" + s + ";'>");
                 }
                 if (style[j] instanceof SuperscriptSpan) {
                     out.append("<sup>");

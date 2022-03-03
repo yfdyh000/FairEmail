@@ -228,6 +228,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -309,6 +310,8 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
     private WebView printWebView = null;
 
     private boolean cards;
+    private boolean dividers;
+    private boolean category;
     private boolean date;
     private boolean date_fixed;
     private boolean date_bold;
@@ -437,6 +440,8 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
 
         swipenav = prefs.getBoolean("swipenav", true);
         cards = prefs.getBoolean("cards", true);
+        dividers = prefs.getBoolean("dividers", true);
+        category = prefs.getBoolean("group_category", false);
         date = prefs.getBoolean("date", true);
         date_fixed = (!date && prefs.getBoolean("date_fixed", false));
         date_bold = prefs.getBoolean("date_bold", false);
@@ -667,7 +672,7 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
         };
         rvMessage.setLayoutManager(llm);
 
-        if (!cards) {
+        if (!cards && dividers) {
             DividerItemDecoration itemDecorator = new DividerItemDecoration(getContext(), llm.getOrientation()) {
                 @Override
                 public void getItemOffsets(Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
@@ -778,7 +783,7 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                     if (i == 0 && date_fixed && "time".equals(sort)) {
                         TupleMessageEx top = adapter.getItemAtPosition(pos);
                         tvFixedDate.setVisibility(top == null ? View.INVISIBLE : View.VISIBLE);
-                        if (!cards)
+                        if (!cards && dividers)
                             vFixedSeparator.setVisibility(top == null ? View.INVISIBLE : View.VISIBLE);
                         tvFixedDate.setText(top == null ? null : getRelativeDate(top.received, parent.getContext()));
                     } else {
@@ -817,7 +822,8 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                 if (message == null)
                     return null;
 
-                boolean ch = (viewType == AdapterMessage.ViewType.UNIFIED &&
+                boolean ch = (category &&
+                        viewType == AdapterMessage.ViewType.UNIFIED &&
                         (pos == 0
                                 ? message.accountCategory != null
                                 : !Objects.equals(prev.accountCategory, message.accountCategory)));
@@ -862,7 +868,7 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                     if (date_bold)
                         tvDate.setTypeface(Typeface.DEFAULT_BOLD);
 
-                    if (cards) {
+                    if (cards || !dividers) {
                         View vSeparator = header.findViewById(R.id.vSeparator);
                         vSeparator.setVisibility(View.GONE);
                     }
@@ -1252,12 +1258,9 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
 
                         List<EntityAccount> result = new ArrayList<>();
                         DB db = DB.getInstance(context);
-                        if (aid < 0) {
-                            List<EntityAccount> accounts = db.account().getSynchronizingAccounts();
-                            for (EntityAccount account : accounts)
-                                if (account.protocol == EntityAccount.TYPE_IMAP)
-                                    result.add(account);
-                        } else {
+                        if (aid < 0)
+                            result.addAll(db.account().getSynchronizingAccounts(EntityAccount.TYPE_IMAP));
+                        else {
                             EntityAccount account = db.account().getAccount(aid);
                             if (account != null && account.protocol == EntityAccount.TYPE_IMAP)
                                 result.add(account);
@@ -1378,7 +1381,19 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
         fabError.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                onMenuFolders(account);
+                if (Boolean.TRUE.equals(v.getTag())) {
+                    Bundle args = new Bundle();
+                    args.putBoolean("settings", false);
+
+                    FragmentAccounts fragment = new FragmentAccounts();
+                    fragment.setArguments(args);
+
+                    FragmentManager fm = getParentFragmentManager();
+                    FragmentTransaction fragmentTransaction = fm.beginTransaction();
+                    fragmentTransaction.replace(R.id.content_frame, fragment).addToBackStack("unified");
+                    fragmentTransaction.commit();
+                } else
+                    onMenuFolders(account);
             }
         });
 
@@ -1750,6 +1765,8 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                     throw new IllegalStateException(context.getString(R.string.title_no_internet));
 
                 boolean now = true;
+                boolean reload = false;
+                boolean outbox = false;
                 boolean force = args.getBoolean("force");
 
                 DB db = DB.getInstance(context);
@@ -1768,22 +1785,17 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                     }
 
                     for (EntityFolder folder : folders) {
-                        EntityOperation.sync(context, folder.id, true, force);
+                        EntityOperation.sync(context, folder.id, true, force, true);
 
-                        if (folder.account != null) {
+                        if (folder.account == null)
+                            outbox = true;
+                        else {
                             EntityAccount account = db.account().getAccount(folder.account);
                             if (account != null && !"connected".equals(account.state)) {
                                 now = false;
                                 if (!account.isTransient(context))
-                                    force = true;
+                                    reload = true;
                             }
-                        }
-
-                        if (EntityFolder.SENT.equals(folder.type)) {
-                            List<EntityMessage> orphans = db.message().getSentOrphans(folder.id);
-                            if (orphans != null)
-                                for (EntityMessage orphan : orphans)
-                                    EntityOperation.queue(context, orphan, EntityOperation.EXISTS);
                         }
                     }
 
@@ -1792,12 +1804,15 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                     db.endTransaction();
                 }
 
-                if (force)
+                if (force || reload)
                     ServiceSynchronize.reload(context, null, true, "refresh");
                 else
                     ServiceSynchronize.eval(context, "refresh");
 
-                if (!now && !args.getBoolean("force"))
+                if (outbox)
+                    ServiceSend.start(context);
+
+                if (!now && !force)
                     throw new IllegalArgumentException(context.getString(R.string.title_no_connection));
 
                 return null;
@@ -2751,7 +2766,7 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                             if (sourceFolder == null || sourceFolder.read_only)
                                 continue;
                             if (EntityFolder.TRASH.equals(targetFolder.type)) {
-                                if (EntityFolder.ARCHIVE.equals(sourceFolder.type) && filter_archive)
+                                if (EntityFolder.ARCHIVE.equals(sourceFolder.type) && thread && filter_archive)
                                     continue;
                                 if (EntityFolder.JUNK.equals(sourceFolder.type) && !threaded.folder.equals(message.folder))
                                     continue;
@@ -2785,7 +2800,7 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
         }
     };
 
-    private void onReply(boolean sender) {
+    private void onReply(boolean long_press) {
         if (values.containsKey("expanded") && values.get("expanded").size() > 0) {
             long id = values.get("expanded").get(0);
             int pos = adapter.getPositionForKey(id);
@@ -2796,10 +2811,15 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
             if (message == null)
                 return;
 
-            if (sender && message.content) {
+            if (long_press && message.content) {
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
-                boolean reply_all = prefs.getBoolean("reply_all", false);
-                onMenuReply(message, reply_all ? "reply_all" : "reply", selected);
+                String answer_action = prefs.getString("answer_action", "reply");
+                if ("reply".equals(answer_action) ||
+                        "reply_all".equals(answer_action) ||
+                        "list".equals(answer_action))
+                    onMenuReply(message, answer_action, selected);
+                else
+                    onMenuReply(message, answer_action);
             } else
                 onReply(message, selected, fabReply);
         }
@@ -2907,8 +2927,18 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                 if (data.answers != null) {
                     int order = 100;
                     for (EntityAnswer answer : data.answers) {
+                        SpannableStringBuilder ssb = new SpannableStringBuilder(answer.name);
+
+                        if (answer.color != null) {
+                            int first = answer.name.codePointAt(0);
+                            int count = Character.charCount(first);
+                            ssb.setSpan(new ForegroundColorSpan(answer.color), 0, count, 0);
+                            ssb.setSpan(new StyleSpan(Typeface.BOLD), 0, count, 0);
+                            ssb.setSpan(new RelativeSizeSpan(HtmlHelper.FONT_LARGE), 0, count, 0);
+                        }
+
                         order++;
-                        popupMenu.getMenu().add(Menu.FIRST, order, order, answer.name)
+                        popupMenu.getMenu().add(Menu.FIRST, order, order, ssb)
                                 .setIcon(R.drawable.twotone_star_24)
                                 .setIntent(new Intent().putExtra("id", answer.id));
                     }
@@ -3254,11 +3284,13 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                 if (result.hasTrash == null) result.hasTrash = false;
                 if (result.hasJunk == null) result.hasJunk = false;
 
-                result.accounts = new ArrayList<>();
-                if (!result.hasPop)
-                    for (EntityAccount account : db.account().getSynchronizingAccounts())
-                        if (account.protocol == EntityAccount.TYPE_IMAP)
-                            result.accounts.add(account);
+                result.accounts = new LinkedHashMap<>();
+                if (!result.hasPop) {
+                    List<EntityAccount> syncing = db.account().getSynchronizingAccounts(EntityAccount.TYPE_IMAP);
+                    if (syncing != null)
+                        for (EntityAccount a : syncing)
+                            result.accounts.put(a, accounts.containsKey(a.id));
+                }
 
                 if (result.folders.size() > 1)
                     result.folders = new ArrayList<>();
@@ -3345,16 +3377,20 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                             leave ? R.string.title_trash : R.string.title_delete_permanently)
                             .setIcon(leave ? R.drawable.twotone_delete_24 : R.drawable.twotone_delete_forever_24);
 
-                    for (EntityAccount account : result.accounts) {
+                    for (EntityAccount account : result.accounts.keySet()) {
                         String title = getString(R.string.title_move_to_account, account.name);
-                        SpannableString ss = new SpannableString(title);
+                        SpannableString ssb = new SpannableString(title);
                         if (account.name != null && account.color != null) {
                             int i = title.indexOf(account.name);
                             int first = title.codePointAt(i);
                             int count = Character.charCount(first);
-                            ss.setSpan(new ForegroundColorSpan(account.color), i, i + count, 0);
+                            ssb.setSpan(new ForegroundColorSpan(account.color), i, i + count, 0);
+                            ssb.setSpan(new StyleSpan(Typeface.BOLD), i, i + count, 0);
+                            ssb.setSpan(new RelativeSizeSpan(HtmlHelper.FONT_LARGE), i, i + count, 0);
                         }
-                        MenuItem item = popupMenu.getMenu().add(Menu.FIRST, R.string.title_move_to_account, order++, ss)
+                        if (!result.accounts.get(account))
+                            ssb.setSpan(new RelativeSizeSpan(HtmlHelper.FONT_SMALL), 0, ssb.length(), 0);
+                        MenuItem item = popupMenu.getMenu().add(Menu.FIRST, R.string.title_move_to_account, order++, ssb)
                                 .setIcon(R.drawable.twotone_drive_file_move_24);
                         item.setIntent(new Intent().putExtra("account", account.id));
                     }
@@ -4329,7 +4365,7 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
 
                         DB db = DB.getInstance(context);
                         if (folder < 0) {
-                            List<EntityAccount> accounts = db.account().getSynchronizingAccounts();
+                            List<EntityAccount> accounts = db.account().getSynchronizingAccounts(null);
                             if (accounts != null)
                                 for (EntityAccount account : accounts)
                                     db.message().ignoreAll(account.id, null, type);
@@ -4503,7 +4539,7 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
         snackbar.addCallback(new Snackbar.Callback() {
             @Override
             public void onDismissed(Snackbar transientBottomBar, int event) {
-                prefs.edit().putLong("review_later", new Date().getTime()).apply();
+                prefs.edit().putBoolean("review_asked", true).apply();
             }
         });
         snackbar.show();
@@ -4886,7 +4922,7 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
 
     private void onMenuDeleteSearch() {
         Bundle args = new Bundle();
-        args.putLong("id", criteria.id);
+        args.putLong("id", criteria == null ? -1 : criteria.id);
 
         new SimpleTask<Void>() {
             @Override
@@ -4930,24 +4966,69 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
     }
 
     private void onMenuEmpty(String type) {
-        Bundle aargs = new Bundle();
-        if (EntityFolder.TRASH.equals(type))
-            aargs.putString("question", getString(
-                    account < 0 ? R.string.title_empty_trash_all_ask : R.string.title_empty_trash_ask));
-        else if (EntityFolder.JUNK.equals(type))
-            aargs.putString("question", getString(
-                    account < 0 ? R.string.title_empty_spam_all_ask : R.string.title_empty_spam_ask));
-        else
-            throw new IllegalArgumentException("Invalid folder type=" + type);
-        aargs.putBoolean("warning", true);
-        aargs.putString("remark", getString(R.string.title_empty_all));
-        aargs.putLong("account", account);
-        aargs.putString("type", type);
+        Bundle args = new Bundle();
+        args.putLong("account", account);
 
-        FragmentDialogAsk ask = new FragmentDialogAsk();
-        ask.setArguments(aargs);
-        ask.setTargetFragment(this, REQUEST_EMPTY_FOLDER);
-        ask.show(getParentFragmentManager(), "messages:empty");
+        new SimpleTask<List<EntityAccount>>() {
+            @Override
+            protected List<EntityAccount> onExecute(Context context, Bundle args) {
+                long aid = args.getLong("account");
+
+                List<EntityAccount> result = new ArrayList<>();
+
+                DB db = DB.getInstance(context);
+                if (aid < 0) {
+                    List<EntityAccount> accounts = db.account().getSynchronizingAccounts(null);
+                    if (accounts != null)
+                        result.addAll(accounts);
+                } else {
+                    EntityAccount account = db.account().getAccount(aid);
+                    if (account != null)
+                        result.add(account);
+                }
+
+                return result;
+            }
+
+            @Override
+            protected void onExecuted(Bundle args, List<EntityAccount> accounts) {
+                boolean permanent = false;
+                for (EntityAccount account : accounts)
+                    if (account.protocol == EntityAccount.TYPE_IMAP || !account.leave_deleted) {
+                        permanent = true;
+                        break;
+                    }
+
+                Bundle aargs = new Bundle();
+
+                if (EntityFolder.TRASH.equals(type))
+                    aargs.putString("question", getString(
+                            accounts.size() > 1 ? R.string.title_empty_trash_all_ask : R.string.title_empty_trash_ask));
+                else if (EntityFolder.JUNK.equals(type))
+                    aargs.putString("question", getString(
+                            accounts.size() > 1 ? R.string.title_empty_spam_all_ask : R.string.title_empty_spam_ask));
+                else
+                    throw new IllegalArgumentException("Invalid folder type=" + type);
+
+                aargs.putBoolean("warning", true);
+
+                if (permanent)
+                    aargs.putString("remark", getString(R.string.title_empty_all));
+
+                aargs.putLong("account", args.getLong("account"));
+                aargs.putString("type", type);
+
+                FragmentDialogAsk ask = new FragmentDialogAsk();
+                ask.setArguments(aargs);
+                ask.setTargetFragment(FragmentMessages.this, REQUEST_EMPTY_FOLDER);
+                ask.show(getParentFragmentManager(), "messages:empty");
+            }
+
+            @Override
+            protected void onException(Bundle args, Throwable ex) {
+                Log.unexpectedError(getParentFragmentManager(), ex);
+            }
+        }.execute(this, args, "folder:empty");
     }
 
     private void onMenuSort(String sort) {
@@ -5348,16 +5429,25 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
 
         // Get state
         int unseen = 0;
-        boolean errors = false;
         boolean refreshing = false;
+        boolean folderErrors = false;
+        boolean accountErrors = false;
         for (TupleFolderEx folder : folders) {
             unseen += folder.unseen;
-            if (folder.error != null && folder.account != null /* outbox */)
-                errors = true;
+
             if (folder.sync_state != null &&
                     !"downloading".equals(folder.sync_state) &&
-                    (folder.account == null || "connected".equals(folder.accountState)))
+                    (folder.account == null ||
+                            "connecting".equals(folder.accountState) ||
+                            "connected".equals(folder.accountState)))
                 refreshing = true;
+
+            if (folder.account != null) { // Outbox
+                if (folder.error != null)
+                    folderErrors = true;
+                if (!BuildConfig.PLAY_STORE_RELEASE && folder.accountError != null)
+                    accountErrors = true;
+            }
         }
 
         // Get name
@@ -5384,7 +5474,8 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
         else
             setSubtitle(getString(R.string.title_name_count, name, NF.format(unseen)));
 
-        if (errors)
+        fabError.setTag(accountErrors);
+        if (folderErrors || accountErrors)
             fabError.show();
         else
             fabError.hide();
@@ -6677,6 +6768,8 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                     @Override
                     public void run() {
                         try {
+                            if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                                return;
                             adapter.notifyDataSetChanged();
                         } catch (Throwable ex) {
                             Log.e(ex);
@@ -7143,6 +7236,9 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                 if (attachments == null)
                     return null;
 
+                if (auto && message.revision != null)
+                    return null;
+
                 InputStream in = null;
                 OutputStream out = null;
                 boolean inline = false;
@@ -7306,7 +7402,8 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                                     String protect_subject = parts.getProtectedSubject();
 
                                     // Write decrypted body
-                                    String html = parts.getHtml(context);
+                                    boolean download_plain = prefs.getBoolean("download_plain", false);
+                                    String html = parts.getHtml(context, download_plain);
                                     Helper.writeText(message.getFile(context), html);
                                     Log.i("pgp html=" + (html == null ? null : html.length()));
 
@@ -7323,7 +7420,7 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                                         db.message().setMessageContent(message.id,
                                                 true,
                                                 message.language,
-                                                parts.isPlainOnly(),
+                                                parts.isPlainOnly(download_plain),
                                                 message.preview,
                                                 message.warning);
 
@@ -7448,14 +7545,7 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                     String text = args.getString("sigresult");
                     Snackbar sb = Snackbar.make(view, text, Snackbar.LENGTH_LONG)
                             .setGestureInsetBottomIgnored(true);
-
-                    View sv = sb.getView();
-                    if (sv != null) {
-                        TextView tv = sv.findViewById(com.google.android.material.R.id.snackbar_text);
-                        if (tv != null)
-                            tv.setMaxLines(7);
-                    }
-
+                    Helper.setSnackbarLines(sb, 7);
                     sb.show();
                 }
 
@@ -8021,7 +8111,9 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                 MessageHelper.MessageParts parts = helper.getMessageParts();
 
                 // Write decrypted body
-                String html = parts.getHtml(context);
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                boolean download_plain = prefs.getBoolean("download_plain", false);
+                String html = parts.getHtml(context, download_plain);
                 Helper.writeText(message.getFile(context), html);
                 Log.i("s/mime html=" + (html == null ? null : html.length()));
 
@@ -8036,7 +8128,7 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                     db.message().setMessageContent(message.id,
                             true,
                             message.language,
-                            parts.isPlainOnly(),
+                            parts.isPlainOnly(download_plain),
                             message.preview,
                             message.warning);
 
@@ -8659,7 +8751,7 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
                 Document document = JsoupEx.parse(file);
 
                 boolean monospaced_pre = prefs.getBoolean("monospaced_pre", false);
-                if (Boolean.TRUE.equals(message.plain_only) && monospaced_pre)
+                if (message.isPlainOnly() && monospaced_pre)
                     HtmlHelper.restorePre(document);
 
                 HtmlHelper.embedInlineImages(context, id, document, true);
@@ -8892,7 +8984,7 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
 
                     List<EntityAccount> accounts;
                     if (account < 0)
-                        accounts = db.account().getSynchronizingAccounts();
+                        accounts = db.account().getSynchronizingAccounts(null);
                     else {
                         EntityAccount account = db.account().getAccount(aid);
                         if (account == null)
@@ -9011,7 +9103,7 @@ public class FragmentMessages extends FragmentBase implements SharedPreferences.
         Boolean leave_deleted;
         boolean read_only;
         List<Long> folders;
-        List<EntityAccount> accounts;
+        Map<EntityAccount, Boolean> accounts;
         EntityAccount copyto;
     }
 

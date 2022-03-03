@@ -20,7 +20,6 @@ package eu.faircode.email;
 */
 
 import static android.app.Activity.RESULT_OK;
-
 import static androidx.recyclerview.widget.RecyclerView.NO_POSITION;
 
 import android.app.Dialog;
@@ -59,7 +58,9 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.view.MenuCompat;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.Observer;
+import androidx.lifecycle.OnLifecycleEvent;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.DividerItemDecoration;
@@ -108,6 +109,7 @@ public class FragmentFolders extends FragmentBase {
     private FloatingActionButton fabError;
 
     private boolean cards;
+    private boolean dividers;
     private boolean compact;
 
     private long account;
@@ -142,7 +144,8 @@ public class FragmentFolders extends FragmentBase {
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
         cards = prefs.getBoolean("cards", true);
-        compact = prefs.getBoolean("compact_folders", false);
+        dividers = prefs.getBoolean("dividers", true);
+        compact = prefs.getBoolean("compact_folders", true);
         show_hidden = false; // prefs.getBoolean("hidden_folders", false);
         show_flagged = prefs.getBoolean("flagged_folders", false);
 
@@ -210,7 +213,7 @@ public class FragmentFolders extends FragmentBase {
         LinearLayoutManager llm = new LinearLayoutManager(getContext());
         rvFolder.setLayoutManager(llm);
 
-        if (!cards) {
+        if (!cards && dividers) {
             DividerItemDecoration itemDecorator = new DividerItemDecoration(getContext(), llm.getOrientation()) {
                 @Override
                 public void getItemOffsets(Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
@@ -280,7 +283,7 @@ public class FragmentFolders extends FragmentBase {
                     TextView tvCategory = header.findViewById(R.id.tvCategory);
                     TextView tvDate = header.findViewById(R.id.tvDate);
 
-                    if (cards) {
+                    if (cards || !dividers) {
                         View vSeparator = header.findViewById(R.id.vSeparator);
                         vSeparator.setVisibility(View.GONE);
                     }
@@ -508,8 +511,9 @@ public class FragmentFolders extends FragmentBase {
                     throw new IllegalStateException(context.getString(R.string.title_no_internet));
 
                 boolean now = true;
-                boolean force = args.getBoolean("force");
+                boolean reload = false;
                 boolean outbox = false;
+                boolean force = args.getBoolean("force");
 
                 DB db = DB.getInstance(context);
                 try {
@@ -540,7 +544,7 @@ public class FragmentFolders extends FragmentBase {
                             if (account != null && !"connected".equals(account.state)) {
                                 now = false;
                                 if (!account.isTransient(context))
-                                    force = true;
+                                    reload = true;
                             }
                         }
                     }
@@ -550,7 +554,7 @@ public class FragmentFolders extends FragmentBase {
                     db.endTransaction();
                 }
 
-                if (force)
+                if (force || reload)
                     ServiceSynchronize.reload(context, null, true, "refresh");
                 else
                     ServiceSynchronize.eval(context, "refresh");
@@ -558,7 +562,7 @@ public class FragmentFolders extends FragmentBase {
                 if (outbox)
                     ServiceSend.start(context);
 
-                if (!now && !args.getBoolean("force"))
+                if (!now && !force)
                     throw new IllegalArgumentException(context.getString(R.string.title_no_connection));
 
                 return null;
@@ -601,6 +605,14 @@ public class FragmentFolders extends FragmentBase {
             menuSearch.expandActionView();
             searchView.setQuery(searching, true);
         }
+
+        getViewLifecycleOwner().getLifecycle().addObserver(new LifecycleObserver() {
+            @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+            public void onDestroyed() {
+                menuSearch.collapseActionView();
+                getViewLifecycleOwner().getLifecycle().removeObserver(this);
+            }
+        });
 
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
@@ -939,6 +951,8 @@ public class FragmentFolders extends FragmentBase {
                 } finally {
                     db.endTransaction();
                 }
+
+                WorkerCleanup.cleanup(context, false);
 
                 return null;
             }

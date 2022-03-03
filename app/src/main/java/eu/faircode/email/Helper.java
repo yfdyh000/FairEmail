@@ -111,6 +111,7 @@ import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.snackbar.Snackbar;
 
 import org.openintents.openpgp.util.OpenPgpApi;
 
@@ -156,6 +157,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 
 public class Helper {
+    private static Boolean hasWebView = null;
     private static Boolean hasPlayStore = null;
     private static Boolean hasValidFingerprint = null;
 
@@ -175,6 +177,7 @@ public class Helper {
     static final String SUPPORT_URI = "https://contact.faircode.eu/";
     static final String TEST_URI = "https://play.google.com/apps/testing/" + BuildConfig.APPLICATION_ID;
     static final String BIMI_PRIVACY_URI = "https://datatracker.ietf.org/doc/html/draft-brotman-ietf-bimi-guidance-03#section-7.4";
+    static final String ID_COMMAND_URI = "https://datatracker.ietf.org/doc/html/rfc2971#section-3.1";
     static final String FAVICON_PRIVACY_URI = "https://en.wikipedia.org/wiki/Favicon";
     static final String GRAVATAR_PRIVACY_URI = "https://en.wikipedia.org/wiki/Gravatar";
     static final String LICENSE_URI = "https://www.gnu.org/licenses/gpl-3.0.html";
@@ -190,14 +193,13 @@ public class Helper {
     private static final String[] ROMAN_10 = {"", "X", "XX", "XXX", "XL", "L", "LX", "LXX", "LXXX", "XC"};
     private static final String[] ROMAN_1 = {"", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"};
 
-    static final Pattern EMAIL_ADDRESS
-            = Pattern.compile(
+    static final Pattern EMAIL_ADDRESS = Pattern.compile(
             "[\\S]{1,256}" +
                     "\\@" +
-                    "[a-zA-Z0-9][a-zA-Z0-9\\-]{0,64}" +
+                    "[\\p{L}0-9][\\p{L}0-9\\-\\_]{0,64}" +
                     "(" +
                     "\\." +
-                    "[a-zA-Z0-9][a-zA-Z0-9\\-]{0,25}" +
+                    "[\\p{L}0-9][\\p{L}0-9\\-\\_]{0,25}" +
                     ")+"
     );
 
@@ -409,6 +411,12 @@ public class Helper {
     }
 
     static boolean hasWebView(Context context) {
+        if (hasWebView == null)
+            hasWebView = _hasWebView(context);
+        return hasWebView;
+    }
+
+    private static boolean _hasWebView(Context context) {
         try {
             PackageManager pm = context.getPackageManager();
             if (pm.hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
@@ -597,6 +605,8 @@ public class Helper {
 
     static String getStandbyBucketName(int bucket) {
         switch (bucket) {
+            case 5:
+                return "exempted";
             case UsageStatsManager.STANDBY_BUCKET_ACTIVE:
                 return "active";
             case UsageStatsManager.STANDBY_BUCKET_WORKING_SET:
@@ -661,17 +671,21 @@ public class Helper {
     }
 
     static void share(Context context, File file, String type, String name) {
+        // https://developer.android.com/reference/androidx/core/content/FileProvider
+        Uri uri = FileProvider.getUriForFile(context, BuildConfig.APPLICATION_ID, file);
+        share(context, uri, type, name);
+    }
+
+    static void share(Context context, Uri uri, String type, String name) {
         try {
-            _share(context, file, type, name);
+            _share(context, uri, type, name);
         } catch (Throwable ex) {
             // java.lang.IllegalArgumentException: Failed to resolve canonical path for ...
             Log.e(ex);
         }
     }
 
-    static void _share(Context context, File file, String type, String name) {
-        // https://developer.android.com/reference/androidx/core/content/FileProvider
-        Uri uri = FileProvider.getUriForFile(context, BuildConfig.APPLICATION_ID, file);
+    private static void _share(Context context, Uri uri, String type, String name) {
         Log.i("uri=" + uri + " type=" + type);
 
         // Build intent
@@ -682,7 +696,8 @@ public class Helper {
         if (!("message/rfc822".equals(type) ||
                 "message/delivery-status".equals(type) ||
                 "message/disposition-notification".equals(type) ||
-                "text/rfc822-headers".equals(type)))
+                "text/rfc822-headers".equals(type) ||
+                "text/x-amp-html".equals(type)))
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 
         if (!TextUtils.isEmpty(name))
@@ -1301,9 +1316,11 @@ public class Helper {
                     child instanceof CheckBox ||
                     child instanceof ImageView /* =ImageButton */ ||
                     child instanceof RadioButton ||
-                    (child instanceof Button && "disable".equals(child.getTag())))
+                    (child instanceof Button && "disable".equals(child.getTag()))) {
+                if (child instanceof ImageView && ((ImageView) child).getImageTintList() != null)
+                    child.setAlpha(enabled ? 1.0f : LOW_LIGHT);
                 child.setEnabled(enabled);
-            else if (child instanceof BottomNavigationView) {
+            } else if (child instanceof BottomNavigationView) {
                 Menu menu = ((BottomNavigationView) child).getMenu();
                 menu.setGroupEnabled(0, enabled);
             } else if (child instanceof RecyclerView)
@@ -1322,6 +1339,16 @@ public class Helper {
         if (lparam instanceof ConstraintLayout.LayoutParams)
             ((ConstraintLayout.LayoutParams) lparam).setMargins(0, 0, 0, 0);
         view.setLayoutParams(lparam);
+    }
+
+    static void setSnackbarLines(Snackbar snackbar, int lines) {
+        View sv = snackbar.getView();
+        if (sv == null)
+            return;
+        TextView tv = sv.findViewById(com.google.android.material.R.id.snackbar_text);
+        if (tv == null)
+            return;
+        tv.setMaxLines(lines);
     }
 
     static boolean isNight(Context context) {
@@ -1513,9 +1540,12 @@ public class Helper {
     static String getString(Context context, String language, int resid, Object... formatArgs) {
         if (language == null)
             return context.getString(resid, formatArgs);
+        return getString(context, new Locale(language), resid, formatArgs);
+    }
 
+    static String getString(Context context, Locale locale, int resid, Object... formatArgs) {
         Configuration configuration = new Configuration(context.getResources().getConfiguration());
-        configuration.setLocale(new Locale(language));
+        configuration.setLocale(locale);
         Resources res = context.createConfigurationContext(configuration).getResources();
         return res.getString(resid, formatArgs);
     }
@@ -1675,7 +1705,7 @@ public class Helper {
                 ROMAN_1[value % 10];
     }
 
-    static ActionMode.Callback getActionModeWrapper(Context context) {
+    static ActionMode.Callback getActionModeWrapper(TextView view) {
         return new ActionMode.Callback() {
             @Override
             public boolean onCreateActionMode(ActionMode mode, Menu menu) {
@@ -1687,15 +1717,27 @@ public class Helper {
                 for (int i = 0; i < menu.size(); i++) {
                     MenuItem item = menu.getItem(i);
                     Intent intent = item.getIntent();
-                    if (intent != null) {
+                    if (intent != null &&
+                            Intent.ACTION_PROCESS_TEXT.equals(intent.getAction())) {
                         item.setIntent(null);
                         item.setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
                             @Override
                             public boolean onMenuItemClick(MenuItem item) {
                                 try {
-                                    context.startActivity(intent);
+                                    int start = view.getSelectionStart();
+                                    int end = view.getSelectionEnd();
+                                    if (start > end) {
+                                        int tmp = start;
+                                        start = end;
+                                        end = tmp;
+                                    }
+                                    CharSequence selected = view.getText();
+                                    if (start >= 0 && end <= selected.length())
+                                        selected = selected.subSequence(start, end);
+                                    intent.putExtra(Intent.EXTRA_PROCESS_TEXT, selected);
+                                    view.getContext().startActivity(intent);
                                 } catch (Throwable ex) {
-                                    reportNoViewer(context, intent, ex);
+                                    reportNoViewer(view.getContext(), intent, ex);
                                     /*
                                         java.lang.SecurityException: Permission Denial: starting Intent { act=android.intent.action.PROCESS_TEXT typ=text/plain cmp=com.microsoft.launcher/com.microsoft.bing.ProcessTextSearch launchParam=MultiScreenLaunchParams { mDisplayId=0 mFlags=0 } (has extras) } from ProcessRecord{befc028 15098:eu.faircode.email/u0a406} (pid=15098, uid=10406) not exported from uid 10021
                                             at android.os.Parcel.readException(Parcel.java:1693)

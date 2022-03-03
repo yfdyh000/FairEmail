@@ -142,6 +142,7 @@ public class ActivitySetup extends ActivityBase implements FragmentManager.OnBac
     static final int REQUEST_IMPORT_CERTIFICATE = 7;
     static final int REQUEST_OAUTH = 8;
     static final int REQUEST_STILL = 9;
+    static final int REQUEST_DELETE_ACCOUNT = 10;
 
     static final int PI_MISC = 1;
 
@@ -941,6 +942,7 @@ public class ActivitySetup extends ActivityBase implements FragmentManager.OnBac
                             if (account.auth_type == AUTH_TYPE_GMAIL &&
                                     GmailState.getAccount(context, account.user) == null) {
                                 SpannableStringBuilder ssb = new SpannableStringBuilder();
+                                ssb.append(account.name).append(": ");
                                 ssb.append(context.getString(R.string.title_importing_wizard));
                                 ssb.setSpan(new StyleSpan(Typeface.BOLD), 0, ssb.length(), 0);
                                 ssb.setSpan(new ForegroundColorSpan(colorWarning), 0, ssb.length(), 0);

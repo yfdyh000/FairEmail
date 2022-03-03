@@ -20,6 +20,7 @@ package eu.faircode.email;
 */
 
 import static androidx.recyclerview.widget.RecyclerView.NO_POSITION;
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
 
 import android.animation.ObjectAnimator;
 import android.content.Context;
@@ -61,16 +62,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
-
 public class FragmentAccounts extends FragmentBase {
     private boolean settings;
 
     private boolean cards;
+    private boolean dividers;
     private boolean compact;
 
     private ViewGroup view;
     private SwipeRefreshLayout swipeRefresh;
+    private TextView tvHintActions;
     private Button btnGrant;
     private RecyclerView rvAccount;
     private ContentLoadingProgressBar pbWait;
@@ -92,6 +93,7 @@ public class FragmentAccounts extends FragmentBase {
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
         cards = prefs.getBoolean("cards", true);
+        dividers = prefs.getBoolean("dividers", true);
         compact = prefs.getBoolean("compact_accounts", false) && !settings;
     }
 
@@ -105,6 +107,7 @@ public class FragmentAccounts extends FragmentBase {
 
         // Get controls
         swipeRefresh = view.findViewById(R.id.swipeRefresh);
+        tvHintActions = view.findViewById(R.id.tvHintActions);
         btnGrant = view.findViewById(R.id.btnGrant);
         rvAccount = view.findViewById(R.id.rvAccount);
         pbWait = view.findViewById(R.id.pbWait);
@@ -140,7 +143,7 @@ public class FragmentAccounts extends FragmentBase {
         LinearLayoutManager llm = new LinearLayoutManager(getContext());
         rvAccount.setLayoutManager(llm);
 
-        if (!cards) {
+        if (!cards && dividers) {
             DividerItemDecoration itemDecorator = new DividerItemDecoration(getContext(), llm.getOrientation());
             itemDecorator.setDrawable(getContext().getDrawable(R.drawable.divider));
             rvAccount.addItemDecoration(itemDecorator);
@@ -200,7 +203,7 @@ public class FragmentAccounts extends FragmentBase {
                 TextView tvCategory = header.findViewById(R.id.tvCategory);
                 TextView tvDate = header.findViewById(R.id.tvDate);
 
-                if (cards) {
+                if (cards || !dividers) {
                     View vSeparator = header.findViewById(R.id.vSeparator);
                     vSeparator.setVisibility(View.GONE);
                 }
@@ -291,6 +294,7 @@ public class FragmentAccounts extends FragmentBase {
             fabCompose.show();
         }
 
+        tvHintActions.setVisibility(settings ? View.VISIBLE : View.GONE);
         btnGrant.setVisibility(View.GONE);
         grpReady.setVisibility(View.GONE);
         pbWait.setVisibility(View.VISIBLE);
@@ -457,8 +461,9 @@ public class FragmentAccounts extends FragmentBase {
                     throw new IllegalStateException(context.getString(R.string.title_no_internet));
 
                 boolean now = true;
-                boolean force = args.getBoolean("force");
+                boolean reload = false;
                 boolean outbox = false;
+                boolean force = args.getBoolean("force");
 
                 DB db = DB.getInstance(context);
                 try {
@@ -480,7 +485,7 @@ public class FragmentAccounts extends FragmentBase {
                             if (account != null && !"connected".equals(account.state)) {
                                 now = false;
                                 if (!account.isTransient(context))
-                                    force = true;
+                                    reload = true;
                             }
                         }
                     }
@@ -490,7 +495,7 @@ public class FragmentAccounts extends FragmentBase {
                     db.endTransaction();
                 }
 
-                if (force)
+                if (force || reload)
                     ServiceSynchronize.reload(context, null, true, "refresh");
                 else
                     ServiceSynchronize.eval(context, "refresh");
@@ -498,7 +503,7 @@ public class FragmentAccounts extends FragmentBase {
                 if (outbox)
                     ServiceSend.start(context);
 
-                if (!now && !args.getBoolean("force"))
+                if (!now && !force)
                     throw new IllegalArgumentException(context.getString(R.string.title_no_connection));
 
                 return null;

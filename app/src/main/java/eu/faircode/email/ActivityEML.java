@@ -24,6 +24,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Spannable;
@@ -47,7 +48,9 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.cardview.widget.CardView;
 import androidx.constraintlayout.widget.Group;
+import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -94,9 +97,12 @@ public class ActivityEML extends ActivityBase {
     private TextView tvBody;
     private TextView tvStructure;
     private ImageButton ibEml;
+    private CardView cardHeaders;
+    private TextView tvHeaders;
     private ContentLoadingProgressBar pbWait;
     private Group grpReady;
 
+    private boolean junk;
     private Uri uri;
     private MessageHelper.AttachmentPart apart;
     private static final int REQUEST_ATTACHMENT = 1;
@@ -105,6 +111,10 @@ public class ActivityEML extends ActivityBase {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        if (savedInstanceState != null)
+            junk = savedInstanceState.getBoolean("fair:junk");
+
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setSubtitle("EML");
 
         View view = LayoutInflater.from(this).inflate(R.layout.activity_eml, null);
@@ -123,6 +133,8 @@ public class ActivityEML extends ActivityBase {
         tvBody = findViewById(R.id.tvBody);
         tvStructure = findViewById(R.id.tvStructure);
         ibEml = findViewById(R.id.ibEml);
+        cardHeaders = findViewById(R.id.cardHeaders);
+        tvHeaders = findViewById(R.id.tvHeaders);
         pbWait = findViewById(R.id.pbWait);
         grpReady = findViewById(R.id.grpReady);
 
@@ -178,7 +190,7 @@ public class ActivityEML extends ActivityBase {
                         if (uri == null)
                             throw new FileNotFoundException();
 
-                        File dir = new File(getCacheDir(), "shared");
+                        File dir = new File(context.getCacheDir(), "shared");
                         if (!dir.exists())
                             dir.mkdir();
 
@@ -205,6 +217,7 @@ public class ActivityEML extends ActivityBase {
         FragmentDialogTheme.setBackground(this, view, false);
         vSeparatorAttachments.setVisibility(View.GONE);
         grpReady.setVisibility(View.GONE);
+        cardHeaders.setVisibility(View.GONE);
 
         load();
     }
@@ -214,6 +227,12 @@ public class ActivityEML extends ActivityBase {
         super.onNewIntent(intent);
         setIntent(intent);
         load();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putBoolean("fair:junk", junk);
+        super.onSaveInstanceState(outState);
     }
 
     private void load() {
@@ -249,6 +268,9 @@ public class ActivityEML extends ActivityBase {
 
                 Result result = new Result();
 
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                boolean download_plain = prefs.getBoolean("download_plain", false);
+
                 ContentResolver resolver = context.getContentResolver();
                 try (InputStream is = resolver.openInputStream(uri)) {
 
@@ -264,11 +286,11 @@ public class ActivityEML extends ActivityBase {
                     result.cc = MessageHelper.formatAddresses(helper.getCc());
                     result.bcc = MessageHelper.formatAddresses(helper.getBcc());
                     result.sent = helper.getSent();
-                    result.received = helper.getReceived();
+                    result.received = helper.getReceivedHeader();
                     result.subject = helper.getSubject();
                     result.parts = helper.getMessageParts(false);
 
-                    String html = result.parts.getHtml(context);
+                    String html = result.parts.getHtml(context, download_plain);
                     if (html != null) {
                         Document parsed = JsoupEx.parse(html);
                         HtmlHelper.autoLink(parsed);
@@ -280,6 +302,8 @@ public class ActivityEML extends ActivityBase {
                     SpannableStringBuilder ssb = new SpannableStringBuilderEx();
                     getStructure(imessage, ssb, 0, textColorLink);
                     result.structure = ssb;
+
+                    result.headers = HtmlHelper.highlightHeaders(context, helper.getHeaders(), false);
 
                     return result;
                 }
@@ -358,7 +382,9 @@ public class ActivityEML extends ActivityBase {
 
                 tvBody.setText(result.body);
                 tvStructure.setText(result.structure);
+                tvHeaders.setText(result.headers);
                 grpReady.setVisibility(View.VISIBLE);
+                cardHeaders.setVisibility(BuildConfig.DEBUG ? View.VISIBLE : View.GONE);
             }
 
             @Override
@@ -421,11 +447,11 @@ public class ActivityEML extends ActivityBase {
                             .append(size > 0 ? Helper.humanReadableByteCount(size) : "?")
                             .append('\n');
 
-                    if (!part.isMimeType("multipart/*")) {
+                    if (BuildConfig.DEBUG &&
+                            !part.isMimeType("multipart/*")) {
                         Object content = part.getContent();
                         if (content instanceof String) {
                             String text = (String) content;
-                            Charset detected = CharsetHelper.detect(text);
 
                             String charset;
                             try {
@@ -438,6 +464,7 @@ public class ActivityEML extends ActivityBase {
                                 charset = StandardCharsets.ISO_8859_1.name();
 
                             Charset cs = Charset.forName(charset);
+                            Charset detected = CharsetHelper.detect(text, cs);
                             boolean isUtf8 = CharsetHelper.isUTF8(text.getBytes(cs));
                             boolean isW1252 = !Objects.equals(text, CharsetHelper.utf8toW1252(text));
 
@@ -550,10 +577,24 @@ public class ActivityEML extends ActivityBase {
     }
 
     @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        menu.findItem(R.id.menu_junk).setVisible(BuildConfig.DEBUG);
+        menu.findItem(R.id.menu_save).setIcon(junk
+                ? R.drawable.twotone_report_24
+                : R.drawable.twotone_move_to_inbox_24);
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == R.id.menu_save) {
+        int itemId = item.getItemId();
+        if (itemId == R.id.menu_save) {
             onMenuSave();
             return true;
+        } else if (itemId == R.id.menu_junk) {
+            junk = !junk;
+            item.setChecked(junk);
+            invalidateOptionsMenu();
         }
         return super.onOptionsItemSelected(item);
     }
@@ -563,7 +604,7 @@ public class ActivityEML extends ActivityBase {
             @Override
             protected List<EntityAccount> onExecute(Context context, Bundle args) {
                 DB db = DB.getInstance(context);
-                return db.account().getSynchronizingAccounts();
+                return db.account().getSynchronizingAccounts(EntityAccount.TYPE_IMAP);
             }
 
             @Override
@@ -571,8 +612,7 @@ public class ActivityEML extends ActivityBase {
                 ArrayAdapter<EntityAccount> adapter =
                         new ArrayAdapter<>(ActivityEML.this, R.layout.spinner_item1, android.R.id.text1);
                 for (EntityAccount account : accounts)
-                    if (account.protocol == EntityAccount.TYPE_IMAP)
-                        adapter.add(account);
+                    adapter.add(account);
 
                 new AlertDialog.Builder(ActivityEML.this)
                         .setIcon(R.drawable.twotone_save_alt_24)
@@ -585,6 +625,7 @@ public class ActivityEML extends ActivityBase {
                                 Bundle args = new Bundle();
                                 args.putParcelable("uri", uri);
                                 args.putLong("account", account.id);
+                                args.putBoolean("junk", junk);
 
                                 new SimpleTask<String>() {
                                     @Override
@@ -601,8 +642,9 @@ public class ActivityEML extends ActivityBase {
                                         EntityAccount account = db.account().getAccount(aid);
                                         if (account == null)
                                             return null;
-                                        EntityFolder inbox = db.folder().getFolderByType(account.id, EntityFolder.INBOX);
-                                        if (inbox == null)
+                                        EntityFolder folder = db.folder().getFolderByType(account.id,
+                                                junk ? EntityFolder.JUNK : EntityFolder.INBOX);
+                                        if (folder == null)
                                             throw new IllegalArgumentException(context.getString(R.string.title_no_folder));
 
                                         ContentResolver resolver = context.getContentResolver();
@@ -618,7 +660,7 @@ public class ActivityEML extends ActivityBase {
                                                 iservice.setIgnoreBodyStructureSize(account.ignore_size);
                                                 iservice.connect(account);
 
-                                                IMAPFolder ifolder = (IMAPFolder) iservice.getStore().getFolder(inbox.name);
+                                                IMAPFolder ifolder = (IMAPFolder) iservice.getStore().getFolder(folder.name);
                                                 ifolder.open(Folder.READ_WRITE);
 
                                                 if (ifolder.getPermanentFlags().contains(Flags.Flag.DRAFT))
@@ -628,10 +670,10 @@ public class ActivityEML extends ActivityBase {
                                             }
                                         }
 
-                                        EntityOperation.sync(context, inbox.id, true);
+                                        EntityOperation.sync(context, folder.id, true);
                                         ServiceSynchronize.eval(context, "EML");
 
-                                        return account.name + "/" + inbox.name;
+                                        return account.name + "/" + folder.name;
                                     }
 
                                     @Override
@@ -673,5 +715,6 @@ public class ActivityEML extends ActivityBase {
         MessageHelper.MessageParts parts;
         Spanned body;
         Spanned structure;
+        Spanned headers;
     }
 }

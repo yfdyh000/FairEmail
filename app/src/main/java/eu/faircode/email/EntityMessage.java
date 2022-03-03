@@ -19,6 +19,9 @@ package eu.faircode.email;
     Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
+import static androidx.room.ForeignKey.CASCADE;
+import static androidx.room.ForeignKey.SET_NULL;
+
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -41,7 +44,6 @@ import org.jsoup.nodes.Element;
 import java.io.File;
 import java.io.Serializable;
 import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -54,9 +56,6 @@ import java.util.regex.Pattern;
 
 import javax.mail.Address;
 import javax.mail.internet.InternetAddress;
-
-import static androidx.room.ForeignKey.CASCADE;
-import static androidx.room.ForeignKey.SET_NULL;
 
 // https://developer.android.com/training/data-storage/room/defining-data
 
@@ -182,7 +181,7 @@ public class EntityMessage implements Serializable {
     @NonNull
     public Boolean content = false;
     public String language = null; // classified
-    public Boolean plain_only = null;
+    public Integer plain_only = null; // 1=true; 0x80=alt
     public Boolean resend = null;
     public Integer encrypt = null;
     public Integer ui_encrypt = null;
@@ -258,6 +257,14 @@ public class EntityMessage implements Serializable {
         return "<" + UUID.randomUUID() + "@" + domain + '>';
     }
 
+    boolean isPlainOnly() {
+        return (this.plain_only != null && (this.plain_only & 1) != 0);
+    }
+
+    boolean hasAlt() {
+        return (this.plain_only != null && (this.plain_only & 0x80) != 0);
+    }
+
     boolean replySelf(List<TupleIdentityEx> identities, long account) {
         Address[] senders = (reply == null || reply.length == 0 ? from : reply);
         if (identities != null && senders != null)
@@ -317,6 +324,16 @@ public class EntityMessage implements Serializable {
 
     boolean isForwarded() {
         return hasKeyword(MessageHelper.FLAG_FORWARDED);
+    }
+
+    boolean isSigned() {
+        return (EntityMessage.PGP_SIGNONLY.equals(ui_encrypt) ||
+                EntityMessage.SMIME_SIGNONLY.equals(ui_encrypt));
+    }
+
+    boolean isEncrypted() {
+        return (EntityMessage.PGP_SIGNENCRYPT.equals(ui_encrypt) ||
+                EntityMessage.SMIME_SIGNENCRYPT.equals(ui_encrypt));
     }
 
     String[] checkFromDomain(Context context) {
@@ -417,9 +434,10 @@ public class EntityMessage implements Serializable {
         boolean language_detection = prefs.getBoolean("language_detection", false);
         String l = (language_detection ? language : null);
 
+        DateFormat DTF = Helper.getDateTimeInstance(context);
+
         Element p = document.createElement("p");
         if (extended) {
-            DateFormat DTF = Helper.getDateTimeInstance(context, SimpleDateFormat.LONG, SimpleDateFormat.LONG);
             if (from != null && from.length > 0) {
                 Element strong = document.createElement("strong");
                 strong.text(Helper.getString(context, l, R.string.title_from) + " ");
@@ -455,10 +473,8 @@ public class EntityMessage implements Serializable {
                 p.appendText(subject);
                 p.appendElement("br");
             }
-        } else {
-            DateFormat DTF = Helper.getDateTimeInstance(context);
+        } else
             p.text(DTF.format(new Date(received)) + " " + MessageHelper.formatAddresses(from) + ":");
-        }
 
         Element div = document.createElement("div")
                 .attr("fairemail", "reply");

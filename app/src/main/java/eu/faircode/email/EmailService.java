@@ -37,6 +37,7 @@ import androidx.annotation.NonNull;
 import androidx.preference.PreferenceManager;
 
 import com.sun.mail.gimap.GmailSSLProvider;
+import com.sun.mail.iap.ProtocolException;
 import com.sun.mail.imap.IMAPFolder;
 import com.sun.mail.imap.IMAPStore;
 import com.sun.mail.pop3.POP3Store;
@@ -62,6 +63,7 @@ import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.Principal;
 import java.security.PrivateKey;
+import java.security.cert.CertPathValidatorException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -104,7 +106,8 @@ public class EmailService implements AutoCloseable {
     private String protocol;
     private boolean insecure;
     private int purpose;
-    private boolean harden;
+    private boolean ssl_harden;
+    private boolean cert_strict;
     private boolean useip;
     private String ehlo;
     private boolean log;
@@ -182,17 +185,20 @@ public class EmailService implements AutoCloseable {
             prefs.edit().putBoolean("protocol", false).apply();
         this.log = prefs.getBoolean("protocol", false);
         this.level = prefs.getInt("log_level", Log.getDefaultLogLevel());
-        this.harden = prefs.getBoolean("ssl_harden", false);
+        this.ssl_harden = prefs.getBoolean("ssl_harden", false);
+        this.cert_strict = prefs.getBoolean("cert_strict", !BuildConfig.PLAY_STORE_RELEASE);
 
         boolean auth_plain = prefs.getBoolean("auth_plain", true);
         boolean auth_login = prefs.getBoolean("auth_login", true);
         boolean auth_ntlm = prefs.getBoolean("auth_ntlm", true);
         boolean auth_sasl = prefs.getBoolean("auth_sasl", true);
+        boolean auth_apop = prefs.getBoolean("auth_apop", false);
         Log.i("Authenticate" +
                 " plain=" + auth_plain +
                 " login=" + auth_login +
                 " ntlm=" + auth_ntlm +
-                " sasl=" + auth_sasl);
+                " sasl=" + auth_sasl +
+                " apop=" + auth_apop);
 
         properties.put("mail.event.scope", "folder");
         properties.put("mail.event.executor", executor);
@@ -203,6 +209,8 @@ public class EmailService implements AutoCloseable {
             properties.put("mail." + protocol + ".auth.login.disable", "true");
         if (!auth_ntlm)
             properties.put("mail." + protocol + ".auth.ntlm.disable", "true");
+        if (auth_apop)
+            properties.put("mail." + protocol + ".apop.enable", "true");
 
         // SASL is attempted before other authentication methods
         properties.put("mail." + protocol + ".sasl.enable", Boolean.toString(auth_sasl));
@@ -403,7 +411,7 @@ public class EmailService implements AutoCloseable {
                 }
             }
 
-            factory = new SSLSocketFactoryService(host, insecure, harden, key, chain, fingerprint);
+            factory = new SSLSocketFactoryService(host, insecure, ssl_harden, cert_strict, key, chain, fingerprint);
             properties.put("mail." + protocol + ".ssl.socketFactory", factory);
             properties.put("mail." + protocol + ".socketFactory.fallback", "false");
             properties.put("mail." + protocol + ".ssl.checkserveridentity", "false");
@@ -541,7 +549,6 @@ public class EmailService implements AutoCloseable {
                     Log.w(ex);
                 }
 
-            EntityLog.log(context, "Connecting to " + main);
             _connect(main, port, require_id, user, factory);
         } catch (UnknownHostException ex) {
             throw new MessagingException(ex.getMessage(), ex);
@@ -682,6 +689,8 @@ public class EmailService implements AutoCloseable {
     private void _connect(
             InetAddress address, int port, boolean require_id, String user,
             SSLSocketFactoryService factory) throws MessagingException {
+        EntityLog.log(context, "Connecting to " + address + ":" + port);
+
         isession = Session.getInstance(properties, authenticator);
 
         breadcrumbs = new RingBuffer<>(BREADCRUMBS_SIZE);
@@ -734,12 +743,7 @@ public class EmailService implements AutoCloseable {
                 try {
                     SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
                     boolean client_id = prefs.getBoolean("client_id", true);
-
-                    Map<String, String> id = new LinkedHashMap<>();
-                    id.put("name", context.getString(R.string.app_name));
-                    id.put("version", BuildConfig.VERSION_NAME);
-
-                    Map<String, String> sid = istore.id(client_id ? id : null);
+                    Map<String, String> sid = istore.id(client_id ? getId(context) : null);
                     if (sid != null) {
                         Map<String, String> crumb = new HashMap<>();
                         for (String key : sid.keySet()) {
@@ -753,6 +757,14 @@ public class EmailService implements AutoCloseable {
                     // Check for 'User is authenticated but not connected'
                     if (require_id)
                         throw ex;
+                }
+
+            // Verizon
+            if (false && istore.hasCapability("X-UIDONLY") && istore.hasCapability("ENABLE"))
+                try {
+                    istore.enable("X-UIDONLY");
+                } catch (ProtocolException ex) {
+                    Log.e(ex);
                 }
 
         } else if ("smtp".equals(protocol) || "smtps".equals(protocol)) {
@@ -783,6 +795,15 @@ public class EmailService implements AutoCloseable {
             }
         } else
             throw new NoSuchProviderException(protocol);
+    }
+
+    static Map<String, String> getId(Context context) {
+        Map<String, String> id = new LinkedHashMap<>();
+        id.put("name", context.getString(R.string.app_name));
+        id.put("version", BuildConfig.VERSION_NAME);
+        id.put("os", "Android");
+        id.put("os-version", Build.VERSION.RELEASE);
+        return id;
     }
 
     static String getDefaultEhlo() {
@@ -929,30 +950,40 @@ public class EmailService implements AutoCloseable {
 
     private static class SSLSocketFactoryService extends SSLSocketFactory {
         // openssl s_client -connect host:port < /dev/null 2>/dev/null | openssl x509 -fingerprint -noout -in /dev/stdin
+        // nmap --script ssl-enum-ciphers -Pn -p port host
         private String server;
         private boolean secure;
-        private boolean harden;
+        private boolean ssl_harden;
+        private boolean cert_strict;
         private String trustedFingerprint;
         private SSLSocketFactory factory;
         private X509Certificate certificate;
 
-        SSLSocketFactoryService(String host, boolean insecure, boolean harden, PrivateKey key, X509Certificate[] chain, String fingerprint) throws GeneralSecurityException {
+        SSLSocketFactoryService(String host, boolean insecure, boolean ssl_harden, boolean cert_strict, PrivateKey key, X509Certificate[] chain, String fingerprint) throws GeneralSecurityException {
             this.server = host;
             this.secure = !insecure;
-            this.harden = harden;
+            this.ssl_harden = ssl_harden;
+            this.cert_strict = cert_strict;
             this.trustedFingerprint = fingerprint;
 
-            SSLContext sslContext = SSLContext.getInstance("TLS");
+            // https://developer.android.com/about/versions/oreo/android-8.0-changes.html#security-all
+            SSLContext sslContext = SSLContext.getInstance(insecure ? "SSL" : "TLS");
 
             TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
             tmf.init((KeyStore) null);
 
             TrustManager[] tms = tmf.getTrustManagers();
+            Log.i("Trust managers=" + (tms == null ? null : tms.length));
+
             if (tms == null || tms.length == 0 || !(tms[0] instanceof X509TrustManager)) {
                 Log.e("Missing root trust manager");
                 sslContext.init(null, tms, null);
             } else {
                 final X509TrustManager rtm = (X509TrustManager) tms[0];
+
+                if (tms.length > 1)
+                    for (TrustManager tm : tms)
+                        Log.e("Trust manager " + tm.getClass());
 
                 X509TrustManager tm = new X509TrustManager() {
                     // openssl s_client -connect <host>
@@ -976,12 +1007,20 @@ public class EmailService implements AutoCloseable {
 
                             // Check certificates
                             try {
+                                Log.i("Auth type=" + authType);
                                 rtm.checkServerTrusted(chain, authType);
                             } catch (CertificateException ex) {
                                 Principal principal = certificate.getSubjectDN();
                                 if (principal == null)
                                     throw ex;
-                                else
+                                else if (cert_strict)
+                                    throw new CertificateException(principal.getName(), ex);
+                                else if (noAnchor(ex) || isExpired(ex)) {
+                                    if (BuildConfig.PLAY_STORE_RELEASE)
+                                        Log.i(ex);
+                                    else
+                                        Log.w(ex);
+                                } else
                                     throw new CertificateException(principal.getName(), ex);
                             }
 
@@ -989,6 +1028,32 @@ public class EmailService implements AutoCloseable {
                             List<String> names = EntityCertificate.getDnsNames(certificate);
                             if (EntityCertificate.matches(server, names))
                                 return;
+
+                            // Fallback: check server/certificate IP address
+                            if (!cert_strict)
+                                try {
+                                    InetAddress ip = InetAddress.getByName(server);
+                                    Log.i("Checking server ip=" + ip);
+                                    for (String name : names) {
+                                        if (name.startsWith("*."))
+                                            name = name.substring(2);
+                                        Log.i("Checking cert name=" + name);
+
+                                        try {
+                                            for (InetAddress addr : InetAddress.getAllByName(name))
+                                                if (Arrays.equals(ip.getAddress(), addr.getAddress())) {
+                                                    Log.i("Accepted " + name + " for " + server);
+                                                    return;
+                                                }
+                                        } catch (UnknownHostException ex) {
+                                            Log.w(ex);
+                                        }
+                                    }
+                                } catch (UnknownHostException ex) {
+                                    Log.w(ex);
+                                } catch (Throwable ex) {
+                                    Log.e(ex);
+                                }
 
                             String error = server + " not in certificate: " + TextUtils.join(",", names);
                             Log.i(error);
@@ -999,6 +1064,29 @@ public class EmailService implements AutoCloseable {
                     @Override
                     public X509Certificate[] getAcceptedIssuers() {
                         return rtm.getAcceptedIssuers();
+                    }
+
+                    private boolean noAnchor(Throwable ex) {
+                        while (ex != null) {
+                            if (ex instanceof CertPathValidatorException &&
+                                    "Trust anchor for certification path not found."
+                                            .equals(ex.getMessage()))
+                                return true;
+                            ex = ex.getCause();
+                        }
+                        return false;
+                    }
+
+                    private boolean isExpired(Throwable ex) {
+                        while (ex != null) {
+                            if (ex instanceof CertPathValidatorException &&
+                                    "timestamp check failed"
+                                            .equals(ex.getMessage()))
+                                return true;
+
+                            ex = ex.getCause();
+                        }
+                        return false;
                     }
                 };
 
@@ -1064,14 +1152,16 @@ public class EmailService implements AutoCloseable {
                 SSLSocket sslSocket = (SSLSocket) socket;
 
                 if (!secure) {
+                    // Protocols
                     sslSocket.setEnabledProtocols(sslSocket.getSupportedProtocols());
 
+                    // Ciphers
                     List<String> ciphers = new ArrayList<>();
-                    for (String cipher : sslSocket.getSupportedCipherSuites())
-                        if (!cipher.endsWith("_SCSV"))
-                            ciphers.add(cipher);
+                    ciphers.addAll(Arrays.asList(sslSocket.getSupportedCipherSuites()));
+                    ciphers.remove("TLS_FALLBACK_SCSV");
                     sslSocket.setEnabledCipherSuites(ciphers.toArray(new String[0]));
-                } else if (harden) {
+                } else if (ssl_harden) {
+                    // Protocols
                     List<String> protocols = new ArrayList<>();
                     for (String protocol : sslSocket.getEnabledProtocols())
                         if (SSL_PROTOCOL_BLACKLIST.contains(protocol))
@@ -1080,6 +1170,7 @@ public class EmailService implements AutoCloseable {
                             protocols.add(protocol);
                     sslSocket.setEnabledProtocols(protocols.toArray(new String[0]));
 
+                    // Ciphers
                     List<String> ciphers = new ArrayList<>();
                     for (String cipher : sslSocket.getEnabledCipherSuites()) {
                         if (SSL_CIPHER_BLACKLIST.matcher(cipher).matches())
@@ -1089,10 +1180,11 @@ public class EmailService implements AutoCloseable {
                     }
                     sslSocket.setEnabledCipherSuites(ciphers.toArray(new String[0]));
                 } else {
+                    // Ciphers
                     List<String> ciphers = new ArrayList<>();
                     ciphers.addAll(Arrays.asList(sslSocket.getEnabledCipherSuites()));
                     for (String cipher : sslSocket.getSupportedCipherSuites())
-                        if (cipher.contains("3DES")) {
+                        if (!ciphers.contains(cipher) && cipher.contains("3DES")) {
                             // Some servers support 3DES and RC4 only
                             Log.i("SSL enabling cipher=" + cipher);
                             ciphers.add(cipher);

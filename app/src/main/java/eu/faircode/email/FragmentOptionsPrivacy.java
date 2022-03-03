@@ -77,6 +77,7 @@ public class FragmentOptionsPrivacy extends FragmentBase implements SharedPrefer
     private TextView tvAutoLockNavHint;
     private SwitchCompat swClientId;
     private TextView tvClientId;
+    private ImageButton ibClientId;
     private SwitchCompat swDisplayHidden;
     private SwitchCompat swIncognitoKeyboard;
     private ImageButton ibIncognitoKeyboard;
@@ -133,6 +134,7 @@ public class FragmentOptionsPrivacy extends FragmentBase implements SharedPrefer
         tvAutoLockNavHint = view.findViewById(R.id.tvAutoLockNavHint);
         swClientId = view.findViewById(R.id.swClientId);
         tvClientId = view.findViewById(R.id.tvClientId);
+        ibClientId = view.findViewById(R.id.ibClientId);
         swDisplayHidden = view.findViewById(R.id.swDisplayHidden);
         swIncognitoKeyboard = view.findViewById(R.id.swIncognitoKeyboard);
         ibIncognitoKeyboard = view.findViewById(R.id.ibIncognitoKeyboard);
@@ -307,6 +309,13 @@ public class FragmentOptionsPrivacy extends FragmentBase implements SharedPrefer
             }
         });
 
+        ibClientId.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Helper.view(v.getContext(), Uri.parse(Helper.ID_COMMAND_URI), true);
+            }
+        });
+
         swDisplayHidden.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
@@ -430,7 +439,14 @@ public class FragmentOptionsPrivacy extends FragmentBase implements SharedPrefer
 
         // Initialize
         FragmentDialogTheme.setBackground(getContext(), view, false);
-        tvClientId.setText(getString(R.string.app_name) + " " + BuildConfig.VERSION_NAME);
+
+        StringBuilder sb = new StringBuilder();
+        for (String value : EmailService.getId(getContext()).values()) {
+            if (sb.length() > 0)
+                sb.append(' ');
+            sb.append(value);
+        }
+        tvClientId.setText(sb);
 
         PreferenceManager.getDefaultSharedPreferences(getContext()).registerOnSharedPreferenceChangeListener(this);
 
@@ -509,7 +525,7 @@ public class FragmentOptionsPrivacy extends FragmentBase implements SharedPrefer
         swSecure.setChecked(prefs.getBoolean("secure", false));
 
         tvGenericUserAgent.setText(WebViewEx.getUserAgent(getContext()));
-        swGenericUserAgent.setChecked(prefs.getBoolean("generic_ua", true));
+        swGenericUserAgent.setChecked(prefs.getBoolean("generic_ua", false));
         swSafeBrowsing.setChecked(prefs.getBoolean("safe_browsing", false));
         swLoadEmoji.setChecked(prefs.getBoolean("load_emoji", BuildConfig.PLAY_STORE_RELEASE));
 

@@ -151,9 +151,19 @@
         </item>
 
         <item
+            android:id="@+id/menu_thread_info"
+            android:icon="@drawable/baseline_mail_more_24"
+            android:title="@string/title_thread_info" />
+
+        <item
             android:id="@+id/menu_resync"
             android:icon="@drawable/twotone_sync_24"
             android:title="@string/title_resync" />
+
+        <item
+            android:id="@+id/menu_alternative"
+            android:icon="@drawable/twotone_sync_alt_24"
+            android:title="@string/title_alternative_text" />
 
         <item
             android:id="@+id/menu_log"

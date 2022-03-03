@@ -21,7 +21,6 @@ package eu.faircode.email;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -101,6 +100,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
 
     private boolean subscriptions;
 
+    private int dp3;
     private int dp12;
     private float textSize;
     private int colorStripeWidth;
@@ -116,6 +116,8 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
     private List<TupleFolderEx> selected = new ArrayList<>();
 
     private NumberFormat NF = NumberFormat.getNumberInstance();
+
+    private static final int DENSE_ITEMS_THRESHOLD = 50;
 
     public class ViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener, View.OnLongClickListener {
         private View view;
@@ -226,8 +228,9 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
         private void bindTo(final TupleFolderEx folder) {
             boolean disabled = isDisabled(folder);
 
+            int p = (show_compact && all.size() < DENSE_ITEMS_THRESHOLD ? dp3 : 0);
+            view.setPadding(p, p, p, p);
             view.setActivated(folder.tbc != null || folder.rename != null || folder.tbd != null);
-            view.setEnabled(!disabled);
             view.setAlpha(folder.hide || disabled ? Helper.LOW_LIGHT : 1.0f);
 
             if (listener == null && selectedModel != null)
@@ -293,10 +296,18 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                     ? View.VISIBLE : View.INVISIBLE);
 
             if (listener == null && folder.selectable) {
-                ivUnified.setVisibility((account > 0 || primary) && folder.unified ? View.VISIBLE : View.GONE);
-                ivSubscribed.setVisibility(subscriptions && folder.subscribed != null && folder.subscribed ? View.VISIBLE : View.GONE);
-                ivRule.setVisibility(folder.rules > 0 ? View.VISIBLE : View.GONE);
-                ivNotify.setVisibility(folder.notify ? View.VISIBLE : View.GONE);
+                ivUnified.setVisibility(
+                        (account > 0 || primary) && folder.unified && !show_compact
+                                ? View.VISIBLE : View.GONE);
+                ivSubscribed.setVisibility(
+                        subscriptions && folder.subscribed != null && folder.subscribed && !show_compact
+                                ? View.VISIBLE : View.GONE);
+                ivRule.setVisibility(
+                        folder.rules > 0 && !show_compact
+                                ? View.VISIBLE : View.GONE);
+                ivNotify.setVisibility(
+                        folder.notify && !show_compact
+                                ? View.VISIBLE : View.GONE);
                 ivAutoAdd.setVisibility(BuildConfig.DEBUG &&
                         EntityFolder.SENT.equals(folder.type) &&
                         (folder.auto_add == null || folder.auto_add)
@@ -529,22 +540,21 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
             int order = 1;
             PopupMenuLifecycle popupMenu = new PopupMenuLifecycle(context, powner, view);
 
-            if (folder.selectable) {
-                String title;
-                if (folder.last_sync == null)
-                    title = folder.getDisplayName(context);
-                else
-                    title = context.getString(R.string.title_name_count,
-                            folder.getDisplayName(context),
-                            Helper.getRelativeTimeSpanString(context, folder.last_sync));
+            String title;
+            if (folder.last_sync == null)
+                title = folder.getDisplayName(context);
+            else
+                title = context.getString(R.string.title_name_count,
+                        folder.getDisplayName(context),
+                        Helper.getRelativeTimeSpanString(context, folder.last_sync));
 
-                SpannableString ss = new SpannableString(title);
-                ss.setSpan(new StyleSpan(Typeface.ITALIC), 0, ss.length(), 0);
-                ss.setSpan(new RelativeSizeSpan(0.9f), 0, ss.length(), 0);
-                popupMenu.getMenu().add(Menu.NONE, 0, 0, ss).setEnabled(false);
+            SpannableString ss = new SpannableString(title);
+            ss.setSpan(new StyleSpan(Typeface.ITALIC), 0, ss.length(), 0);
+            ss.setSpan(new RelativeSizeSpan(0.9f), 0, ss.length(), 0);
+            popupMenu.getMenu().add(Menu.NONE, 0, 0, ss).setEnabled(false);
 
+            if (folder.selectable)
                 popupMenu.getMenu().add(Menu.NONE, R.string.title_synchronize_now, order++, R.string.title_synchronize_now);
-            }
 
             if (folder.selectable) {
                 if (folder.account != null && folder.accountProtocol == EntityAccount.TYPE_IMAP) {
@@ -609,7 +619,8 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                 popupMenu.getMenu().add(Menu.NONE, R.string.title_execute_rules, order++, R.string.title_execute_rules);
             }
 
-            if (folder.accountProtocol == EntityAccount.TYPE_POP || debug || BuildConfig.DEBUG)
+            if (folder.accountProtocol == EntityAccount.TYPE_POP ||
+                    (folder.selectable && (debug || BuildConfig.DEBUG)))
                 popupMenu.getMenu().add(Menu.NONE, R.string.title_export_messages, order++, R.string.title_export_messages);
 
             int childs = 0;
@@ -632,7 +643,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                 popupMenu.getMenu().add(Menu.NONE, R.string.title_create_sub_folder, order++, R.string.title_create_sub_folder)
                         .setEnabled(folder.inferiors);
 
-            if (Shortcuts.can(context))
+            if (folder.selectable && Shortcuts.can(context))
                 popupMenu.getMenu().add(Menu.NONE, R.string.title_pin, order++, R.string.title_pin);
 
             if (!folder.read_only && EntityFolder.USER.equals(folder.type))
@@ -1132,6 +1143,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
                 private void onActionDeleteFolder() {
                     Bundle aargs = new Bundle();
                     aargs.putLong("id", folder.id);
+                    aargs.putString("remark", folder.name);
                     aargs.putString("question", context.getString(R.string.title_folder_delete));
                     aargs.putBoolean("warning", true);
 
@@ -1179,6 +1191,7 @@ public class AdapterFolder extends RecyclerView.Adapter<AdapterFolder.ViewHolder
         this.subscribed_only = prefs.getBoolean("subscribed_only", false) && subscriptions;
         this.sort_unread_atop = prefs.getBoolean("sort_unread_atop", false);
 
+        this.dp3 = Helper.dp2pixels(context, 3);
         this.dp12 = Helper.dp2pixels(context, 12);
         this.textSize = Helper.getTextSize(context, zoom);
         boolean color_stripe_wide = prefs.getBoolean("color_stripe_wide", false);

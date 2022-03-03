@@ -50,7 +50,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -215,9 +214,6 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
     }
 
     NotificationCompat.Builder getNotificationService() {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        boolean alert_once = prefs.getBoolean("alert_once", true);
-
         NotificationCompat.Builder builder =
                 new NotificationCompat.Builder(this, "send")
                         .setSmallIcon(R.drawable.baseline_send_white_24)
@@ -225,7 +221,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                         .setContentIntent(getPendingIntent(this))
                         .setAutoCancel(false)
                         .setShowWhen(true)
-                        .setOnlyAlertOnce(alert_once)
+                        .setOnlyAlertOnce(true)
                         .setDefaults(0) // disable sound on pre Android 8
                         .setLocalOnly(true)
                         .setPriority(NotificationCompat.PRIORITY_MIN)
@@ -573,7 +569,9 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                 for (EntityMessage m : replied)
                     if (!m.ui_hide) {
                         EntityFolder folder = db.folder().getFolder(m.folder);
-                        if (folder != null && EntityFolder.USER.equals(folder.type)) {
+                        if (folder != null &&
+                                (EntityFolder.INBOX.equals(folder.type) ||
+                                        EntityFolder.USER.equals(folder.type))) {
                             sent = folder;
                             break;
                         }
@@ -599,8 +597,8 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
 
             MessageHelper.MessageParts parts = helper.getMessageParts();
             String body = parts.getHtml(this);
-            Boolean plain = parts.isPlainOnly();
-            if (plain != null && plain)
+            Integer plain = parts.isPlainOnly();
+            if (plain != null && (plain & 1) != 0)
                 body = body.replace("<div x-plain=\"true\">", "<div>");
 
             String text = HtmlHelper.getFullText(body);
@@ -625,6 +623,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                 message.ui_seen = true;
                 message.ui_hide = true;
                 message.ui_busy = Long.MAX_VALUE; // Needed to keep messages in user folders
+                message.raw = null;
                 message.error = null;
                 message.id = db.message().insertMessage(message);
 

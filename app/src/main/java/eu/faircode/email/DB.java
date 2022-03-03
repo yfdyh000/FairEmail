@@ -71,7 +71,7 @@ import io.requery.android.database.sqlite.SQLiteDatabase;
 // https://developer.android.com/topic/libraries/architecture/room.html
 
 @Database(
-        version = 221,
+        version = 225,
         entities = {
                 EntityIdentity.class,
                 EntityAccount.class,
@@ -475,7 +475,7 @@ public abstract class DB extends RoomDatabase {
                 "  UPDATE message SET attachments = attachments + 1" +
                 "  WHERE message.id = NEW.message" +
                 "  AND NEW.encryption IS NULL" +
-                "  AND NOT ((NEW.disposition = 'inline' OR NEW.cid IS NOT NULL) AND NEW.type IN (" + images + "));" +
+                "  AND NOT ((NEW.disposition = 'inline' OR (NEW.related IS NOT 0 AND NEW.cid IS NOT NULL)) AND NEW.type IN (" + images + "));" +
                 " END");
         db.execSQL("CREATE TRIGGER IF NOT EXISTS attachment_delete" +
                 " AFTER DELETE ON attachment" +
@@ -483,7 +483,7 @@ public abstract class DB extends RoomDatabase {
                 "  UPDATE message SET attachments = attachments - 1" +
                 "  WHERE message.id = OLD.message" +
                 "  AND OLD.encryption IS NULL" +
-                "  AND NOT ((OLD.disposition = 'inline' OR OLD.cid IS NOT NULL) AND OLD.type IN (" + images + "));" +
+                "  AND NOT ((OLD.disposition = 'inline' OR (OLD.related IS NOT 0 AND OLD.cid IS NOT NULL)) AND OLD.type IN (" + images + "));" +
                 " END");
     }
 
@@ -2244,6 +2244,35 @@ public abstract class DB extends RoomDatabase {
                     public void migrate(@NonNull SupportSQLiteDatabase db) {
                         logMigration(startVersion, endVersion);
                         db.execSQL("ALTER TABLE `message` ADD COLUMN `sensitivity` INTEGER");
+                    }
+                }).addMigrations(new Migration(221, 222) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `answer` ADD COLUMN `color` INTEGER");
+                    }
+                }).addMigrations(new Migration(222, 223) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `attachment` ADD COLUMN `related` INTEGER");
+                        db.execSQL("DROP TRIGGER IF EXISTS `attachment_insert`");
+                        db.execSQL("DROP TRIGGER IF EXISTS `attachment_delete`");
+                        createTriggers(db);
+                    }
+                }).addMigrations(new Migration(223, 224) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `attachment` ADD COLUMN `media_uri` TEXT");
+                    }
+                }).addMigrations(new Migration(224, 225) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("UPDATE folder" +
+                                " SET auto_delete = 0" +
+                                " WHERE type ='" + EntityFolder.JUNK + "'");
                     }
                 }).addMigrations(new Migration(998, 999) {
                     @Override

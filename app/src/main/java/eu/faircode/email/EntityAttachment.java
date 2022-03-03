@@ -22,9 +22,11 @@ package eu.faircode.email;
 import static androidx.room.ForeignKey.CASCADE;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
+import androidx.preference.PreferenceManager;
 import androidx.room.Entity;
 import androidx.room.ForeignKey;
 import androidx.room.Index;
@@ -74,17 +76,20 @@ public class EntityAttachment {
     public String type;
     public String disposition;
     public String cid; // Content-ID
+    public Boolean related; // inline
     public Integer encryption;
     public Long size;
     public Integer progress;
     @NonNull
     public Boolean available = false;
+    public String media_uri;
     public String error;
 
     // Gmail sends inline images as attachments with a name and cid
 
     boolean isInline() {
-        return (Part.INLINE.equals(disposition) || cid != null);
+        return (Part.INLINE.equals(disposition) ||
+                (!Boolean.FALSE.equals(related) && cid != null));
     }
 
     boolean isAttachment() {
@@ -112,7 +117,14 @@ public class EntityAttachment {
     }
 
     static File getFile(Context context, long id, String name) {
-        File dir = new File(context.getFilesDir(), "attachments");
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean external_storage = prefs.getBoolean("external_storage", false);
+
+        File root = (external_storage
+                ? context.getExternalFilesDir(null)
+                : context.getFilesDir());
+
+        File dir = new File(root, "attachments");
         if (!dir.exists())
             dir.mkdir();
         String filename = Long.toString(id);
@@ -230,7 +242,7 @@ public class EntityAttachment {
             return "audio/midi";
 
         // https://www.rfc-editor.org/rfc/rfc3555.txt
-        if ("video/jpeg".equals(type))
+        if ("image/jpg".equals(type) || "video/jpeg".equals(type))
             return "image/jpeg";
 
         if (!TextUtils.isEmpty(type) &&

@@ -30,6 +30,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.text.Editable;
 import android.text.Html;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
@@ -43,6 +44,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
+import android.widget.Toast;
 
 import androidx.core.view.inputmethod.EditorInfoCompat;
 import androidx.core.view.inputmethod.InputConnectionCompat;
@@ -86,15 +88,21 @@ public class EditTextCompose extends FixedEditText {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean undo_manager = prefs.getBoolean("undo_manager", false);
 
-        if (undo_manager &&
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             setCustomInsertionActionModeCallback(new ActionMode.Callback() {
                 @Override
                 public boolean onCreateActionMode(ActionMode mode, Menu menu) {
-                    if (can(android.R.id.undo))
-                        menu.add(Menu.CATEGORY_ALTERNATIVE, R.string.title_undo, 1, getTitle(R.string.title_undo));
-                    if (can(android.R.id.redo))
-                        menu.add(Menu.CATEGORY_ALTERNATIVE, R.string.title_redo, 2, getTitle(R.string.title_redo));
+                    try {
+                        if (undo_manager && can(android.R.id.undo))
+                            menu.add(Menu.CATEGORY_SECONDARY, R.string.title_undo, 1001, getTitle(R.string.title_undo));
+                        if (undo_manager && can(android.R.id.redo))
+                            menu.add(Menu.CATEGORY_SECONDARY, R.string.title_redo, 1002, getTitle(R.string.title_redo));
+                        menu.add(Menu.CATEGORY_SECONDARY, R.string.title_insert_line, 1003, R.string.title_insert_line);
+                        if (BuildConfig.DEBUG)
+                            menu.add(Menu.CATEGORY_SECONDARY, R.string.title_insert_arrow, 1004, R.string.title_insert_arrow);
+                    } catch (Throwable ex) {
+                        Log.e(ex);
+                    }
                     return true;
                 }
 
@@ -111,12 +119,16 @@ public class EditTextCompose extends FixedEditText {
 
                 @Override
                 public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
-                    if (item.getGroupId() == Menu.CATEGORY_ALTERNATIVE) {
+                    if (item.getGroupId() == Menu.CATEGORY_SECONDARY) {
                         int id = item.getItemId();
                         if (id == R.string.title_undo)
                             return EditTextCompose.super.onTextContextMenuItem(android.R.id.undo);
                         else if (id == R.string.title_redo)
                             return EditTextCompose.super.onTextContextMenuItem(android.R.id.redo);
+                        else if (id == R.string.title_insert_line)
+                            return insertLine();
+                        else if (id == R.string.title_insert_arrow)
+                            return insertArrow();
                     }
                     return false;
                 }
@@ -124,6 +136,53 @@ public class EditTextCompose extends FixedEditText {
                 @Override
                 public void onDestroyActionMode(ActionMode mode) {
                     // Do nothing
+                }
+
+                private boolean insertLine() {
+                    try {
+                        int start = getSelectionStart();
+                        if (start < 0)
+                            return false;
+
+                        Editable edit = getText();
+                        if (edit == null)
+                            return false;
+
+                        if (start == 0 || edit.charAt(start - 1) != '\n')
+                            edit.insert(start++, "\n");
+                        if (start == edit.length() || edit.charAt(start) != '\n')
+                            edit.insert(start, "\n");
+
+                        edit.insert(start, "\uFFFC"); // Object replacement character
+
+                        int colorSeparator = Helper.resolveColor(getContext(), R.attr.colorSeparator);
+                        float stroke = context.getResources().getDisplayMetrics().density;
+                        edit.setSpan(
+                                new LineSpan(colorSeparator, stroke, 0f),
+                                start, start + 1,
+                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+                        setSelection(start + 2);
+
+                        return true;
+                    } catch (Throwable ex) {
+                        Log.e(ex);
+                        ToastEx.makeText(context, Log.formatThrowable(ex), Toast.LENGTH_LONG).show();
+                        return false;
+                    }
+                }
+
+                private boolean insertArrow() {
+                    int start = getSelectionStart();
+                    if (start < 0)
+                        return false;
+
+                    Editable edit = getText();
+                    if (edit == null)
+                        return false;
+
+                    edit.insert(start, " \u27f6 ");
+                    return true;
                 }
             });
         }

@@ -62,6 +62,7 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
     private SwitchCompat swRlah;
     private SwitchCompat swDownloadHeaders;
     private SwitchCompat swDownloadEml;
+    private SwitchCompat swDownloadPlain;
     private SwitchCompat swValidated;
     private SwitchCompat swVpnOnly;
     private EditText etTimeout;
@@ -71,6 +72,7 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
     private SwitchCompat swTcpKeepAlive;
     private TextView tvTcpKeepAliveHint;
     private SwitchCompat swSslHarden;
+    private SwitchCompat swCertStrict;
     private Button btnManage;
     private TextView tvNetworkMetered;
     private TextView tvNetworkRoaming;
@@ -81,9 +83,10 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
 
     private final static String[] RESET_OPTIONS = new String[]{
             "metered", "download", "roaming", "rlah",
-            "download_headers", "download_eml",
+            "download_headers", "download_eml", "download_plain",
             "require_validated", "vpn_only",
-            "timeout", "prefer_ip4", "bind_socket", "standalone_vpn", "tcp_keep_alive", "ssl_harden"
+            "timeout", "prefer_ip4", "bind_socket", "standalone_vpn", "tcp_keep_alive",
+            "ssl_harden", "cert_strict"
     };
 
     @Override
@@ -102,6 +105,7 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
         swRlah = view.findViewById(R.id.swRlah);
         swDownloadHeaders = view.findViewById(R.id.swDownloadHeaders);
         swDownloadEml = view.findViewById(R.id.swDownloadEml);
+        swDownloadPlain = view.findViewById(R.id.swDownloadPlain);
         swValidated = view.findViewById(R.id.swValidated);
         swVpnOnly = view.findViewById(R.id.swVpnOnly);
         etTimeout = view.findViewById(R.id.etTimeout);
@@ -111,6 +115,7 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
         swTcpKeepAlive = view.findViewById(R.id.swTcpKeepAlive);
         tvTcpKeepAliveHint = view.findViewById(R.id.tvTcpKeepAliveHint);
         swSslHarden = view.findViewById(R.id.swSslHarden);
+        swCertStrict = view.findViewById(R.id.swCertStrict);
         btnManage = view.findViewById(R.id.btnManage);
 
         tvNetworkMetered = view.findViewById(R.id.tvNetworkMetered);
@@ -173,6 +178,13 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("download_eml", checked).apply();
+            }
+        });
+
+        swDownloadPlain.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean checked) {
+                prefs.edit().putBoolean("download_plain", checked).apply();
             }
         });
 
@@ -260,6 +272,13 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("ssl_harden", checked).apply();
+            }
+        });
+
+        swCertStrict.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("cert_strict", checked).apply();
             }
         });
 
@@ -361,6 +380,7 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
 
         swDownloadHeaders.setChecked(prefs.getBoolean("download_headers", false));
         swDownloadEml.setChecked(prefs.getBoolean("download_eml", false));
+        swDownloadPlain.setChecked(prefs.getBoolean("download_plain", false));
 
         swValidated.setChecked(prefs.getBoolean("require_validated", false));
         swVpnOnly.setChecked(prefs.getBoolean("vpn_only", false));
@@ -374,6 +394,7 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
         swStandaloneVpn.setChecked(prefs.getBoolean("standalone_vpn", false));
         swTcpKeepAlive.setChecked(prefs.getBoolean("tcp_keep_alive", false));
         swSslHarden.setChecked(prefs.getBoolean("ssl_harden", false));
+        swCertStrict.setChecked(prefs.getBoolean("cert_strict", !BuildConfig.PLAY_STORE_RELEASE));
     }
 
     private static Intent getIntentConnectivity() {

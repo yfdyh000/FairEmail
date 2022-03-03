@@ -1194,6 +1194,7 @@ Ambdues opcions es poden desactivar si es desitja.</string>
         <item>Següent conversa</item>
     </string-array>
     <string-array name="resizeNames">
+        <item>Extra small</item>
         <item>Petit</item>
         <item>Mitjà</item>
         <item>Gran</item>
@@ -1267,6 +1268,7 @@ Ambdues opcions es poden desactivar si es desitja.</string>
         <item>5 s</item>
         <item>7,5 s</item>
         <item>10 s</item>
+        <item>15 s</item>
     </string-array>
     <string-array name="fontNameNames">
         <item>Cursiva</item>
@@ -1274,7 +1276,6 @@ Ambdues opcions es poden desactivar si es desitja.</string>
         <item>Sans-serif</item>
         <item>Monospace</item>
         <item>Fantasy</item>
-        <item>OpenDyslexic</item>
     </string-array>
     <!-- https://www.w3.org/TR/css-fonts-4/#generic-font-families -->
     <!-- https://www.bouncycastle.org/specifications.html -->

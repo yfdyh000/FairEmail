@@ -74,11 +74,11 @@
                 android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
 
             <RadioButton
-                android:id="@+id/rbThemeBlack"
+                android:id="@+id/rbThemeBlackOrWhite"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:padding="6dp"
-                android:text="@string/title_setup_theme_black"
+                android:text="@string/title_setup_theme_black_or_white"
                 android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
 
             <RadioButton
@@ -203,7 +203,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:drawableEnd="@drawable/twotone_more_horiz_24"
+            android:drawableEnd="@drawable/twotone_monitor_24"
             android:drawablePadding="6dp"
             android:text="@string/title_advanced_more"
             app:layout_constraintStart_toStartOf="parent"
@@ -218,7 +218,7 @@
             android:drawablePadding="6dp"
             android:drawableTint="?android:attr/textColorLink"
             android:text="@string/title_setup_theme_more_colors"
-            android:textAppearance="@style/TextAppearance.AppCompat.Small"
+            android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textColor="?android:attr/textColorLink"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/btnMore" />

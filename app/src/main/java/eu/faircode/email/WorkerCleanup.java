@@ -19,6 +19,8 @@ package eu.faircode.email;
     Copyright 2018-2022 by Marcel Bokhorst (M66B)
 */
 
+import static android.os.Process.THREAD_PRIORITY_BACKGROUND;
+
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
@@ -40,17 +42,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import io.requery.android.database.sqlite.SQLiteDatabase;
-
-import static android.os.Process.THREAD_PRIORITY_BACKGROUND;
 
 public class WorkerCleanup extends Worker {
     private static final int CLEANUP_INTERVAL = 4; // hours
     private static final long KEEP_FILES_DURATION = 3600 * 1000L; // milliseconds
     private static final long KEEP_IMAGES_DURATION = 3 * 24 * 3600 * 1000L; // milliseconds
     private static final long KEEP_CONTACTS_DURATION = 180 * 24 * 3600 * 1000L; // milliseconds
+
+    private static Semaphore semaphore = new Semaphore(1);
 
     public WorkerCleanup(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
@@ -98,6 +101,7 @@ public class WorkerCleanup extends Worker {
         long start = new Date().getTime();
         DB db = DB.getInstance(context);
         try {
+            semaphore.acquire();
             EntityLog.log(context, "Start cleanup manual=" + manual);
 
             if (manual) {
@@ -301,7 +305,7 @@ public class WorkerCleanup extends Worker {
 
             // Cleanup contact info
             if (manual)
-                ContactInfo.clearCache(context, true);
+                ContactInfo.clearCache(context);
             else
                 ContactInfo.cleanup(context);
 
@@ -364,6 +368,7 @@ public class WorkerCleanup extends Worker {
         } catch (Throwable ex) {
             Log.e(ex);
         } finally {
+            semaphore.release();
             EntityLog.log(context, "End cleanup=" + (new Date().getTime() - start) + " ms");
 
             long now = new Date().getTime();

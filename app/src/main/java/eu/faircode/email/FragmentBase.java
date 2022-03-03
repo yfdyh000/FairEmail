@@ -23,7 +23,6 @@ import static android.app.ActionBar.DISPLAY_SHOW_CUSTOM;
 import static android.app.Activity.RESULT_OK;
 
 import android.app.RecoverableSecurityException;
-import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -83,6 +82,14 @@ public class FragmentBase extends Fragment {
 
     static final String ACTION_STORE_ATTACHMENT = BuildConfig.APPLICATION_ID + ".STORE_ATTACHMENT";
     static final String ACTION_STORE_ATTACHMENTS = BuildConfig.APPLICATION_ID + ".STORE_ATTACHMENTS";
+
+    protected ActionBar getSupportActionBar() {
+        FragmentActivity activity = getActivity();
+        if (activity instanceof ActivityBase)
+            return ((ActivityBase) activity).getSupportActionBar();
+        else
+            return null;
+    }
 
     protected void setTitle(int resid) {
         setTitle(getString(resid));
@@ -220,7 +227,7 @@ public class FragmentBase extends Fragment {
 
         if (savedInstanceState == null) {
             Bundle args = getArguments();
-            if (args == null)
+            if (args == null && !isStateSaved())
                 setArguments(new Bundle());
         } else {
             title = savedInstanceState.getCharSequence("fair:title");

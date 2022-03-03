@@ -156,10 +156,14 @@ public class EntityOperation {
                 boolean set = jargs.getBoolean(1);
 
                 List<String> keywords = new ArrayList<>(Arrays.asList(message.keywords));
+                if (set == keywords.contains(keyword))
+                    return;
+
                 while (keywords.remove(keyword))
                     ;
                 if (set)
                     keywords.add(keyword);
+
                 Collections.sort(keywords);
 
                 message.keywords = keywords.toArray(new String[0]);
@@ -512,6 +516,10 @@ public class EntityOperation {
     }
 
     static void sync(Context context, long fid, boolean foreground, boolean force) {
+        sync(context, fid, foreground, force, false);
+    }
+
+    static void sync(Context context, long fid, boolean foreground, boolean force, boolean outbox) {
         DB db = DB.getInstance(context);
 
         EntityFolder folder = db.folder().getFolder(fid);
@@ -548,8 +556,23 @@ public class EntityOperation {
         if (foreground && folder.sync_state == null) // Show spinner
             db.folder().setFolderSyncState(fid, "requested");
 
+        if (foreground && EntityFolder.SENT.equals(folder.type)) {
+            EntityAccount account = db.account().getAccount(folder.account);
+            if (account.protocol == EntityAccount.TYPE_IMAP) {
+                List<EntityMessage> orphans = db.message().getSentOrphans(folder.id);
+                if (orphans != null) {
+                    EntityLog.log(context, "Sent orphans=" + orphans.size());
+                    for (EntityMessage orphan : orphans)
+                        EntityOperation.queue(context, orphan, EntityOperation.EXISTS);
+                }
+            }
+        }
+
         if (folder.account == null) // Outbox
-            ServiceSend.start(context);
+            if (!outbox) {
+                Log.e("outbox");
+                ServiceSend.start(context);
+            }
     }
 
     static void subscribe(Context context, long fid, boolean subscribe) {
