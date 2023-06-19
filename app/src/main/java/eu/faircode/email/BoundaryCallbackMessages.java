@@ -16,11 +16,12 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.database.sqlite.SQLiteDatabase;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
@@ -42,6 +43,7 @@ import com.sun.mail.util.MessageRemovedIOException;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.jsoup.nodes.Document;
 
 import java.io.File;
 import java.io.IOException;
@@ -51,12 +53,16 @@ import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
 import javax.mail.Address;
 import javax.mail.FetchProfile;
@@ -82,8 +88,6 @@ import javax.mail.search.SearchTerm;
 import javax.mail.search.SizeTerm;
 import javax.mail.search.SubjectTerm;
 
-import io.requery.android.database.sqlite.SQLiteDatabase;
-
 public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMessageEx> {
     private Context context;
     private AdapterMessage.ViewType viewType;
@@ -96,15 +100,17 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
     private IBoundaryCallbackMessages intf;
 
     private State state;
-    private final ExecutorService executor = Helper.getBackgroundExecutor(1, "boundary");
+
+    private static ExecutorService executor = Helper.getBackgroundExecutor(1, "boundary");
 
     private static final int SEARCH_LIMIT_DEVICE = 1000;
-    private static final int SEARCH_LIMIT_SERVER = 250;
 
     interface IBoundaryCallbackMessages {
         void onLoading();
 
         void onLoaded(int found);
+
+        void onWarning(String message);
 
         void onException(@NonNull Throwable ex);
     }
@@ -130,15 +136,6 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
 
         this.intf = intf;
         this.state = new State();
-
-        if (criteria != null)
-            executor.submit(new Runnable() {
-                @Override
-                public void run() {
-                    Log.i("Boundary reset search");
-                    DB.getInstance(context).message().resetSearch();
-                }
-            });
 
         return this.state;
     }
@@ -166,12 +163,12 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
     }
 
     private void queue_load(final State state) {
-        if (state.queued > 1) {
-            Log.i("Boundary queued =" + state.queued);
+        if (state.queued.get() > 1) {
+            Log.i("Boundary queued =" + state.queued.get());
             return;
         }
-        state.queued++;
-        Log.i("Boundary queued +" + state.queued);
+        state.queued.incrementAndGet();
+        Log.i("Boundary queued +" + state.queued.get());
 
         executor.submit(new Runnable() {
             @Override
@@ -180,7 +177,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
 
                 int free = Log.getFreeMemMb();
                 Map<String, String> crumb = new HashMap<>();
-                crumb.put("free", Integer.toString(free));
+                crumb.put("queued", Integer.toString(state.queued.get()));
                 Log.breadcrumb("Boundary run", crumb);
 
                 Log.i("Boundary run free=" + free);
@@ -196,13 +193,13 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                         return;
                     }
 
-                    if (intf != null)
-                        ApplicationEx.getMainHandler().post(new Runnable() {
-                            @Override
-                            public void run() {
+                    ApplicationEx.getMainHandler().post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (intf != null)
                                 intf.onLoading();
-                            }
-                        });
+                        }
+                    });
                     if (server)
                         try {
                             found = load_server(state);
@@ -221,30 +218,29 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                 } catch (final Throwable ex) {
                     state.error = true;
                     Log.e("Boundary", ex);
-                    if (intf != null)
-                        ApplicationEx.getMainHandler().post(new Runnable() {
-                            @Override
-                            public void run() {
+                    ApplicationEx.getMainHandler().post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (intf != null)
                                 intf.onException(ex);
-                            }
-                        });
+                        }
+                    });
                 } finally {
-                    state.queued--;
-                    Log.i("Boundary queued -" + state.queued);
+                    state.queued.decrementAndGet();
+                    Log.i("Boundary queued -" + state.queued.get());
                     Helper.gc();
 
-                    crumb.put("free", Integer.toString(Log.getFreeMemMb()));
+                    crumb.put("queued", Integer.toString(state.queued.get()));
                     Log.breadcrumb("Boundary done", crumb);
 
-                    if (intf != null) {
-                        final int f = found;
-                        ApplicationEx.getMainHandler().post(new Runnable() {
-                            @Override
-                            public void run() {
+                    final int f = found;
+                    ApplicationEx.getMainHandler().post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (intf != null)
                                 intf.onLoaded(f);
-                            }
-                        });
-                    }
+                        }
+                    });
                 }
             }
         });
@@ -276,13 +272,27 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
         }
 
         int found = 0;
-        String query = (criteria.query == null ? null : criteria.query.toLowerCase());
 
-        if (criteria.fts && criteria.query != null) {
+        List<String> word = new ArrayList<>();
+        List<String> plus = new ArrayList<>();
+        List<String> minus = new ArrayList<>();
+        if (criteria.query != null) {
+            for (String w : criteria.query.trim().split("\\s+"))
+                if (w.length() > 1 && w.startsWith("+"))
+                    plus.add(w.substring(1));
+                else if (w.length() > 1 && w.startsWith("-"))
+                    minus.add(w.substring(1));
+                else
+                    word.add(w);
+            if (word.size() == 0 && plus.size() > 0)
+                word.add(plus.get(0));
+        }
+
+        if (criteria.fts && word.size() > 0 && !criteria.in_headers && !criteria.in_html) {
             if (state.ids == null) {
-                SQLiteDatabase sdb = FtsDbHelper.getInstance(context);
-                state.ids = FtsDbHelper.match(sdb, account, folder, exclude, criteria);
-                EntityLog.log(context, "Boundary FTS " +
+                SQLiteDatabase sdb = Fts4DbHelper.getInstance(context);
+                state.ids = Fts4DbHelper.match(sdb, account, folder, exclude, criteria, TextUtils.join(" ", word));
+                EntityLog.log(context, "Boundary FTS" +
                         " account=" + account +
                         " folder=" + folder +
                         " criteria=" + criteria +
@@ -297,89 +307,17 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                 for (; state.index < state.ids.size() && found < pageSize && !state.destroyed; state.index++) {
                     long id = state.ids.get(state.index);
                     EntityMessage message = db.message().getMessage(id);
-                    if (message == null)
+                    if (message == null || message.ui_hide)
                         continue;
-
-                    if (criteria.with_unseen) {
-                        if (message.ui_seen)
-                            continue;
-                    }
-
-                    if (criteria.with_flagged) {
-                        if (!message.ui_flagged)
-                            continue;
-                    }
-
-                    if (criteria.with_hidden) {
-                        if (message.ui_snoozed == null)
-                            continue;
-                    }
-
-                    if (criteria.with_encrypted) {
-                        if (message.encrypt == null ||
-                                EntityMessage.ENCRYPT_NONE.equals(message.encrypt))
-                            continue;
-                    }
 
                     if (excluded.contains(message.folder))
                         continue;
 
-                    boolean matched = false;
-
-                    if (!matched && criteria.in_senders) {
-                        if (contains(message.from, query))
-                            matched = true;
-                    }
-
-                    if (!matched && criteria.in_recipients) {
-                        if (contains(message.to, query) ||
-                                contains(message.cc, query) ||
-                                contains(message.bcc, query))
-                            matched = true;
-                    }
-
-                    if (!matched && criteria.in_subject) {
-                        if (message.subject != null &&
-                                message.subject.toLowerCase().contains(query))
-                            matched = true;
-                    }
-
-                    if (!matched && criteria.in_keywords) {
-                        if (message.keywords != null)
-                            for (String keyword : message.keywords)
-                                if (keyword.toLowerCase().contains(query)) {
-                                    matched = true;
-                                    break;
-                                }
-                    }
-
-                    if (!matched && criteria.in_notes) {
-                        if (message.notes != null &&
-                                message.notes.toLowerCase().contains(query))
-                            matched = true;
-                    }
-
-                    if (!matched && criteria.in_message)
-                        try {
-                            File file = EntityMessage.getFile(context, id);
-                            if (file.exists()) {
-                                String html = Helper.readText(file);
-                                if (html.toLowerCase().contains(query)) {
-                                    String text = HtmlHelper.getFullText(html);
-                                    if (text != null &&
-                                            text.toLowerCase().contains(query))
-                                        matched = true;
-                                }
-                            }
-                        } catch (IOException ex) {
-                            Log.e(ex);
-                        }
-
-                    if (!matched)
+                    if (!matchMessage(context, message, criteria, false))
                         continue;
 
-                    found += db.message().setMessageFound(id, true);
-                    Log.i("Boundary matched=" + id + " found=" + found);
+                    found += db.message().setMessageFound(message.id, true);
+                    Log.i("Boundary matched=" + message.id + " found=" + found);
                 }
                 db.setTransactionSuccessful();
 
@@ -393,16 +331,17 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
         while (found < pageSize && !state.destroyed) {
             if (state.matches == null ||
                     (state.matches.size() > 0 && state.index >= state.matches.size())) {
+                String query = (word.size() == 0 ? null : '%' + TextUtils.join("%", word) + '%');
                 state.matches = db.message().matchMessages(
                         account, folder, exclude,
-                        criteria.query == null ? null : "%" + criteria.query + "%",
-                        criteria.in_senders,
-                        criteria.in_recipients,
-                        criteria.in_subject,
-                        criteria.in_keywords,
-                        criteria.in_message,
-                        criteria.in_notes,
-                        criteria.in_headers,
+                        query,
+                        //criteria.in_senders,
+                        //criteria.in_recipients,
+                        //criteria.in_subject,
+                        //criteria.in_keywords,
+                        //criteria.in_message,
+                        //criteria.in_notes,
+                        //criteria.in_headers,
                         criteria.with_unseen,
                         criteria.with_flagged,
                         criteria.with_hidden,
@@ -419,6 +358,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                         " account=" + account +
                         " folder=" + folder +
                         " criteria=" + criteria +
+                        " query=" + query +
                         " offset=" + state.offset +
                         " size=" + state.matches.size());
                 state.offset += Math.min(state.matches.size(), SEARCH_LIMIT_DEVICE);
@@ -432,27 +372,12 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                 state.index = i + 1;
 
                 TupleMatch match = state.matches.get(i);
-                boolean matched = (match.matched != null && match.matched);
+                boolean matched = (criteria.query == null || Boolean.TRUE.equals(match.matched));
 
-                if (query != null) {
-                    if (!matched && (criteria.in_message || criteria.in_html))
-                        try {
-                            File file = EntityMessage.getFile(context, match.id);
-                            if (file.exists()) {
-                                String html = Helper.readText(file);
-                                if (html.toLowerCase().contains(query)) {
-                                    if (criteria.in_html)
-                                        matched = true;
-                                    else {
-                                        String text = HtmlHelper.getFullText(html);
-                                        if (text != null && text.toLowerCase().contains(query))
-                                            matched = true;
-                                    }
-                                }
-                            }
-                        } catch (IOException ex) {
-                            Log.e(ex);
-                        }
+                if (!matched) {
+                    EntityMessage message = db.message().getMessage(match.id);
+                    if (message != null && !message.ui_hide)
+                        matched = matchMessage(context, message, criteria, true);
                 }
 
                 if (matched) {
@@ -482,7 +407,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
         }
 
         EntityAccount account = db.account().getAccount(browsable.account);
-        if (account == null)
+        if (account == null || account.protocol != EntityAccount.TYPE_IMAP)
             return 0;
 
         if (state.imessages == null)
@@ -493,9 +418,10 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
 
                 EntityLog.log(context, "Boundary server connecting account=" + account.name);
                 state.iservice = new EmailService(
-                        context, account.getProtocol(), account.realm, account.encryption, account.insecure,
+                        context, account.getProtocol(), account.realm, account.encryption, account.insecure, account.unicode,
                         EmailService.PURPOSE_SEARCH, debug || BuildConfig.DEBUG);
                 state.iservice.setPartialFetch(account.partial_fetch);
+                state.iservice.setRawFetch(account.raw_fetch);
                 state.iservice.setIgnoreBodyStructureSize(account.ignore_size);
                 state.iservice.connect(account);
 
@@ -514,7 +440,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                 db.folder().setFolderError(browsable.id, null);
 
                 int count = MessageHelper.getMessageCount(state.ifolder);
-                db.folder().setFolderTotal(browsable.id, count < 0 ? null : count);
+                db.folder().setFolderTotal(browsable.id, count < 0 ? null : count, new Date().getTime());
 
                 if (criteria == null) {
                     boolean filter_seen = prefs.getBoolean(FragmentMessages.getFilter(context, "seen", viewType, browsable.type), false);
@@ -535,6 +461,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                         state.imessages = state.ifolder.getMessages();
                     else
                         state.imessages = state.ifolder.search(new AndTerm(and.toArray(new SearchTerm[0])));
+
                     EntityLog.log(context, "Boundary filter messages=" + state.imessages.length);
                 } else
                     try {
@@ -585,6 +512,38 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                                             return search(true, browsable.keywords, protocol, state);
                                         } catch (Throwable ex) {
                                             EntityLog.log(context, ex.toString());
+                                            if (ex instanceof ProtocolException && ex.getMessage() != null)
+                                                try {
+                                                    boolean retry = false;
+                                                    String remark = null;
+                                                    if (ex.getMessage().contains("full text search not supported")) {
+                                                        retry = true;
+                                                        criteria.in_message = false;
+                                                    } else if (ex.getMessage().contains("invalid search criteria")) {
+                                                        // invalid SEARCH command syntax, invalid search criteria syntax
+                                                        retry = true;
+                                                        criteria.in_keywords = false;
+                                                        remark = "Keyword search not supported?";
+                                                    }
+
+                                                    if (retry) {
+                                                        String msg = context.getString(R.string.title_service_auth,
+                                                                account.host + ": " +
+                                                                        (remark == null ? "" : remark + " - ") +
+                                                                        getMessage(ex));
+                                                        ApplicationEx.getMainHandler().post(new Runnable() {
+                                                            @Override
+                                                            public void run() {
+                                                                if (intf != null)
+                                                                    intf.onWarning(msg);
+                                                            }
+                                                        });
+
+                                                        return search(true, browsable.keywords, protocol, state);
+                                                    }
+                                                } catch (Throwable exex) {
+                                                    Log.w(exex);
+                                                }
                                         }
 
                                         return search(false, browsable.keywords, protocol, state);
@@ -594,7 +553,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                                     if (ex instanceof ProtocolException)
                                         pex = new ProtocolException(
                                                 context.getString(R.string.title_service_auth,
-                                                        account.host + ": " + ex.getMessage()),
+                                                        account.host + ": " + getMessage(ex)),
                                                 ex.getCause());
                                     else
                                         pex = new ProtocolException("Search " + account.host, ex);
@@ -613,6 +572,33 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                     }
                 EntityLog.log(context, "Boundary found messages=" + state.imessages.length);
 
+                FetchProfile fp = new FetchProfile();
+                fp.add(UIDFolder.FetchProfileItem.UID);
+                fp.add(IMAPFolder.FetchProfileItem.INTERNALDATE);
+                state.ifolder.fetch(state.imessages, fp);
+                Arrays.sort(state.imessages, new Comparator<Message>() {
+                    @Override
+                    public int compare(Message m1, Message m2) {
+                        Date d1 = null;
+                        try {
+                            d1 = m1.getReceivedDate();
+                        } catch (Throwable ex) {
+                            Log.w(ex);
+                        }
+
+                        Date d2 = null;
+                        try {
+                            d2 = m2.getReceivedDate();
+                        } catch (Throwable ex) {
+                            Log.w(ex);
+                        }
+
+                        return Long.compare(d1 == null ? 0 : d1.getTime(), d2 == null ? 0 : d2.getTime());
+                    }
+                });
+
+                EntityLog.log(context, "Boundary sorted messages=" + state.imessages.length);
+
                 state.index = state.imessages.length - 1;
             } catch (Throwable ex) {
                 state.error = true;
@@ -623,7 +609,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                 throw ex;
             }
 
-        List<EntityRule> rules = db.rule().getEnabledRules(browsable.id);
+        List<EntityRule> rules = db.rule().getEnabledRules(browsable.id, false);
 
         int found = 0;
         while (state.index >= 0 && found < pageSize && !state.destroyed) {
@@ -632,10 +618,6 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
             Message[] isub = Arrays.copyOfRange(state.imessages, from, state.index + 1);
             Arrays.fill(state.imessages, from, state.index + 1, null);
             state.index -= (pageSize - found);
-
-            FetchProfile fp0 = new FetchProfile();
-            fp0.add(UIDFolder.FetchProfileItem.UID);
-            state.ifolder.fetch(isub, fp0);
 
             List<Message> add = new ArrayList<>();
             for (Message m : isub)
@@ -661,7 +643,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                 fp.add(IMAPFolder.FetchProfileItem.HEADERS);
                 //fp.add(IMAPFolder.FetchProfileItem.MESSAGE);
                 fp.add(FetchProfile.Item.SIZE);
-                fp.add(IMAPFolder.FetchProfileItem.INTERNALDATE);
+                //fp.add(IMAPFolder.FetchProfileItem.INTERNALDATE);
                 if (account.isGmail()) {
                     fp.add(GmailFolder.FetchProfileItem.THRID);
                     fp.add(GmailFolder.FetchProfileItem.LABELS);
@@ -715,6 +697,16 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
         return found;
     }
 
+    private String getMessage(Throwable ex) {
+        if (ex instanceof ProtocolException) {
+            Response r = ((ProtocolException) ex).getResponse();
+            if (r != null && !TextUtils.isEmpty(r.getRest()))
+                return r.getRest();
+        }
+
+        return ex.toString();
+    }
+
     private Message[] search(boolean utf8, String[] keywords, IMAPProtocol protocol, State state) throws IOException, MessagingException, ProtocolException {
         EntityLog.log(context, "Search utf8=" + utf8);
 
@@ -726,7 +718,14 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
         Argument args = ss.generateSequence(terms, utf8 ? StandardCharsets.UTF_8.name() : null);
         args.writeAtom("ALL");
 
-        Response[] responses = protocol.command("SEARCH", args); // no CHARSET !
+        // https://www.rfc-editor.org/rfc/rfc3501#section-6.4.4
+        Response[] responses = protocol.command("SEARCH" + (utf8 ? " CHARSET UTF-8" : ""), args);
+        if (responses != null && responses.length > 0 && !responses[responses.length - 1].isOK()) {
+            // Normally "NO", but some servers respond with "BAD Could not parse command"
+            if (!BuildConfig.PLAY_STORE_RELEASE)
+                Log.e(responses[responses.length - 1].toString());
+            responses = protocol.command("SEARCH", args);
+        }
         if (responses == null || responses.length == 0)
             throw new ProtocolException("No response from server");
         for (Response response : responses)
@@ -735,7 +734,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
             throw new ProtocolException(responses[responses.length - 1]);
 
         List<Integer> msgnums = new ArrayList<>();
-        for (int r = 0; r < Math.min(responses.length, SEARCH_LIMIT_SERVER); r++) {
+        for (int r = 0; r < responses.length; r++) {
             IMAPResponse response = (IMAPResponse) responses[r];
             if (response.keyEquals("SEARCH")) {
                 int msgnum;
@@ -752,13 +751,163 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
         return imessages;
     }
 
-    private static boolean contains(Address[] addresses, String text) {
+    private static boolean matchMessage(Context context, EntityMessage message, SearchCriteria criteria, boolean partial) {
+        if (criteria.with_unseen) {
+            if (message.ui_seen)
+                return false;
+        }
+
+        if (criteria.with_flagged) {
+            if (!message.ui_flagged)
+                return false;
+        }
+
+        if (criteria.with_hidden) {
+            if (message.ui_snoozed == null)
+                return false;
+        }
+
+        if (criteria.with_encrypted) {
+            if (message.encrypt == null ||
+                    EntityMessage.ENCRYPT_NONE.equals(message.encrypt))
+                return false;
+        }
+
+        if (criteria.with_attachments) {
+            if (message.attachments == 0)
+                return false;
+        }
+
+        //
+        if (criteria.with_notes) {
+            if (message.notes == null)
+                return false;
+        }
+
+        //
+        if (criteria.with_size != null) {
+            if (message.total == null || message.total < criteria.with_size)
+                return false;
+        }
+
+        //
+        if (criteria.before != null) {
+            if (message.received > criteria.before)
+                return false;
+        }
+
+        //
+        if (criteria.after != null) {
+            if (message.received < criteria.after)
+                return false;
+        }
+
+        if (criteria.in_senders) {
+            if (contains(message.from, criteria.query, partial))
+                return true;
+        }
+
+        if (criteria.in_recipients) {
+            if (contains(message.to, criteria.query, partial) ||
+                    contains(message.cc, criteria.query, partial) ||
+                    contains(message.bcc, criteria.query, partial))
+                return true;
+        }
+
+        if (criteria.in_subject) {
+            if (contains(message.subject, criteria.query, partial, false))
+                return true;
+        }
+
+        if (criteria.in_keywords) {
+            if (message.keywords != null)
+                for (String keyword : message.keywords)
+                    if (contains(keyword, criteria.query, partial, false))
+                        return true;
+        }
+
+        if (criteria.in_notes) {
+            if (contains(message.notes, criteria.query, partial, false))
+                return true;
+        }
+
+        if (criteria.in_headers) {
+            if (message.headers != null && message.headers.contains(criteria.query))
+                return true;
+        }
+
+        if (criteria.in_html || criteria.in_message)
+            try {
+                File file = EntityMessage.getFile(context, message.id);
+                if (file.exists()) {
+                    String selector = criteria.getJsoup();
+                    if (selector != null) {
+                        Document d = JsoupEx.parse(file);
+                        return (d.select(selector).size() > 0);
+                    }
+
+                    String html = Helper.readText(file);
+                    if (criteria.in_html) {
+                        if (html.contains(criteria.query))
+                            return true;
+                    }
+
+                    if (criteria.in_message) {
+                        // This won't match <p>An <b>example</b><p> when searching for "An example"
+                        if (contains(html, criteria.query, partial, true)) {
+                            String text = HtmlHelper.getFullText(html);
+                            if (contains(text, criteria.query, partial, false))
+                                return true;
+                        }
+                    }
+                }
+            } catch (IOException ex) {
+                Log.e(ex);
+            }
+
+        return false;
+    }
+
+    private static boolean contains(Address[] addresses, String query, boolean partial) {
         if (addresses == null)
             return false;
         for (Address address : addresses)
-            if (address.toString().toLowerCase().contains(text))
+            if (contains(address.toString(), query, partial, false))
                 return true;
         return false;
+    }
+
+    private static boolean contains(String text, String query, boolean partial, boolean html) {
+        if (TextUtils.isEmpty(text))
+            return false;
+
+        text = Fts4DbHelper.breakText(text);
+
+        List<String> word = new ArrayList<>();
+        for (String w : query.trim().split("\\s+"))
+            if (w.length() > 1 && w.startsWith("+")) {
+                if (!text.contains(Fts4DbHelper.preprocessText(w.substring(1))))
+                    return false;
+            } else if (w.length() > 1 && w.startsWith("-")) {
+                if (!html && text.contains(Fts4DbHelper.preprocessText(w.substring(1))))
+                    return false;
+            } else
+                word.addAll(Arrays.asList(Fts4DbHelper.breakText(w).split("\\s+")));
+
+        if (word.size() == 0)
+            return true;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(partial ? ".*(" : ".*?\\b(");
+        for (int i = 0; i < word.size(); i++) {
+            if (i > 0)
+                sb.append("\\s+");
+            sb.append(Pattern.quote(word.get(i)));
+        }
+        sb.append(partial ? ").*" : ")\\b.*?");
+
+        Pattern pat = Pattern.compile(sb.toString(), Pattern.DOTALL);
+        return pat.matcher(text).matches();
     }
 
     State getState() {
@@ -767,6 +916,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
 
     void destroy(State state) {
         state.destroyed = true;
+        this.intf = null;
         Log.i("Boundary destroy");
 
         executor.submit(new Runnable() {
@@ -782,7 +932,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
 
         try {
             if (state.ifolder != null && state.ifolder.isOpen())
-                state.ifolder.close();
+                state.ifolder.close(false);
         } catch (Throwable ex) {
             Log.e("Boundary", ex);
         }
@@ -799,7 +949,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
     }
 
     static class State {
-        int queued = 0;
+        final AtomicInteger queued = new AtomicInteger(0);
         boolean destroyed = false;
         boolean error = false;
         int index = 0;
@@ -813,7 +963,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
 
         void reset() {
             Log.i("Boundary reset");
-            queued = 0;
+            queued.set(0);
             destroyed = false;
             error = false;
             index = 0;
@@ -828,8 +978,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
         }
     }
 
-    static class SearchCriteria implements Serializable {
-        long id = -1;
+    static class SearchCriteria extends EntitySearch implements Serializable {
         String query;
         boolean fts = false;
         boolean in_senders = true;
@@ -853,6 +1002,42 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
         Long after = null;
         Long before = null;
 
+        private static final String FROM = "from:";
+        private static final String TO = "to:";
+        private static final String CC = "cc:";
+        private static final String BCC = "bcc:";
+        private static final String KEYWORD = "keyword:";
+        private static final String JSOUP_PREFIX = "jsoup:";
+
+        String getJsoup() {
+            if (query == null)
+                return null;
+            if (!query.startsWith(JSOUP_PREFIX))
+                return null;
+            return query.substring(JSOUP_PREFIX.length());
+        }
+
+        boolean onServer() {
+            if (query == null)
+                return false;
+
+            for (String w : query.trim().split("\\s+"))
+                if (w.length() > 1 && w.startsWith("?"))
+                    return true;
+                else if (w.length() > FROM.length() && w.startsWith(FROM))
+                    return true;
+                else if (w.length() > TO.length() && w.startsWith(TO))
+                    return true;
+                else if (w.length() > CC.length() && w.startsWith(CC))
+                    return true;
+                else if (w.length() > BCC.length() && w.startsWith(BCC))
+                    return true;
+                else if (w.length() > KEYWORD.length() && w.startsWith(KEYWORD))
+                    return true;
+
+            return false;
+        }
+
         SearchTerm getTerms(boolean utf8, Flags flags, String[] keywords) {
             List<SearchTerm> or = new ArrayList<>();
             List<SearchTerm> and = new ArrayList<>();
@@ -867,12 +1052,22 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                     search = Normalizer
                             .normalize(search, Normalizer.Form.NFKD)
                             .replaceAll("[^\\p{ASCII}]", "");
+                    if (TextUtils.isEmpty(search)) {
+                        String msg = "Cannot convert to ASCII: " + query;
+                        Log.e(msg);
+                        throw new IllegalArgumentException(msg);
+                    }
                 }
 
                 List<String> word = new ArrayList<>();
                 List<String> plus = new ArrayList<>();
                 List<String> minus = new ArrayList<>();
                 List<String> opt = new ArrayList<>();
+                List<String> andFrom = new ArrayList<>();
+                List<String> andTo = new ArrayList<>();
+                List<String> andCc = new ArrayList<>();
+                List<String> andBcc = new ArrayList<>();
+                List<String> andKeyword = new ArrayList<>();
                 StringBuilder all = new StringBuilder();
                 for (String w : search.trim().split("\\s+")) {
                     if (all.length() > 0)
@@ -887,13 +1082,24 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                     } else if (w.length() > 1 && w.startsWith("?")) {
                         opt.add(w.substring(1));
                         all.append(w.substring(1));
-                    } else {
+                    } else if (w.length() > FROM.length() && w.startsWith(FROM))
+                        andFrom.add(w.substring(FROM.length()));
+                    else if (w.length() > TO.length() && w.startsWith(TO))
+                        andTo.add(w.substring(TO.length()));
+                    else if (w.length() > CC.length() && w.startsWith(CC))
+                        andCc.add(w.substring(CC.length()));
+                    else if (w.length() > BCC.length() && w.startsWith(BCC))
+                        andBcc.add(w.substring(BCC.length()));
+                    else if (w.length() > KEYWORD.length() && w.startsWith(KEYWORD))
+                        andKeyword.add(w.substring(KEYWORD.length()));
+                    else {
                         word.add(w);
                         all.append(w);
                     }
                 }
 
-                if (plus.size() + minus.size() + opt.size() > 0)
+                if (plus.size() + minus.size() + opt.size() +
+                        andFrom.size() + andTo.size() + andCc.size() + andBcc.size() + andKeyword.size() > 0)
                     search = all.toString();
 
                 // Yahoo! does not support keyword search, but uses the flags $Forwarded $Junk $NotJunk
@@ -904,15 +1110,32 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                         break;
                     }
 
-                if (in_senders)
-                    or.add(new FromStringTerm(search));
-                if (in_recipients) {
-                    or.add(new RecipientStringTerm(Message.RecipientType.TO, search));
-                    or.add(new RecipientStringTerm(Message.RecipientType.CC, search));
-                    or.add(new RecipientStringTerm(Message.RecipientType.BCC, search));
+                if (andFrom.size() > 0) {
+                    for (String term : andFrom)
+                        and.add(new FromStringTerm(term));
+                } else {
+                    if (in_senders && !TextUtils.isEmpty(search) &&
+                            plus.size() + minus.size() + opt.size() == 0)
+                        or.add(new FromStringTerm(search));
                 }
 
-                if (in_subject)
+                if (andTo.size() + andCc.size() + andBcc.size() > 0) {
+                    for (String term : andTo)
+                        and.add(new RecipientStringTerm(Message.RecipientType.TO, term));
+                    for (String term : andCc)
+                        and.add(new RecipientStringTerm(Message.RecipientType.CC, term));
+                    for (String term : andBcc)
+                        and.add(new RecipientStringTerm(Message.RecipientType.BCC, term));
+                } else {
+                    if (in_recipients && !TextUtils.isEmpty(search) &&
+                            plus.size() + minus.size() + opt.size() == 0) {
+                        or.add(new RecipientStringTerm(Message.RecipientType.TO, search));
+                        or.add(new RecipientStringTerm(Message.RecipientType.CC, search));
+                        or.add(new RecipientStringTerm(Message.RecipientType.BCC, search));
+                    }
+                }
+
+                if (in_subject && !TextUtils.isEmpty(search))
                     if (plus.size() + minus.size() + opt.size() == 0)
                         or.add(new SubjectTerm(search));
                     else
@@ -923,15 +1146,22 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                             or.add(new SubjectTerm(search));
                         }
 
-                if (in_keywords && hasKeywords) {
-                    String keyword = MessageHelper.sanitizeKeyword(search);
-                    if (TextUtils.isEmpty(keyword))
-                        Log.w("Keyword empty=" + search);
-                    else
-                        or.add(new FlagTerm(new Flags(keyword), true));
-                }
+                if (hasKeywords)
+                    if (andKeyword.size() > 0) {
+                        for (String term : andKeyword)
+                            and.add(new FlagTerm(new Flags(term), true));
+                    } else {
+                        if (in_keywords && !TextUtils.isEmpty(search) &&
+                                plus.size() + minus.size() + opt.size() == 0) {
+                            String keyword = MessageHelper.sanitizeKeyword(search);
+                            if (TextUtils.isEmpty(keyword))
+                                Log.w("Keyword empty=" + search);
+                            else
+                                or.add(new FlagTerm(new Flags(keyword), true));
+                        }
+                    }
 
-                if (in_message)
+                if (in_message && !TextUtils.isEmpty(search))
                     if (plus.size() + minus.size() + opt.size() == 0)
                         or.add(new BodyTerm(search));
                     else
@@ -1035,6 +1265,7 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
             if (obj instanceof SearchCriteria) {
                 SearchCriteria other = (SearchCriteria) obj;
                 return (Objects.equals(this.query, other.query) &&
+                        this.fts == other.fts &&
                         this.in_senders == other.in_senders &&
                         this.in_recipients == other.in_recipients &&
                         this.in_subject == other.in_subject &&
@@ -1059,9 +1290,10 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
                 return false;
         }
 
-        JSONObject toJson() throws JSONException {
+        JSONObject toJsonData() throws JSONException {
             JSONObject json = new JSONObject();
             json.put("query", query);
+            json.put("fts", fts);
             json.put("in_senders", in_senders);
             json.put("in_recipients", in_recipients);
             json.put("in_subject", in_subject);
@@ -1090,18 +1322,25 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
             json.put("in_trash", in_trash);
             json.put("in_junk", in_junk);
 
+            Calendar now = Calendar.getInstance();
+            now.set(Calendar.MILLISECOND, 0);
+            now.set(Calendar.SECOND, 0);
+            now.set(Calendar.MINUTE, 0);
+            now.set(Calendar.HOUR_OF_DAY, 0);
+
             if (after != null)
-                json.put("after", after);
+                json.put("after", after - now.getTimeInMillis());
 
             if (before != null)
-                json.put("before", before);
+                json.put("before", before - now.getTimeInMillis());
 
             return json;
         }
 
-        public static SearchCriteria fromJSON(JSONObject json) throws JSONException {
+        public static SearchCriteria fromJsonData(JSONObject json) throws JSONException {
             SearchCriteria criteria = new SearchCriteria();
             criteria.query = json.optString("query");
+            criteria.fts = json.optBoolean("fts");
             criteria.in_senders = json.optBoolean("in_senders");
             criteria.in_recipients = json.optBoolean("in_recipients");
             criteria.in_subject = json.optBoolean("in_subject");
@@ -1130,11 +1369,17 @@ public class BoundaryCallbackMessages extends PagedList.BoundaryCallback<TupleMe
             criteria.in_trash = json.optBoolean("in_trash");
             criteria.in_junk = json.optBoolean("in_junk");
 
+            Calendar now = Calendar.getInstance();
+            now.set(Calendar.MILLISECOND, 0);
+            now.set(Calendar.SECOND, 0);
+            now.set(Calendar.MINUTE, 0);
+            now.set(Calendar.HOUR_OF_DAY, 0);
+
             if (json.has("after"))
-                criteria.after = json.getLong("after");
+                criteria.after = json.getLong("after") + now.getTimeInMillis();
 
             if (json.has("before"))
-                criteria.before = json.getLong("before");
+                criteria.before = json.getLong("before") + now.getTimeInMillis();
 
             return criteria;
         }

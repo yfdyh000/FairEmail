@@ -16,17 +16,16 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.app.Activity.RESULT_OK;
 import static androidx.recyclerview.widget.RecyclerView.NO_POSITION;
 
-import android.app.Dialog;
+import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Canvas;
@@ -41,17 +40,12 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.CheckBox;
-import android.widget.CompoundButton;
-import android.widget.EditText;
 import android.widget.ImageButton;
-import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.SearchView;
 import androidx.constraintlayout.widget.Group;
 import androidx.core.app.NotificationCompat;
@@ -62,6 +56,7 @@ import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.OnLifecycleEvent;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -72,12 +67,14 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 
 import org.json.JSONException;
-import org.json.JSONObject;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FilterOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
@@ -93,6 +90,7 @@ import javax.mail.Message;
 import javax.mail.MessagingException;
 import javax.mail.Session;
 import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
 
 public class FragmentFolders extends FragmentBase {
     private ViewGroup view;
@@ -118,6 +116,7 @@ public class FragmentFolders extends FragmentBase {
     private boolean primary;
     private boolean show_hidden = false;
     private boolean show_flagged = false;
+    private boolean hide_toolbar = false;
     private String searching = null;
     private AdapterFolder adapter;
 
@@ -129,6 +128,7 @@ public class FragmentFolders extends FragmentBase {
     static final int REQUEST_EXECUTE_RULES = 4;
     static final int REQUEST_EXPORT_MESSAGES = 5;
     static final int REQUEST_EDIT_ACCOUNT_NAME = 6;
+    static final int REQUEST_EDIT_ACCOUNT_COLOR = 7;
 
     private static final long EXPORT_PROGRESS_INTERVAL = 5000L; // milliseconds
 
@@ -148,6 +148,7 @@ public class FragmentFolders extends FragmentBase {
         compact = prefs.getBoolean("compact_folders", true);
         show_hidden = false; // prefs.getBoolean("hidden_folders", false);
         show_flagged = prefs.getBoolean("flagged_folders", false);
+        hide_toolbar = prefs.getBoolean("hide_toolbar", !BuildConfig.PLAY_STORE_RELEASE);
 
         if (BuildConfig.DEBUG) {
             ViewModelSelected selectedModel =
@@ -210,7 +211,22 @@ public class FragmentFolders extends FragmentBase {
         });
 
         rvFolder.setHasFixedSize(false);
-        LinearLayoutManager llm = new LinearLayoutManager(getContext());
+        LinearLayoutManager llm = new LinearLayoutManager(getContext()) {
+            @Override
+            public void onLayoutCompleted(RecyclerView.State state) {
+                super.onLayoutCompleted(state);
+                if (!isActionBarShown())
+                    try {
+                        int range = computeVerticalScrollRange(state);
+                        int extend = computeVerticalScrollExtent(state);
+                        boolean canScrollVertical = (range > extend);
+                        if (!canScrollVertical) // anymore
+                            showActionBar(true);
+                    } catch (Throwable ex) {
+                        Log.e(ex);
+                    }
+            }
+        };
         rvFolder.setLayoutManager(llm);
 
         if (!cards && dividers) {
@@ -301,6 +317,27 @@ public class FragmentFolders extends FragmentBase {
             rvFolder.addItemDecoration(categoryDecorator);
         }
 
+        rvFolder.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            private boolean show = true;
+
+            @Override
+            public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
+                if (hide_toolbar && dy != 0)
+                    try {
+                        show = (dy < 0 || rv.computeVerticalScrollOffset() == 0);
+                    } catch (Throwable ex) {
+                        Log.e(ex);
+                        show = true;
+                    }
+            }
+
+            @Override
+            public void onScrollStateChanged(@NonNull RecyclerView rv, int newState) {
+                if (hide_toolbar && newState != RecyclerView.SCROLL_STATE_DRAGGING)
+                    showActionBar(show);
+            }
+        });
+
         adapter = new AdapterFolder(this, account, unified, primary, compact, show_hidden, show_flagged, null);
         rvFolder.setAdapter(adapter);
 
@@ -377,7 +414,7 @@ public class FragmentFolders extends FragmentBase {
                         intent.putExtra("protocol", account.protocol);
                         intent.putExtra("auth_type", account.auth_type);
                         intent.putExtra("faq", 22);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         startActivity(intent);
                     }
 
@@ -599,12 +636,21 @@ public class FragmentFolders extends FragmentBase {
         SearchView searchView = (SearchView) menuSearch.getActionView();
         searchView.setQueryHint(getString(R.string.title_search));
 
-        if (TextUtils.isEmpty(searching))
-            menuSearch.collapseActionView();
-        else {
-            menuSearch.expandActionView();
-            searchView.setQuery(searching, true);
-        }
+        final String search = searching;
+        view.post(new RunnableEx("folders:search") {
+            @Override
+            public void delegate() {
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return;
+
+                if (TextUtils.isEmpty(search))
+                    menuSearch.collapseActionView();
+                else {
+                    menuSearch.expandActionView();
+                    searchView.setQuery(search, true);
+                }
+            }
+        });
 
         getViewLifecycleOwner().getLifecycle().addObserver(new LifecycleObserver() {
             @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
@@ -617,7 +663,7 @@ public class FragmentFolders extends FragmentBase {
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextChange(String newText) {
-                if (getView() != null) {
+                if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
                     searching = newText;
                     adapter.search(newText);
                 }
@@ -626,8 +672,10 @@ public class FragmentFolders extends FragmentBase {
 
             @Override
             public boolean onQueryTextSubmit(String query) {
-                searching = query;
-                adapter.search(query);
+                if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
+                    searching = query;
+                    adapter.search(query);
+                }
                 return true;
             }
         });
@@ -664,15 +712,18 @@ public class FragmentFolders extends FragmentBase {
         boolean sort_unread_atop = prefs.getBoolean("sort_unread_atop", false);
 
         menu.findItem(R.id.menu_unified).setVisible(account < 0 || primary);
+        menu.findItem(R.id.menu_outbox).setVisible(account < 0 || primary);
         menu.findItem(R.id.menu_compact).setChecked(compact);
         menu.findItem(R.id.menu_theme).setVisible(account < 0 || primary);
         menu.findItem(R.id.menu_show_hidden).setChecked(show_hidden);
         menu.findItem(R.id.menu_show_flagged).setChecked(show_flagged);
-        menu.findItem(R.id.menu_subscribed_only).setChecked(subscribed_only);
-        menu.findItem(R.id.menu_subscribed_only).setVisible(subscriptions);
+        menu.findItem(R.id.menu_subscribed_only)
+                .setChecked(subscribed_only)
+                .setVisible(subscriptions);
         menu.findItem(R.id.menu_sort_unread_atop).setChecked(sort_unread_atop);
         menu.findItem(R.id.menu_apply_all).setVisible(account >= 0 && imap);
         menu.findItem(R.id.menu_edit_account_name).setVisible(account >= 0);
+        menu.findItem(R.id.menu_edit_account_color).setVisible(account >= 0);
 
         super.onPrepareOptionsMenu(menu);
     }
@@ -685,6 +736,9 @@ public class FragmentFolders extends FragmentBase {
             return true;
         } else if (itemId == R.id.menu_unified) {
             onMenuUnified();
+            return true;
+        } else if (itemId == R.id.menu_outbox) {
+            onMenuOutbox();
             return true;
         } else if (itemId == R.id.menu_compact) {
             onMenuCompact();
@@ -713,6 +767,9 @@ public class FragmentFolders extends FragmentBase {
         } else if (itemId == R.id.menu_edit_account_name) {
             onMenuEditAccount();
             return true;
+        } else if (itemId == R.id.menu_edit_account_color) {
+            onMenuEditColor();
+            return true;
         } else if (itemId == R.id.menu_force_sync) {
             onMenuForceSync();
             return true;
@@ -721,6 +778,9 @@ public class FragmentFolders extends FragmentBase {
     }
 
     private void onMenuSearch() {
+        if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+            return;
+
         Bundle args = new Bundle();
         args.putLong("account", account);
 
@@ -730,12 +790,15 @@ public class FragmentFolders extends FragmentBase {
     }
 
     private void onMenuUnified() {
-        FragmentMessages fragment = new FragmentMessages();
-        fragment.setArguments(new Bundle());
+        LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(getContext());
+        lbm.sendBroadcast(
+                new Intent(ActivityView.ACTION_VIEW_MESSAGES)
+                        .putExtra("unified", true));
+    }
 
-        FragmentTransaction fragmentTransaction = getParentFragmentManager().beginTransaction();
-        fragmentTransaction.replace(R.id.content_frame, fragment).addToBackStack("messages");
-        fragmentTransaction.commit();
+    private void onMenuOutbox() {
+        LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(getContext());
+        lbm.sendBroadcast(new Intent(ActivityView.ACTION_VIEW_OUTBOX));
     }
 
     private void onMenuCompact() {
@@ -819,7 +882,7 @@ public class FragmentFolders extends FragmentBase {
         Bundle args = new Bundle();
         args.putLong("account", account);
 
-        FragmentDialogApply fragment = new FragmentDialogApply();
+        FragmentDialogFoldersApply fragment = new FragmentDialogFoldersApply();
         fragment.setArguments(args);
         fragment.show(getParentFragmentManager(), "folders:apply");
     }
@@ -842,6 +905,7 @@ public class FragmentFolders extends FragmentBase {
                     return;
 
                 args.putString("name", account.name);
+                args.putBoolean("primary", account.primary);
 
                 FragmentDialogEditName fragment = new FragmentDialogEditName();
                 fragment.setArguments(args);
@@ -854,6 +918,41 @@ public class FragmentFolders extends FragmentBase {
                 Log.unexpectedError(getParentFragmentManager(), ex);
             }
         }.execute(this, args, "account:name");
+    }
+
+    private void onMenuEditColor() {
+        Bundle args = new Bundle();
+        args.putLong("id", account);
+
+        new SimpleTask<EntityAccount>() {
+            @Override
+            protected EntityAccount onExecute(Context context, Bundle args) {
+                long id = args.getLong("id");
+
+                DB db = DB.getInstance(context);
+                return db.account().getAccount(id);
+            }
+
+            @Override
+            protected void onExecuted(Bundle args, EntityAccount account) {
+                if (account == null)
+                    return;
+
+                args.putInt("color", account.color == null ? Color.TRANSPARENT : account.color);
+                args.putString("title", getString(R.string.title_color));
+                args.putBoolean("reset", true);
+
+                FragmentDialogColor fragment = new FragmentDialogColor();
+                fragment.setArguments(args);
+                fragment.setTargetFragment(FragmentFolders.this, REQUEST_EDIT_ACCOUNT_COLOR);
+                fragment.show(getParentFragmentManager(), "edit:color");
+            }
+
+            @Override
+            protected void onException(Bundle args, Throwable ex) {
+                Log.unexpectedError(getParentFragmentManager(), ex);
+            }
+        }.execute(this, args, "edit:color");
     }
 
     private void onMenuForceSync() {
@@ -891,6 +990,10 @@ public class FragmentFolders extends FragmentBase {
                     if (resultCode == RESULT_OK && data != null)
                         onEditAccountName(data.getBundleExtra("args"));
                     break;
+                case REQUEST_EDIT_ACCOUNT_COLOR:
+                    if (resultCode == RESULT_OK && data != null)
+                        onEditAccountColor(data.getBundleExtra("args"));
+                    break;
             }
         } catch (Throwable ex) {
             Log.e(ex);
@@ -899,14 +1002,18 @@ public class FragmentFolders extends FragmentBase {
 
     private void onDeleteLocal(Bundle args) {
         new SimpleTask<Void>() {
+            private Toast toast = null;
+
             @Override
             protected void onPreExecute(Bundle args) {
-                ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG).show();
+                toast = ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG);
+                toast.show();
             }
 
             @Override
             protected void onPostExecute(Bundle args) {
-                ToastEx.makeText(getContext(), R.string.title_completed, Toast.LENGTH_LONG).show();
+                if (toast != null)
+                    toast.cancel();
             }
 
             @Override
@@ -955,6 +1062,11 @@ public class FragmentFolders extends FragmentBase {
                 WorkerCleanup.cleanup(context, false);
 
                 return null;
+            }
+
+            @Override
+            protected void onExecuted(Bundle args, Void data) {
+                ToastEx.makeText(getContext(), R.string.title_completed, Toast.LENGTH_LONG).show();
             }
 
             @Override
@@ -1055,9 +1167,18 @@ public class FragmentFolders extends FragmentBase {
 
     private void onExecuteRules(Bundle args) {
         new SimpleTask<Integer>() {
+            private Toast toast = null;
+
             @Override
             protected void onPreExecute(Bundle args) {
-                ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG).show();
+                toast = ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG);
+                toast.show();
+            }
+
+            @Override
+            protected void onPostExecute(Bundle args) {
+                if (toast != null)
+                    toast.cancel();
             }
 
             @Override
@@ -1066,22 +1187,25 @@ public class FragmentFolders extends FragmentBase {
 
                 DB db = DB.getInstance(context);
 
-                List<EntityRule> rules = db.rule().getEnabledRules(fid);
+                List<EntityRule> rules = db.rule().getEnabledRules(fid, null);
                 if (rules == null)
                     return 0;
                 EntityLog.log(context, "Executing rules count=" + rules.size());
 
-                for (EntityRule rule : rules) {
-                    JSONObject jcondition = new JSONObject(rule.condition);
-                    JSONObject jheader = jcondition.optJSONObject("header");
-                    if (jheader != null)
-                        throw new IllegalArgumentException(context.getString(R.string.title_rule_no_headers));
-                }
-
                 List<Long> ids = db.message().getMessageIdsByFolder(fid);
                 if (ids == null)
                     return 0;
+
                 EntityLog.log(context, "Executing rules messages=" + ids.size());
+
+                // Check header conditions
+                for (long mid : ids) {
+                    EntityMessage message = db.message().getMessage(mid);
+                    if (message == null || message.ui_hide)
+                        continue;
+                    for (EntityRule rule : rules)
+                        rule.matches(context, message, null, null);
+                }
 
                 int applied = 0;
                 for (long mid : ids)
@@ -1089,23 +1213,11 @@ public class FragmentFolders extends FragmentBase {
                         db.beginTransaction();
 
                         EntityMessage message = db.message().getMessage(mid);
-                        if (message == null)
+                        if (message == null || message.ui_hide)
                             continue;
 
                         EntityLog.log(context, "Executing rules message=" + message.id);
-
-                        for (EntityRule rule : rules) {
-                            EntityLog.log(context, "Executing rules evaluating=" + rule.name);
-                            if (rule.matches(context, message, null, null)) {
-                                EntityLog.log(context, "Executing rules matches=" + rule.name);
-                                if (rule.execute(context, message)) {
-                                    EntityLog.log(context, "Executing rules applied=" + rule.name);
-                                    applied++;
-                                }
-                                if (rule.stop)
-                                    break;
-                            }
-                        }
+                        applied = EntityRule.run(context, rules, message, null, null);
 
                         db.setTransactionSuccessful();
                     } finally {
@@ -1142,14 +1254,18 @@ public class FragmentFolders extends FragmentBase {
         args.putParcelable("uri", uri);
 
         new SimpleTask<Void>() {
+            private Toast toast = null;
+
             @Override
             protected void onPreExecute(Bundle args) {
-                ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG).show();
+                toast = ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG);
+                toast.show();
             }
 
             @Override
             protected void onPostExecute(Bundle args) {
-                ToastEx.makeText(getContext(), R.string.title_completed, Toast.LENGTH_LONG).show();
+                if (toast != null)
+                    toast.cancel();
             }
 
             @Override
@@ -1162,19 +1278,18 @@ public class FragmentFolders extends FragmentBase {
                     throw new IllegalArgumentException(context.getString(R.string.title_no_stream));
                 }
 
-                NotificationManager nm =
-                        (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+                NotificationManager nm = Helper.getSystemService(context, NotificationManager.class);
                 NotificationCompat.Builder builder =
                         new NotificationCompat.Builder(context, "progress")
                                 .setSmallIcon(R.drawable.baseline_get_app_white_24)
                                 .setContentTitle(getString(R.string.title_export_messages))
                                 .setAutoCancel(false)
-                                .setOngoing(true)
                                 .setShowWhen(false)
-                                .setLocalOnly(true)
                                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                                 .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-                                .setVisibility(NotificationCompat.VISIBILITY_SECRET);
+                                .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+                                .setLocalOnly(true)
+                                .setOngoing(true);
 
                 DB db = DB.getInstance(context);
                 List<Long> ids = db.message().getMessageIdsByFolder(fid);
@@ -1184,21 +1299,27 @@ public class FragmentFolders extends FragmentBase {
                 String PATTERN_ASCTIME = "EEE MMM d HH:mm:ss yyyy";
                 SimpleDateFormat df = new SimpleDateFormat(PATTERN_ASCTIME, Locale.US);
 
-                Properties props = MessageHelper.getSessionProperties();
+                Properties props = MessageHelper.getSessionProperties(true);
                 Session isession = Session.getInstance(props, null);
 
                 // https://www.ietf.org/rfc/rfc4155.txt (Appendix A)
                 // http://qmail.org./man/man5/mbox.html
                 long last = new Date().getTime();
                 ContentResolver resolver = context.getContentResolver();
-                try (OutputStream out = new BufferedOutputStream(resolver.openOutputStream(uri))) {
+                OutputStream os = resolver.openOutputStream(uri);
+                if (os == null)
+                    throw new FileNotFoundException(uri.toString());
+                try (OutputStream out = new BufferedOutputStream(os)) {
                     for (int i = 0; i < ids.size(); i++)
                         try {
                             long now = new Date().getTime();
                             if (now - last > EXPORT_PROGRESS_INTERVAL) {
                                 last = now;
                                 builder.setProgress(ids.size(), i, false);
-                                nm.notify("export", NotificationHelper.NOTIFICATION_TAGGED, builder.build());
+                                Notification notification = builder.build();
+                                notification.flags |= Notification.FLAG_NO_CLEAR;
+                                if (NotificationHelper.areNotificationsEnabled(nm))
+                                    nm.notify("export", NotificationHelper.NOTIFICATION_TAGGED, notification);
                             }
 
                             long id = ids.get(i);
@@ -1214,7 +1335,18 @@ public class FragmentFolders extends FragmentBase {
 
                             out.write(("From " + email + " " + df.format(message.received) + "\n").getBytes());
 
-                            Message imessage = MessageHelper.from(context, message, null, isession, false);
+                            Message imessage = null;
+
+                            if (Boolean.TRUE.equals(message.raw))
+                                try (InputStream is = new FileInputStream(message.getRawFile(context))) {
+                                    imessage = new MimeMessage(isession, is);
+                                } catch (Throwable ex) {
+                                    Log.w(ex);
+                                }
+
+                            if (imessage == null)
+                                imessage = MessageHelper.from(context, message, null, isession, false);
+
                             imessage.writeTo(new FilterOutputStream(out) {
                                 private boolean cr = false;
                                 private ByteArrayOutputStream buffer = new ByteArrayOutputStream(998);
@@ -1278,10 +1410,15 @@ public class FragmentFolders extends FragmentBase {
             }
 
             @Override
+            protected void onExecuted(Bundle args, Void data) {
+                ToastEx.makeText(getContext(), R.string.title_completed, Toast.LENGTH_LONG).show();
+            }
+
+            @Override
             protected void onException(Bundle args, Throwable ex) {
                 Log.unexpectedError(getParentFragmentManager(), ex);
             }
-        }.execute(this, args, "folder:export");
+        }.setKeepAwake(true).execute(this, args, "folder:export");
     }
 
     private void onEditAccountName(Bundle args) {
@@ -1290,12 +1427,28 @@ public class FragmentFolders extends FragmentBase {
             protected Void onExecute(Context context, Bundle args) {
                 long id = args.getLong("id");
                 String name = args.getString("name");
+                boolean primary = args.getBoolean("primary");
 
                 if (TextUtils.isEmpty(name))
                     return null;
 
                 DB db = DB.getInstance(context);
-                db.account().setAccountName(id, name);
+                try {
+                    db.beginTransaction();
+
+                    EntityAccount account = db.account().getAccount(id);
+                    if (account == null)
+                        return null;
+
+                    db.account().setAccountName(account.id, name);
+                    if (primary)
+                        db.account().resetPrimary();
+                    db.account().setAccountPrimary(account.id, primary);
+
+                    db.setTransactionSuccessful();
+                } finally {
+                    db.endTransaction();
+                }
 
                 return null;
             }
@@ -1307,114 +1460,30 @@ public class FragmentFolders extends FragmentBase {
         }.execute(this, args, "edit:name");
     }
 
-    public static class FragmentDialogApply extends FragmentDialogBase {
-        @NonNull
-        @Override
-        public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-            View view = LayoutInflater.from(getContext()).inflate(R.layout.dialog_folder_all, null);
-            final RadioGroup rgSynchronize = view.findViewById(R.id.rgSynchronize);
-            final EditText etSyncDays = view.findViewById(R.id.etSyncDays);
-            final EditText etKeepDays = view.findViewById(R.id.etKeepDays);
-            final CheckBox cbKeepAll = view.findViewById(R.id.cbKeepAll);
-            final CheckBox cbPollSystem = view.findViewById(R.id.cbPollSystem);
-            final CheckBox cbPollUser = view.findViewById(R.id.cbPollUser);
-
-            cbKeepAll.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                @Override
-                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                    etKeepDays.setEnabled(!isChecked);
-                }
-            });
-
-            return new AlertDialog.Builder(getContext())
-                    .setView(view)
-                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            Bundle args = getArguments();
-                            int optionId = rgSynchronize.getCheckedRadioButtonId();
-                            if (optionId == R.id.rbEnable)
-                                args.putBoolean("enable", true);
-                            else if (optionId == R.id.rbDisable)
-                                args.putBoolean("enable", false);
-                            args.putString("sync", etSyncDays.getText().toString());
-                            args.putString("keep", cbKeepAll.isChecked()
-                                    ? Integer.toString(Integer.MAX_VALUE)
-                                    : etKeepDays.getText().toString());
-                            args.putBoolean("system", cbPollSystem.isChecked());
-                            args.putBoolean("user", cbPollUser.isChecked());
-
-                            new SimpleTask<Void>() {
-                                @Override
-                                protected Void onExecute(Context context, Bundle args) throws Throwable {
-                                    long aid = args.getLong("account");
-                                    Boolean enable = null;
-                                    if (args.containsKey("enable"))
-                                        enable = args.getBoolean("enable");
-                                    String sync = args.getString("sync");
-                                    String keep = args.getString("keep");
-                                    boolean system = args.getBoolean("system");
-                                    boolean user = args.getBoolean("user");
-
-                                    if (TextUtils.isEmpty(sync))
-                                        sync = "7";
-                                    if (TextUtils.isEmpty(keep))
-                                        keep = "30";
-
-                                    DB db = DB.getInstance(context);
-                                    try {
-                                        db.beginTransaction();
-
-                                        EntityAccount account = db.account().getAccount(aid);
-                                        if (account == null)
-                                            return null;
-
-                                        if (system && account.poll_interval > 15)
-                                            db.account().setAccountKeepAliveInterval(account.id, 15);
-
-                                        List<EntityFolder> folders = db.folder().getFolders(aid, false, true);
-                                        if (folders == null)
-                                            return null;
-
-                                        for (EntityFolder folder : folders) {
-                                            if (EntityFolder.USER.equals(folder.type)) {
-                                                if (enable != null) {
-                                                    folder.synchronize = enable;
-                                                    db.folder().setFolderSynchronize(folder.id, folder.synchronize);
-                                                }
-
-                                                db.folder().setFolderProperties(
-                                                        folder.id,
-                                                        Integer.parseInt(sync),
-                                                        Integer.parseInt(keep));
-                                            }
-
-                                            if (folder.synchronize && !folder.poll)
-                                                if (EntityFolder.USER.equals(folder.type)
-                                                        ? user
-                                                        : system && !EntityFolder.INBOX.equals(folder.type))
-                                                    db.folder().setFolderPoll(folder.id, true);
-                                        }
-
-                                        db.setTransactionSuccessful();
-                                    } finally {
-                                        db.endTransaction();
-                                    }
-
-                                    ServiceSynchronize.reload(context, aid, false, "Apply");
-
-                                    return null;
-                                }
-
-                                @Override
-                                protected void onException(Bundle args, Throwable ex) {
-                                    Log.unexpectedError(getParentFragmentManager(), ex);
-                                }
-                            }.execute(FragmentDialogApply.this, args, "folders:all");
-                        }
-                    })
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .create();
+    private void onEditAccountColor(Bundle args) {
+        if (!ActivityBilling.isPro(getContext())) {
+            startActivity(new Intent(getContext(), ActivityBilling.class));
+            return;
         }
+
+        new SimpleTask<Void>() {
+            @Override
+            protected Void onExecute(Context context, Bundle args) {
+                long id = args.getLong("id");
+                Integer color = args.getInt("color");
+
+                if (color == Color.TRANSPARENT)
+                    color = null;
+
+                DB db = DB.getInstance(context);
+                db.account().setAccountColor(id, color);
+                return null;
+            }
+
+            @Override
+            protected void onException(Bundle args, Throwable ex) {
+                Log.unexpectedError(getParentFragmentManager(), ex);
+            }
+        }.execute(this, args, "edit:color");
     }
 }

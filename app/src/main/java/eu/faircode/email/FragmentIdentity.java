@@ -16,27 +16,29 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.app.Activity.RESULT_OK;
-import static com.google.android.material.textfield.TextInputLayout.END_ICON_NONE;
 import static com.google.android.material.textfield.TextInputLayout.END_ICON_PASSWORD_TOGGLE;
 import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_OAUTH;
 import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
 
+import android.Manifest;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.ContactsContract;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.method.LinkMovementMethod;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -55,8 +57,10 @@ import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.PopupMenu;
 import androidx.constraintlayout.widget.Group;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceManager;
@@ -113,15 +117,20 @@ public class FragmentIdentity extends FragmentBase {
 
     private CheckBox cbSenderExtra;
     private CheckBox cbSenderExtraName;
+    private CheckBox cbReplyExtraName;
     private TextView etSenderExtra;
     private ImageButton ibSenderExtra;
     private EditText etReplyTo;
     private EditText etCc;
     private EditText etBcc;
     private EditText etInternal;
+    private Button btnUri;
+    private TextView tvUriInfo;
+    private TextView tvUriPro;
     private CheckBox cbSignDefault;
     private CheckBox cbEncryptDefault;
     private CheckBox cbUnicode;
+    private CheckBox cbOctetMime;
     private EditText etMaxSize;
 
     private Button btnSave;
@@ -151,6 +160,7 @@ public class FragmentIdentity extends FragmentBase {
     private static final int REQUEST_SAVE = 2;
     private static final int REQUEST_DELETE = 3;
     private static final int REQUEST_SIGNATURE = 4;
+    private static final int REQUEST_URI = 5;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -211,15 +221,20 @@ public class FragmentIdentity extends FragmentBase {
 
         cbSenderExtra = view.findViewById(R.id.cbSenderExtra);
         cbSenderExtraName = view.findViewById(R.id.cbSenderExtraName);
+        cbReplyExtraName = view.findViewById(R.id.cbReplyExtraName);
         etSenderExtra = view.findViewById(R.id.etSenderExtra);
         ibSenderExtra = view.findViewById(R.id.ibSenderExtra);
         etReplyTo = view.findViewById(R.id.etReplyTo);
         etCc = view.findViewById(R.id.etCc);
         etBcc = view.findViewById(R.id.etBcc);
         etInternal = view.findViewById(R.id.etInternal);
+        btnUri = view.findViewById(R.id.btnUri);
+        tvUriInfo = view.findViewById(R.id.tvUriInfo);
+        tvUriPro = view.findViewById(R.id.tvUriPro);
         cbSignDefault = view.findViewById(R.id.cbSignDefault);
         cbEncryptDefault = view.findViewById(R.id.cbEncryptDefault);
         cbUnicode = view.findViewById(R.id.cbUnicode);
+        cbOctetMime = view.findViewById(R.id.cbOctetMime);
         etMaxSize = view.findViewById(R.id.etMaxSize);
 
         btnSave = view.findViewById(R.id.btnSave);
@@ -242,6 +257,9 @@ public class FragmentIdentity extends FragmentBase {
         spAccount.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> adapterView, View view, int position, long id) {
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return;
+
                 grpAuthorize.setVisibility(position > 0 ? View.VISIBLE : View.GONE);
                 if (position == 0) {
                     grpError.setVisibility(View.GONE);
@@ -303,6 +321,9 @@ public class FragmentIdentity extends FragmentBase {
 
             @Override
             public void afterTextChanged(Editable editable) {
+                if (etDomain == null)
+                    return;
+
                 String[] email = editable.toString().split("@");
                 etDomain.setText(email.length < 2 ? null : email[1]);
             }
@@ -323,6 +344,9 @@ public class FragmentIdentity extends FragmentBase {
 
             @Override
             public void afterTextChanged(Editable s) {
+                if (tilPassword == null)
+                    return;
+
                 checkPassword(s.toString());
             }
         });
@@ -383,6 +407,7 @@ public class FragmentIdentity extends FragmentBase {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 cbSenderExtraName.setEnabled(isChecked);
+                cbReplyExtraName.setEnabled(isChecked);
             }
         });
 
@@ -467,6 +492,17 @@ public class FragmentIdentity extends FragmentBase {
             }
         });
 
+        btnUri.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent pick = new Intent(Intent.ACTION_PICK, ContactsContract.Contacts.CONTENT_URI);
+                pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                startActivityForResult(Helper.getChooser(getContext(), pick), REQUEST_URI);
+            }
+        });
+
+        Helper.linkPro(tvUriPro);
+
         cbEncryptDefault.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -481,16 +517,13 @@ public class FragmentIdentity extends FragmentBase {
             }
         });
 
-        addKeyPressedListener(new ActivityBase.IKeyPressedListener() {
+        setBackPressedCallback(new OnBackPressedCallback(true) {
             @Override
-            public boolean onKeyPressed(KeyEvent event) {
-                return false;
-            }
-
-            @Override
-            public boolean onBackPressed() {
-                onSave(true);
-                return true;
+            public void handleOnBackPressed() {
+                if (Helper.isKeyboardVisible(view))
+                    Helper.hideKeyboard(view);
+                else
+                    onSave(true);
             }
         });
 
@@ -505,7 +538,7 @@ public class FragmentIdentity extends FragmentBase {
         btnSupport.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Helper.view(v.getContext(), Helper.getSupportUri(v.getContext()), false);
+                Helper.view(v.getContext(), Helper.getSupportUri(v.getContext(), "Identity:support"), false);
             }
         });
 
@@ -514,7 +547,6 @@ public class FragmentIdentity extends FragmentBase {
         btnAutoConfig.setEnabled(false);
         pbAutoConfig.setVisibility(View.GONE);
         cbInsecure.setVisibility(View.GONE);
-        tilPassword.setEndIconMode(id < 0 || Helper.isSecure(getContext()) ? END_ICON_PASSWORD_TOGGLE : END_ICON_NONE);
 
         btnAdvanced.setVisibility(View.GONE);
 
@@ -551,9 +583,52 @@ public class FragmentIdentity extends FragmentBase {
         etRealm.setText(account.realm);
         cbTrust.setChecked(false);
 
+        setAuth(auth);
+    }
+
+    private void setAuth(int auth) {
         etUser.setEnabled(auth == AUTH_TYPE_PASSWORD);
-        tilPassword.setEnabled(auth == AUTH_TYPE_PASSWORD);
+        tilPassword.getEditText().setEnabled(auth == AUTH_TYPE_PASSWORD);
         btnCertificate.setEnabled(auth == AUTH_TYPE_PASSWORD);
+
+        tilPassword.setEndIconMode(TextInputLayout.END_ICON_NONE);
+        tilPassword.setEndIconMode(auth == AUTH_TYPE_PASSWORD ? END_ICON_PASSWORD_TOGGLE : TextInputLayout.END_ICON_CUSTOM);
+
+        if (auth == AUTH_TYPE_PASSWORD)
+            Helper.setupPasswordToggle(getActivity(), tilPassword);
+        else {
+            tilPassword.setEndIconDrawable(R.drawable.twotone_edit_24);
+
+            tilPassword.setEndIconOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    PopupMenuLifecycle popupMenu = new PopupMenuLifecycle(view.getContext(), FragmentIdentity.this, view);
+
+                    popupMenu.getMenu().add(Menu.NONE, R.string.title_account_auth_password, 1, R.string.title_account_auth_password);
+
+                    popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+                        @Override
+                        public boolean onMenuItemClick(MenuItem item) {
+                            int id = item.getItemId();
+                            if (id == R.string.title_account_auth_password) {
+                                onPassword();
+                                return true;
+                            } else
+                                return false;
+                        }
+
+                        private void onPassword() {
+                            FragmentIdentity.this.auth = AUTH_TYPE_PASSWORD;
+                            setAuth(AUTH_TYPE_PASSWORD);
+                            tilPassword.getEditText().setText(null);
+                            tilPassword.requestFocus();
+                        }
+                    });
+
+                    popupMenu.show();
+                }
+            });
+        }
     }
 
     private void setProvider(EmailProvider provider) {
@@ -651,14 +726,17 @@ public class FragmentIdentity extends FragmentBase {
         args.putInt("color", btnColor.getColor());
         args.putBoolean("sender_extra", cbSenderExtra.isChecked());
         args.putBoolean("sender_extra_name", cbSenderExtraName.isChecked());
+        args.putBoolean("reply_extra_name", cbReplyExtraName.isChecked());
         args.putString("sender_extra_regex", etSenderExtra.getText().toString());
         args.putString("replyto", etReplyTo.getText().toString().trim());
         args.putString("cc", etCc.getText().toString().trim());
         args.putString("bcc", etBcc.getText().toString().trim());
         args.putString("internal", etInternal.getText().toString().replaceAll(" ", ""));
+        args.putString("uri", (String) btnUri.getTag());
         args.putBoolean("sign_default", cbSignDefault.isChecked());
         args.putBoolean("encrypt_default", cbEncryptDefault.isChecked());
         args.putBoolean("unicode", cbUnicode.isChecked());
+        args.putBoolean("octetmime", cbOctetMime.isChecked());
         args.putString("max_size", etMaxSize.getText().toString());
         args.putLong("account", account == null ? -1 : account.id);
         args.putString("host", etHost.getText().toString().trim().replace(" ", ""));
@@ -699,11 +777,7 @@ public class FragmentIdentity extends FragmentBase {
                 saving = false;
                 invalidateOptionsMenu();
                 Helper.setViewsEnabled(view, true);
-                if (auth != AUTH_TYPE_PASSWORD) {
-                    etUser.setEnabled(false);
-                    tilPassword.setEnabled(false);
-                    btnCertificate.setEnabled(false);
-                }
+                setAuth(auth); // Disable user/password again
                 pbSave.setVisibility(View.GONE);
             }
 
@@ -737,14 +811,17 @@ public class FragmentIdentity extends FragmentBase {
 
                 boolean sender_extra = args.getBoolean("sender_extra");
                 boolean sender_extra_name = args.getBoolean("sender_extra_name");
+                boolean reply_extra_name = args.getBoolean("reply_extra_name");
                 String sender_extra_regex = args.getString("sender_extra_regex");
                 String replyto = args.getString("replyto");
                 String cc = args.getString("cc");
                 String bcc = args.getString("bcc");
                 String internal = args.getString("internal");
+                String uri = args.getString("uri");
                 boolean sign_default = args.getBoolean("sign_default");
                 boolean encrypt_default = args.getBoolean("encrypt_default");
                 boolean unicode = args.getBoolean("unicode");
+                boolean octetmime = args.getBoolean("octetmime");
                 String max_size = args.getString("max_size");
 
                 boolean should = args.getBoolean("should");
@@ -802,6 +879,9 @@ public class FragmentIdentity extends FragmentBase {
 
                 if (TextUtils.isEmpty(internal))
                     internal = null;
+
+                if (TextUtils.isEmpty(uri))
+                    uri = null;
 
                 if (TextUtils.isEmpty(display))
                     display = null;
@@ -884,6 +964,8 @@ public class FragmentIdentity extends FragmentBase {
                         return true;
                     if (!Objects.equals(identity.sender_extra_name, sender_extra_name))
                         return true;
+                    if (!Objects.equals(identity.reply_extra_name, reply_extra_name))
+                        return true;
                     if (!Objects.equals(identity.sender_extra_regex, sender_extra_regex))
                         return true;
                     if (!Objects.equals(identity.replyto, replyto))
@@ -894,11 +976,15 @@ public class FragmentIdentity extends FragmentBase {
                         return true;
                     if (!Objects.equals(identity.internal, internal))
                         return true;
+                    if (!Objects.equals(identity.uri, uri))
+                        return true;
                     if (!Objects.equals(identity.sign_default, sign_default))
                         return true;
                     if (!Objects.equals(identity.encrypt_default, encrypt_default))
                         return true;
                     if (!Objects.equals(identity.unicode, unicode))
+                        return true;
+                    if (!Objects.equals(identity.octetmime, octetmime))
                         return true;
                     if (user_max_size != null && !Objects.equals(identity.max_size, user_max_size))
                         return true;
@@ -937,7 +1023,7 @@ public class FragmentIdentity extends FragmentBase {
                     // Create transport
                     String protocol = (encryption == EmailService.ENCRYPTION_SSL ? "smtps" : "smtp");
                     try (EmailService iservice = new EmailService(
-                            context, protocol, realm, encryption, insecure,
+                            context, protocol, realm, encryption, insecure, unicode,
                             EmailService.PURPOSE_CHECK, true)) {
                         iservice.setUseIp(use_ip, ehlo);
                         iservice.connect(
@@ -989,14 +1075,17 @@ public class FragmentIdentity extends FragmentBase {
 
                     identity.sender_extra = sender_extra;
                     identity.sender_extra_name = sender_extra_name;
+                    identity.reply_extra_name = reply_extra_name;
                     identity.sender_extra_regex = sender_extra_regex;
                     identity.replyto = replyto;
                     identity.cc = cc;
                     identity.bcc = bcc;
                     identity.internal = internal;
+                    identity.uri = uri;
                     identity.sign_default = sign_default;
                     identity.encrypt_default = encrypt_default;
                     identity.unicode = unicode;
+                    identity.octetmime = octetmime;
                     identity.sent_folder = null;
                     identity.sign_key = null;
                     identity.sign_key_alias = null;
@@ -1035,7 +1124,7 @@ public class FragmentIdentity extends FragmentBase {
                     fragment.setTargetFragment(FragmentIdentity.this, REQUEST_SAVE);
                     fragment.show(getParentFragmentManager(), "identity:save");
                 } else if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-                    getParentFragmentManager().popBackStack();
+                    finish();
             }
 
             @Override
@@ -1090,14 +1179,15 @@ public class FragmentIdentity extends FragmentBase {
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
-        outState.putInt("fair:account", spAccount.getSelectedItemPosition());
-        outState.putInt("fair:provider", spProvider.getSelectedItemPosition());
+        outState.putInt("fair:account", spAccount == null ? 0 : spAccount.getSelectedItemPosition());
+        outState.putInt("fair:provider", spProvider == null ? 0 : spProvider.getSelectedItemPosition());
         outState.putString("fair:certificate", certificate);
-        outState.putString("fair:password", tilPassword.getEditText().getText().toString());
-        outState.putInt("fair:advanced", grpAdvanced.getVisibility());
+        outState.putString("fair:password", tilPassword == null ? null : tilPassword.getEditText().getText().toString());
+        outState.putInt("fair:advanced", grpAdvanced == null ? View.VISIBLE : grpAdvanced.getVisibility());
         outState.putInt("fair:auth", auth);
         outState.putString("fair:authprovider", provider);
         outState.putString("fair:html", signature);
+        outState.putString("fair:uri", (String) btnUri.getTag());
         super.onSaveInstanceState(outState);
     }
 
@@ -1173,14 +1263,18 @@ public class FragmentIdentity extends FragmentBase {
 
                     cbSenderExtra.setChecked(identity != null && identity.sender_extra);
                     cbSenderExtraName.setChecked(identity != null && identity.sender_extra_name);
+                    cbReplyExtraName.setChecked(identity != null && identity.reply_extra_name);
                     etSenderExtra.setText(identity == null ? null : identity.sender_extra_regex);
                     etReplyTo.setText(identity == null ? null : identity.replyto);
                     etCc.setText(identity == null ? null : identity.cc);
                     etBcc.setText(identity == null ? null : identity.bcc);
                     etInternal.setText(identity == null ? null : identity.internal);
+                    btnUri.setTag(identity == null ? null : identity.uri);
+                    tvUriInfo.setText(identity == null ? null : getUriInfo(identity.uri));
                     cbSignDefault.setChecked(identity != null && identity.sign_default);
                     cbEncryptDefault.setChecked(identity != null && identity.encrypt_default);
                     cbUnicode.setChecked(identity != null && identity.unicode);
+                    cbOctetMime.setChecked(identity != null && identity.octetmime);
 
                     auth = (identity == null ? AUTH_TYPE_PASSWORD : identity.auth_type);
                     provider = (identity == null ? null : identity.provider);
@@ -1212,18 +1306,15 @@ public class FragmentIdentity extends FragmentBase {
                     provider = savedInstanceState.getString("fair:authprovider");
                     if (signature == null)
                         signature = savedInstanceState.getString("fair:html");
+                    btnUri.setTag(savedInstanceState.getString("fair:uri"));
                 }
 
                 Helper.setViewsEnabled(view, true);
-
-                if (auth != AUTH_TYPE_PASSWORD) {
-                    etUser.setEnabled(false);
-                    tilPassword.setEnabled(false);
-                    btnCertificate.setEnabled(false);
-                }
+                setAuth(auth);
 
                 cbPrimary.setEnabled(cbSynchronize.isChecked());
                 cbSenderExtraName.setEnabled(cbSenderExtra.isChecked());
+                cbReplyExtraName.setEnabled(cbSenderExtra.isChecked());
 
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
                 boolean sign_default = prefs.getBoolean("sign_default", false);
@@ -1232,7 +1323,7 @@ public class FragmentIdentity extends FragmentBase {
                 cbEncryptDefault.setEnabled(!encrypt_default);
 
                 // Get providers
-                List<EmailProvider> providers = EmailProvider.loadProfiles(getContext());
+                List<EmailProvider> providers = EmailProvider.getProviders(getContext());
                 providers.add(0, new EmailProvider(getString(R.string.title_custom)));
 
                 ArrayAdapter<EmailProvider> aaProfile =
@@ -1376,16 +1467,19 @@ public class FragmentIdentity extends FragmentBase {
                             }
                         });
                         onSave(false);
-                    } else if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-                        getParentFragmentManager().popBackStack();
+                    } else
+                        finish();
                     break;
                 case REQUEST_DELETE:
                     if (resultCode == RESULT_OK)
                         onDelete();
                     break;
                 case REQUEST_SIGNATURE:
-                    if (resultCode == RESULT_OK)
+                    if (resultCode == RESULT_OK && data != null)
                         onHtml(data.getExtras());
+                    break;
+                case REQUEST_URI:
+                    onPickUri(resultCode == RESULT_OK ? data : null);
                     break;
             }
         } catch (Throwable ex) {
@@ -1418,8 +1512,7 @@ public class FragmentIdentity extends FragmentBase {
 
             @Override
             protected void onExecuted(Bundle args, Void data) {
-                if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-                    getParentFragmentManager().popBackStack();
+                finish();
             }
 
             @Override
@@ -1431,5 +1524,57 @@ public class FragmentIdentity extends FragmentBase {
 
     private void onHtml(Bundle args) {
         signature = args.getString("html");
+
+        if (id < 0)
+            return;
+
+        args.putLong("id", id);
+
+        new SimpleTask<Void>() {
+            @Override
+            protected Void onExecute(Context context, Bundle args) throws Throwable {
+                long id = args.getLong("id");
+                String html = args.getString("html");
+
+                DB db = DB.getInstance(context);
+                db.identity().setIdentitySignature(id, html);
+
+                return null;
+            }
+
+            @Override
+            protected void onException(Bundle args, Throwable ex) {
+                Log.unexpectedError(getParentFragmentManager(), ex);
+            }
+        }.execute(this, args, "identity:signature");
+    }
+
+    private void onPickUri(Intent intent) {
+        Uri uri = (intent == null ? null : intent.getData());
+        btnUri.setTag(uri == null ? null : uri.toString());
+        tvUriInfo.setText(uri == null ? null : getUriInfo(uri.toString()));
+    }
+
+    private String getUriInfo(String uri) {
+        if (uri == null)
+            return null;
+        if (!hasPermission(Manifest.permission.READ_CONTACTS))
+            return null;
+
+        try {
+            ContentResolver resolver = getContext().getContentResolver();
+            try (Cursor cursor = resolver.query(Uri.parse(uri),
+                    new String[]{
+                            ContactsContract.Contacts.DISPLAY_NAME_PRIMARY
+                    },
+                    null, null, null)) {
+                if (cursor.moveToNext())
+                    return cursor.getString(0);
+            }
+        } catch (Throwable ex) {
+            Log.w(ex);
+        }
+
+        return uri;
     }
 }

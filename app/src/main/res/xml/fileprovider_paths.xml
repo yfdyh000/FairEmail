@@ -3,22 +3,25 @@
     <files-path
         name="attachments"
         path="attachments" />
-    <external-files-path
+    <external-path
         name="external"
+        path="attachments" />
+    <external-files-path
+        name="external-files"
         path="attachments" />
     <files-path
         name="raw"
         path="raw" />
-    <cache-path
+    <files-path
         name="photo"
         path="photo" />
-    <cache-path
+    <files-path
         name="calendar"
         path="calendar" />
-    <cache-path
+    <files-path
         name="images"
         path="images" />
-    <cache-path
+    <files-path
         name="shared"
         path="shared" />
 </paths>

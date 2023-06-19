@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.accounts.Account;
@@ -24,14 +24,18 @@ import android.accounts.AccountManager;
 import android.accounts.AuthenticatorException;
 import android.accounts.OperationCanceledException;
 import android.content.Context;
+import android.content.SharedPreferences;
 
 import androidx.annotation.NonNull;
+import androidx.preference.PreferenceManager;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 public class GmailState {
@@ -39,7 +43,7 @@ public class GmailState {
     private long acquired;
 
     static final String TYPE_GOOGLE = "com.google";
-    private static final long TOKEN_LIFETIME = 45 * 60 * 1000L; // milliseconds
+    private static final long TOKEN_LIFETIME = 60 * 60 * 1000L; // milliseconds
 
     private GmailState(String token, long acquired) {
         this.token = token;
@@ -60,47 +64,88 @@ public class GmailState {
             return acquired + TOKEN_LIFETIME;
     }
 
-    void refresh(@NonNull Context context, @NonNull String user, boolean expire, long keep_alive)
+    void refresh(@NonNull Context context, String id, @NonNull String user, boolean forceRefresh)
             throws AuthenticatorException, OperationCanceledException, IOException {
+        long now = new Date().getTime();
         Long expiration = getAccessTokenExpirationTime();
-        if (expiration != null && expiration - keep_alive < new Date().getTime()) {
-            EntityLog.log(context, "Force invalidation" +
-                    " expiration=" + new Date(expiration) +
-                    " keep-alive=" + (keep_alive / 60 / 1000) + "m");
-            expire = true;
-        }
+        boolean needsRefresh = (expiration != null && expiration < now);
+        boolean neededRefresh = needsRefresh;
 
-        if (expire)
-            try {
-                if (token != null) {
-                    EntityLog.log(context, "Invalidating token user=" + user);
-                    AccountManager am = AccountManager.get(context);
-                    am.invalidateAuthToken(TYPE_GOOGLE, token);
-                }
-                token = null;
-                acquired = 0;
-            } catch (Throwable ex) {
-                Log.e(ex);
+        if (!needsRefresh && forceRefresh &&
+                expiration != null &&
+                expiration - ServiceAuthenticator.MIN_FORCE_REFRESH_INTERVAL < now)
+            needsRefresh = true;
+
+        Map<String, String> crumb = new HashMap<>();
+        crumb.put("id", id);
+        crumb.put("force", Boolean.toString(forceRefresh));
+        crumb.put("need", Boolean.toString(needsRefresh));
+        crumb.put("needed", Boolean.toString(neededRefresh));
+        crumb.put("token", Boolean.toString(token != null));
+        crumb.put("expiration", expiration == null ? "n/a" : ((expiration - now) / 1000L) + " s");
+        Log.breadcrumb("Token refresh", crumb);
+
+        EntityLog.log(context, EntityLog.Type.General, "Token refresh user=" + id + ":" + user +
+                " force=" + forceRefresh +
+                " need=" + needsRefresh +
+                " needed=" + neededRefresh +
+                " expiration=" + (expiration == null ? null : new Date(expiration)));
+        try {
+            if (needsRefresh && token != null) {
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                String key = "token." + id + "." + user;
+                long last_refresh = prefs.getLong(key, 0);
+                long ago = now - last_refresh;
+                if (ago < ServiceAuthenticator.MIN_REFRESH_INTERVAL) {
+                    crumb.put("ago", (ago / 1000L) + " s");
+                    Log.breadcrumb("Blocked token refresh", crumb);
+                    EntityLog.log(context, "Blocked token refresh id=" + id +
+                            " force=" + forceRefresh +
+                            " ago=" + (ago / 1000L) + " s" +
+                            " exp=" + (expiration == null ? -1 : (expiration - now) / 1000L) + " s");
+                } else
+                    try {
+                        EntityLog.log(context, EntityLog.Type.General, "Invalidating token user=" + id + ":" + user);
+                        AccountManager am = AccountManager.get(context);
+                        am.invalidateAuthToken(TYPE_GOOGLE, token);
+                    } catch (Throwable ex) {
+                        Log.e(ex);
+                    } finally {
+                        prefs.edit().putLong(key, now).apply();
+                    }
             }
 
-        Account account = getAccount(context, user);
-        if (account == null)
-            throw new AuthenticatorException("Account not found for " + user);
+            Account account = getAccount(context, user.replace("recent:", ""));
+            if (account == null)
+                throw new AuthenticatorException("Account not found for " + id + ":" + user);
 
-        EntityLog.log(context, "Getting token user=" + user);
-        AccountManager am = AccountManager.get(context);
-        String newToken = am.blockingGetAuthToken(
-                account,
-                ServiceAuthenticator.getAuthTokenType(TYPE_GOOGLE),
-                true);
+            EntityLog.log(context, EntityLog.Type.General, "Getting token user=" + id + ":" + user);
+            AccountManager am = AccountManager.get(context);
+            String newToken = am.blockingGetAuthToken(
+                    account,
+                    ServiceAuthenticator.getAuthTokenType(TYPE_GOOGLE),
+                    true);
 
-        if (newToken != null && !newToken.equals(token)) {
-            token = newToken;
-            acquired = new Date().getTime();
+            crumb.put("acquired", Boolean.toString(newToken != null));
+            if (newToken != null)
+                crumb.put("refreshed", Boolean.toString(!newToken.equals(token)));
+            Log.breadcrumb("Token get", crumb);
+
+            if (newToken != null && !newToken.equals(token)) {
+                token = newToken;
+                acquired = new Date().getTime();
+            } else if (needsRefresh) {
+                EntityLog.log(context, EntityLog.Type.General, "Token refresh failed user=" + id + ":" + user);
+                if (!BuildConfig.PLAY_STORE_RELEASE)
+                    Log.e("Token refresh failed id=" + id);
+            }
+
+            if (token == null)
+                throw new AuthenticatorException("Got no token id=" + id);
+        } catch (Throwable ex) {
+            Log.e(ex);
+            throw ex;
         }
-
-        if (token == null)
-            throw new AuthenticatorException("No token for " + user);
     }
 
     static Account getAccount(Context context, String user) {
@@ -133,6 +178,7 @@ public class GmailState {
             long acquired = jobject.getLong("acquired");
             return new GmailState(token, acquired);
         } catch (JSONException ex) {
+            Log.e(ex);
             return new GmailState(password, new Date().getTime());
         }
     }

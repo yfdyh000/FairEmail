@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static androidx.recyclerview.widget.RecyclerView.NO_POSITION;
@@ -180,7 +180,7 @@ public class FragmentIdentities extends FragmentBase {
             }
         });
 
-        animator = Helper.getFabAnimator(fab, this);
+        animator = Helper.getFabAnimator(fab, getViewLifecycleOwner());
 
         // Initialize
         FragmentDialogTheme.setBackground(getContext(), view, false);
@@ -211,11 +211,11 @@ public class FragmentIdentities extends FragmentBase {
 
                 if (identities.size() == 0) {
                     fab.setCustomSize(Helper.dp2pixels(context, 2 * 56));
-                    if (!animator.isStarted())
+                    if (animator != null && !animator.isStarted())
                         animator.start();
                 } else {
                     fab.clearCustomSize();
-                    if (animator.isStarted())
+                    if (animator != null && animator.isStarted())
                         animator.end();
                 }
             }

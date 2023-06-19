@@ -1,6 +1,7 @@
 package com.bugsnag.android
 
 import com.bugsnag.android.internal.DateUtils
+import com.bugsnag.android.internal.InternalMetricsImpl
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -11,9 +12,13 @@ internal class BugsnagEventMapper(
     private val logger: Logger
 ) {
 
+    internal fun convertToEvent(map: Map<in String, Any?>, apiKey: String): Event {
+        return Event(convertToEventImpl(map, apiKey), logger)
+    }
+
     @Suppress("UNCHECKED_CAST")
     internal fun convertToEventImpl(map: Map<in String, Any?>, apiKey: String): EventInternal {
-        val event = EventInternal(apiKey)
+        val event = EventInternal(apiKey, logger)
 
         // populate exceptions. check this early to avoid unnecessary serialization if
         // no stacktrace was gathered.
@@ -82,10 +87,17 @@ internal class BugsnagEventMapper(
         event.updateSeverityReasonInternal(reason)
         event.normalizeStackframeErrorTypes()
 
+        // populate internalMetrics
+        event.internalMetrics = InternalMetricsImpl(map["usage"] as MutableMap<String, Any>?)
+
         return event
     }
 
-    internal fun convertErrorInternal(error: Map<String, Any?>): ErrorInternal {
+    internal fun convertError(error: Map<in String, Any?>): Error {
+        return Error(convertErrorInternal(error), logger)
+    }
+
+    internal fun convertErrorInternal(error: Map<in String, Any?>): ErrorInternal {
         return ErrorInternal(
             error.readEntry("errorClass"),
             error["message"] as? String,
@@ -176,31 +188,7 @@ internal class BugsnagEventMapper(
     }
 
     internal fun convertStacktrace(trace: List<Map<String, Any?>>): Stacktrace {
-        return Stacktrace(trace.map { convertStackframe(it) })
-    }
-
-    internal fun convertStackframe(frame: Map<String, Any?>): Stackframe {
-        val copy: MutableMap<String, Any?> = frame.toMutableMap()
-        val lineNumber = frame["lineNumber"] as? Number
-        copy["lineNumber"] = lineNumber?.toLong()
-
-        (frame["frameAddress"] as? String)?.let {
-            copy["frameAddress"] = java.lang.Long.decode(it)
-        }
-
-        (frame["symbolAddress"] as? String)?.let {
-            copy["symbolAddress"] = java.lang.Long.decode(it)
-        }
-
-        (frame["loadAddress"] as? String)?.let {
-            copy["loadAddress"] = java.lang.Long.decode(it)
-        }
-
-        (frame["isPC"] as? Boolean)?.let {
-            copy["isPC"] = it
-        }
-
-        return Stackframe(copy)
+        return Stacktrace(trace.map { Stackframe(it) })
     }
 
     internal fun deserializeSeverityReason(

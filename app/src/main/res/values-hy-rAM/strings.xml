@@ -9,7 +9,6 @@
     <string name="app_exit">Դուրս գալու համար նորից \"հետ\" գնացեք</string>
     <string name="app_cake">Չկա բավարար պահեստային տարածք</string>
     <string name="app_updated">Վերջին թարմացումը` %1$s</string>
-    <string name="channel_service">Ստացում</string>
     <string name="channel_send">Ուղարկում</string>
     <string name="channel_notification">Էլ.հասցե</string>
     <string name="channel_progress">Ընթանում է</string>
@@ -76,6 +75,7 @@
     <string name="title_advanced_caption_conversation">Դիալոգ</string>
     <string name="title_advanced_caption_message">Նամակ</string>
     <string name="title_synchronize_enabled">Համաժամեցում</string>
+    <string name="title_contact_email">Էլ.հասցե</string>
     <string name="title_raw_send_message">Նամակ</string>
     <string name="title_raw_send_thread">Դիալոգ</string>
     <string name="title_compose">Գրել</string>
@@ -87,6 +87,7 @@
     <string name="title_legend_thread">Դիալոգ</string>
     <string name="title_legend_c">Գրել</string>
     <!-- Thunderbird -->
+    <string name="title_accessibility_folders">Թղթապանակներ</string>
     <!-- https://en.wikipedia.org/wiki/Display_resolution -->
     <!-- https://en.wikipedia.org/wiki/Comparison_of_high-definition_smartphone_displays -->
     <!-- https://www.w3.org/TR/css-fonts-4/#generic-font-families -->

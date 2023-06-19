@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -39,12 +39,14 @@ public class TupleMessageEx extends EntityMessage {
     public String accountCategory;
     public Integer accountColor;
     public boolean accountNotify;
+    public boolean accountSummary;
     public boolean accountLeaveDeleted;
     public boolean accountAutoSeen;
     public String folderName;
     public Integer folderColor;
     public String folderDisplay;
     public String folderType;
+    public String folderInheritedType;
     public boolean folderUnified;
     public boolean folderReadOnly;
     public String identityName;
@@ -113,7 +115,7 @@ public class TupleMessageEx extends EntityMessage {
                 else if (prefs.contains(keyColor2))
                     color.add(prefs.getInt(keyColor2, Color.GRAY));
                 else
-                    color.add(null);
+                    color.add(TupleKeyword.getDefaultKeywordColor(context, keyword));
 
                 String keyTitle = "kwtitle." + keyword;
                 String def = TupleKeyword.getDefaultKeywordAlias(context, keyword);
@@ -145,11 +147,13 @@ public class TupleMessageEx extends EntityMessage {
                     Objects.equals(this.accountCategory, other.accountCategory) &&
                     Objects.equals(this.accountColor, other.accountColor) &&
                     this.accountNotify == other.accountNotify &&
+                    this.accountSummary == other.accountSummary &&
                     this.accountLeaveDeleted == other.accountLeaveDeleted &&
                     this.accountAutoSeen == other.accountAutoSeen &&
                     this.folderName.equals(other.folderName) &&
                     Objects.equals(this.folderDisplay, other.folderDisplay) &&
                     this.folderType.equals(other.folderType) &&
+                    Objects.equals(this.folderInheritedType, other.folderInheritedType) &&
                     this.folderUnified == other.folderUnified &&
                     this.folderReadOnly == other.folderReadOnly &&
                     Objects.equals(this.identityName, other.identityName) &&

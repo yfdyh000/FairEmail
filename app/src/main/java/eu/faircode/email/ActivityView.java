@@ -16,15 +16,15 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
 import static androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_OPEN;
 import static androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_UNLOCKED;
+import static androidx.recyclerview.widget.RecyclerView.NO_POSITION;
 
 import android.annotation.SuppressLint;
-import android.app.Dialog;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
@@ -34,11 +34,13 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Spanned;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Pair;
@@ -49,8 +51,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBarDrawerToggle;
@@ -58,17 +62,24 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.constraintlayout.widget.Group;
 import androidx.core.app.NotificationCompat;
+import androidx.core.util.Consumer;
 import androidx.core.widget.NestedScrollView;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.Observer;
+import androidx.lifecycle.OnLifecycleEvent;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.window.java.layout.WindowInfoTrackerCallbackAdapter;
+import androidx.window.layout.DisplayFeature;
+import androidx.window.layout.WindowInfoTracker;
+import androidx.window.layout.WindowLayoutInfo;
 
 import com.google.android.material.snackbar.Snackbar;
 
@@ -83,10 +94,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.Callable;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -97,6 +112,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     private boolean nav_options;
     private int colorDrawerScrim;
 
+    private WindowInfoTrackerCallbackAdapter infoTracker;
     private int layoutId;
     private View view;
 
@@ -150,8 +166,9 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     static final int PI_THREAD = 3;
     static final int PI_OUTBOX = 4;
     static final int PI_UPDATE = 5;
-    static final int PI_WIDGET = 6;
-    static final int PI_POWER = 7;
+    static final int PI_ANNOUNCEMENT = 6;
+    static final int PI_WIDGET = 7;
+    static final int PI_POWER = 8;
 
     static final String ACTION_VIEW_FOLDERS = BuildConfig.APPLICATION_ID + ".VIEW_FOLDERS";
     static final String ACTION_VIEW_MESSAGES = BuildConfig.APPLICATION_ID + ".VIEW_MESSAGES";
@@ -169,6 +186,13 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     private static final long EXIT_DELAY = 2500L; // milliseconds
     static final long UPDATE_DAILY = (BuildConfig.BETA_RELEASE ? 4 : 12) * 3600 * 1000L; // milliseconds
     static final long UPDATE_WEEKLY = 7 * 24 * 3600 * 1000L; // milliseconds
+
+    private static final int ANNOUNCEMENT_TIMEOUT = 15 * 1000; // milliseconds
+    private static final long ANNOUNCEMENT_INTERVAL = 4 * 3600 * 1000L; // milliseconds
+
+    private static final int REQUEST_RULES_ACCOUNT = 2001;
+    private static final int REQUEST_RULES_FOLDER = 2002;
+    private static final int REQUEST_DEBUG_INFO = 7000;
 
     @Override
     @SuppressLint("MissingSuperCall")
@@ -209,6 +233,8 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         if (nav_expanded && nav_pinned && !canExpandAndPin())
             nav_pinned = false;
 
+        infoTracker = new WindowInfoTrackerCallbackAdapter(WindowInfoTracker.getOrCreate(this));
+
         Configuration config = getResources().getConfiguration();
         boolean portrait2 = prefs.getBoolean("portrait2", false);
         boolean portrait2c = prefs.getBoolean("portrait2c", false);
@@ -220,6 +246,9 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                 " portrait rows=" + portrait2 + " cols=" + portrait2c + " min=" + portrait_min_size +
                 " landscape cols=" + landscape + " min=" + landscape);
         boolean duo = Helper.isSurfaceDuo();
+        boolean close_pane = prefs.getBoolean("close_pane", !duo);
+        boolean open_pane = (!close_pane && prefs.getBoolean("open_pane", false));
+        boolean nav_categories = prefs.getBoolean("nav_categories", false);
 
         // 1=small, 2=normal, 3=large, 4=xlarge
         if (layout > 0)
@@ -254,7 +283,8 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                     content_frame.setLayoutParams(lparam);
                 }
                 // https://docs.microsoft.com/en-us/dual-screen/android/duo-dimensions
-                content_separator.getLayoutParams().width = Helper.dp2pixels(this, 34);
+                int seam = (Helper.isSurfaceDuo2() ? 26 : 34);
+                content_separator.getLayoutParams().width = Helper.dp2pixels(this, seam);
             } else {
                 int column_width = prefs.getInt("column_width", 67);
                 ViewGroup.LayoutParams lparam = content_pane.getLayoutParams();
@@ -267,6 +297,12 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         }
 
         owner = new TwoStateOwner(this, "drawer");
+        owner.getLifecycle().addObserver(new LifecycleObserver() {
+            @OnLifecycleEvent(Lifecycle.Event.ON_ANY)
+            public void onStateChanged() {
+                Log.i("Drawer state=" + owner.getLifecycle().getCurrentState());
+            }
+        });
         drawerLayout = findViewById(R.id.drawer_layout);
 
         final ViewGroup childContent = (ViewGroup) drawerLayout.getChildAt(0);
@@ -274,6 +310,9 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         drawerToggle = new ActionBarDrawerToggle(this, drawerLayout, R.string.app_name, R.string.app_name) {
             public void onDrawerClosed(View view) {
                 Log.i("Drawer closed");
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return;
+
                 owner.stop();
 
                 drawerLayout.setDrawerLockMode(LOCK_MODE_UNLOCKED);
@@ -286,6 +325,9 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                 super.onDrawerOpened(drawerView);
 
                 Log.i("Drawer opened");
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return;
+
                 owner.start();
 
                 if (nav_pinned) {
@@ -298,6 +340,11 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             @Override
             public void onDrawerSlide(View drawerView, float slideOffset) {
                 super.onDrawerSlide(drawerView, slideOffset);
+
+                if (BuildConfig.DEBUG)
+                    Log.i("Drawer slide=" + slideOffset);
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return;
 
                 if (slideOffset > 0)
                     owner.start();
@@ -451,9 +498,77 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         vSeparatorOptions.setVisibility(nav_options ? View.VISIBLE : View.GONE);
 
         // Accounts
-        rvAccount.setLayoutManager(new LinearLayoutManager(this));
+        LinearLayoutManager llmAccounts = new LinearLayoutManager(this);
+        rvAccount.setLayoutManager(llmAccounts);
         adapterNavAccount = new AdapterNavAccountFolder(this, this);
         rvAccount.setAdapter(adapterNavAccount);
+
+        if (nav_categories) {
+            LayoutInflater inflater = LayoutInflater.from(this);
+            DividerItemDecoration categoryDecorator = new DividerItemDecoration(this, llmAccounts.getOrientation()) {
+                @Override
+                public void onDraw(@NonNull Canvas canvas, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
+                    int count = parent.getChildCount();
+                    for (int i = 0; i < count; i++) {
+                        View view = parent.getChildAt(i);
+                        int pos = parent.getChildAdapterPosition(view);
+
+                        View header = getView(view, parent, pos);
+                        if (header != null) {
+                            canvas.save();
+                            canvas.translate(0, parent.getChildAt(i).getTop() - header.getMeasuredHeight());
+                            header.draw(canvas);
+                            canvas.restore();
+                        }
+                    }
+                }
+
+                @Override
+                public void getItemOffsets(Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
+                    int pos = parent.getChildAdapterPosition(view);
+                    View header = getView(view, parent, pos);
+                    if (header == null)
+                        outRect.setEmpty();
+                    else
+                        outRect.top = header.getMeasuredHeight();
+                }
+
+                private View getView(View view, RecyclerView parent, int pos) {
+                    if (pos == NO_POSITION)
+                        return null;
+
+                    if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                        return null;
+
+                    TupleAccountFolder prev = adapterNavAccount.getItemAtPosition(pos - 1);
+                    TupleAccountFolder account = adapterNavAccount.getItemAtPosition(pos);
+                    if (pos > 0 && prev == null)
+                        return null;
+                    if (account == null)
+                        return null;
+
+                    if (pos > 0) {
+                        if (Objects.equals(prev.category, account.category))
+                            return null;
+                    } else {
+                        if (account.category == null)
+                            return null;
+                    }
+
+                    View header = inflater.inflate(R.layout.item_nav_group, parent, false);
+                    TextView tvCategory = header.findViewById(R.id.tvCategory);
+
+                    tvCategory.setText(account.category);
+
+                    header.measure(View.MeasureSpec.makeMeasureSpec(parent.getWidth(), View.MeasureSpec.EXACTLY),
+                            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+                    header.layout(0, 0, header.getMeasuredWidth(), header.getMeasuredHeight());
+
+                    return header;
+                }
+            };
+            rvAccount.addItemDecoration(categoryDecorator);
+        }
 
         boolean nav_account = prefs.getBoolean("nav_account", true);
         boolean nav_folder = prefs.getBoolean("nav_folder", true);
@@ -552,13 +667,13 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         });
 
         // Extra menus
-        LinearLayoutManager llm = new LinearLayoutManager(this);
-        rvMenuExtra.setLayoutManager(llm);
+        LinearLayoutManager llmMenuExtra = new LinearLayoutManager(this);
+        rvMenuExtra.setLayoutManager(llmMenuExtra);
         adapterNavMenuExtra = new AdapterNavMenu(this, this);
         rvMenuExtra.setAdapter(adapterNavMenuExtra);
 
         final Drawable d = getDrawable(R.drawable.divider);
-        DividerItemDecoration itemDecorator = new DividerItemDecoration(this, llm.getOrientation()) {
+        DividerItemDecoration itemDecorator = new DividerItemDecoration(this, llmMenuExtra.getOrientation()) {
             @Override
             public void getItemOffsets(Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
                 int pos = parent.getChildAdapterPosition(view);
@@ -591,12 +706,13 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         });
 
         getSupportFragmentManager().addOnBackStackChangedListener(this);
+        getOnBackPressedDispatcher().addCallback(this, backPressedCallback);
 
         // Initialize
 
         if (content_pane != null) {
-            content_separator.setVisibility(duo ? View.INVISIBLE : View.GONE);
-            content_pane.setVisibility(duo ? View.INVISIBLE : View.GONE);
+            content_separator.setVisibility(duo || open_pane ? View.INVISIBLE : View.GONE);
+            content_pane.setVisibility(duo || open_pane ? View.INVISIBLE : View.GONE);
         }
 
         if (getSupportFragmentManager().getFragments().size() == 0 &&
@@ -612,6 +728,26 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
 
         Shortcuts.update(this, this);
     }
+
+    public boolean isSplit() {
+        return (layoutId == R.layout.activity_view_portrait_split ||
+                layoutId == R.layout.activity_view_landscape_split);
+    }
+
+    @Override
+    public void onBackPressedFragment() {
+        backPressedCallback.handleOnBackPressed();
+    }
+
+    private OnBackPressedCallback backPressedCallback = new OnBackPressedCallback(true) {
+        @Override
+        public void handleOnBackPressed() {
+            if (Helper.isKeyboardVisible(view))
+                Helper.hideKeyboard(view);
+            else
+                onExit();
+        }
+    };
 
     private void init() {
         Bundle args = new Bundle();
@@ -653,7 +789,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         outState.putParcelable("fair:intent", getIntent());
-        outState.putBoolean("fair:toggle", drawerToggle.isDrawerIndicatorEnabled());
+        outState.putBoolean("fair:toggle", drawerToggle == null || drawerToggle.isDrawerIndicatorEnabled());
         outState.putBoolean("fair:searching", searching);
         super.onSaveInstanceState(outState);
     }
@@ -695,6 +831,15 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             }
         }));
 
+        menus.add(new NavMenuItem(R.drawable.twotone_filter_alt_24, R.string.menu_rules, new Runnable() {
+            @Override
+            public void run() {
+                if (!drawerLayout.isLocked(drawerContainer))
+                    drawerLayout.closeDrawer(drawerContainer);
+                onMenuRulesAccount();
+            }
+        }));
+
         menus.add(new NavMenuItem(R.drawable.twotone_settings_24, R.string.menu_setup, new Runnable() {
             @Override
             public void run() {
@@ -702,9 +847,9 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                     drawerLayout.closeDrawer(drawerContainer);
                 onMenuSetup();
             }
-        }, new Runnable() {
+        }, new Callable<Boolean>() {
             @Override
-            public void run() {
+            public Boolean call() {
                 if (BuildConfig.DEBUG)
                     try {
                         DnsBlockList.clearCache();
@@ -713,6 +858,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                     } catch (Throwable ex) {
                         Log.unexpectedError(getSupportFragmentManager(), ex);
                     }
+                return BuildConfig.DEBUG;
             }
         }));
 
@@ -738,12 +884,13 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                     drawerLayout.closeDrawer(drawerContainer);
                 onMenuFAQ();
             }
-        }, new Runnable() {
+        }, new Callable<Boolean>() {
             @Override
-            public void run() {
+            public Boolean call() {
                 if (!drawerLayout.isLocked(drawerContainer))
                     drawerLayout.closeDrawer(drawerContainer);
                 onDebugInfo();
+                return true;
             }
         }).setExternal(true));
 
@@ -753,6 +900,12 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                 if (!drawerLayout.isLocked(drawerContainer))
                     drawerLayout.closeDrawer(drawerContainer);
                 onMenuIssue();
+            }
+        }, new Callable<Boolean>() {
+            @Override
+            public Boolean call() {
+                CoalMine.check();
+                return BuildConfig.DEBUG;
             }
         }).setExternal(true));
 
@@ -789,14 +942,17 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             public void run() {
                 onMenuAbout();
             }
-        }, new Runnable() {
+        }, new Callable<Boolean>() {
             @Override
-            public void run() {
-                if (!Helper.isPlayStoreInstall()) {
+            public Boolean call() {
+                boolean play = Helper.isPlayStoreInstall();
+                if (!play) {
                     if (!drawerLayout.isLocked(drawerContainer))
                         drawerLayout.closeDrawer(drawerContainer);
                     checkUpdate(true);
+                    checkAnnouncements(true);
                 }
+                return !play;
             }
         }).setSeparated().setSubtitle(BuildConfig.VERSION_NAME));
 
@@ -855,26 +1011,43 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             }
         });
 
-        db.search().liveSearch().observe(owner, new Observer<List<EntitySearch>>() {
+        db.search().liveSearches().observe(owner, new Observer<List<EntitySearch>>() {
             @Override
-            public void onChanged(List<EntitySearch> search) {
-                if (search == null)
-                    search = new ArrayList<>();
-                adapterNavSearch.set(search, nav_expanded);
+            public void onChanged(List<EntitySearch> searches) {
+                if (searches == null)
+                    searches = new ArrayList<>();
+                adapterNavSearch.set(searches, nav_expanded);
 
                 boolean nav_search = prefs.getBoolean("nav_search", true);
-                ibExpanderSearch.setVisibility(search.size() > 0 ? View.VISIBLE : View.GONE);
-                rvSearch.setVisibility(search.size() > 0 && nav_search ? View.VISIBLE : View.GONE);
-                vSeparatorSearch.setVisibility(search.size() > 0 ? View.VISIBLE : View.GONE);
+                ibExpanderSearch.setVisibility(searches.size() > 0 ? View.VISIBLE : View.GONE);
+                rvSearch.setVisibility(searches.size() > 0 && nav_search ? View.VISIBLE : View.GONE);
+                vSeparatorSearch.setVisibility(searches.size() > 0 ? View.VISIBLE : View.GONE);
             }
         });
 
         db.operation().liveStats().observe(owner, new Observer<TupleOperationStats>() {
+            private Boolean lastWarning = null;
+            private Integer lastCount = null;
+
             @Override
             public void onChanged(TupleOperationStats stats) {
-                navOperations.setWarning(stats != null && stats.errors != null && stats.errors > 0);
-                navOperations.setCount(stats == null ? 0 : stats.pending);
-                adapterNavMenu.notifyDataSetChanged();
+                boolean warning = (stats != null && stats.errors != null && stats.errors > 0);
+                int count = (stats == null ? 0 : stats.pending);
+
+                if (Objects.equals(lastWarning, warning) && Objects.equals(lastCount, count))
+                    return;
+
+                lastWarning = warning;
+                lastCount = count;
+
+                navOperations.setWarning(warning);
+                navOperations.setCount(count);
+
+                int pos = adapterNavMenu.getPosition(navOperations);
+                if (pos < 0)
+                    adapterNavMenu.notifyDataSetChanged();
+                else
+                    adapterNavMenu.notifyItemChanged(pos);
             }
         });
 
@@ -889,6 +1062,20 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (BuildConfig.DEBUG)
+            infoTracker.addWindowLayoutInfoListener(this, Runnable::run, layoutStateChangeCallback);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (BuildConfig.DEBUG)
+            infoTracker.removeWindowLayoutInfoListener(layoutStateChangeCallback);
     }
 
     @Override
@@ -909,9 +1096,13 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         iff.addAction(ACTION_EDIT_RULE);
         lbm.registerReceiver(receiver, iff);
 
-        ServiceSynchronize.state(this, true);
+        boolean open = drawerLayout.isDrawerOpen(drawerContainer);
+        Log.i("Drawer resume open=" + open);
+        if (open)
+            owner.start();
 
         checkUpdate(false);
+        checkAnnouncements(false);
         checkIntent();
     }
 
@@ -922,7 +1113,8 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(this);
         lbm.unregisterReceiver(receiver);
 
-        ServiceSynchronize.state(this, false);
+        Log.i("Drawer pause");
+        owner.stop();
     }
 
     @Override
@@ -930,6 +1122,31 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(this);
         lbm.unregisterReceiver(creceiver);
         super.onDestroy();
+        infoTracker = null;
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        try {
+            switch (requestCode) {
+                case REQUEST_RULES_ACCOUNT:
+                    if (resultCode == RESULT_OK && data != null)
+                        onMenuRulesFolder(data.getBundleExtra("args"));
+                    break;
+                case REQUEST_RULES_FOLDER:
+                    if (resultCode == RESULT_OK && data != null)
+                        onMenuRules(data.getBundleExtra("args"));
+                    break;
+                case REQUEST_DEBUG_INFO:
+                    if (resultCode == RESULT_OK && data != null)
+                        onDebugInfo(data.getBundleExtra("args"));
+                    break;
+            }
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
     }
 
     @Override
@@ -1064,8 +1281,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         return (getDrawerWidthPinned() >= dp200);
     }
 
-    @Override
-    public void onBackPressed() {
+    private void onExit() {
         int count = getSupportFragmentManager().getBackStackEntryCount();
         if (!nav_pinned &&
                 drawerLayout.isDrawerOpen(drawerContainer) &&
@@ -1073,15 +1289,15 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             drawerLayout.closeDrawer(drawerContainer);
         else {
             if (exit || count > 1)
-                super.onBackPressed();
-            else if (!backHandled()) {
+                performBack();
+            else {
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(ActivityView.this);
                 boolean double_back = prefs.getBoolean("double_back", false);
                 if (searching || !double_back)
-                    super.onBackPressed();
+                    performBack();
                 else {
                     exit = true;
-                    ToastEx.makeText(this, R.string.app_exit, Toast.LENGTH_SHORT).show();
+                    ToastEx.makeText(ActivityView.this, R.string.app_exit, Toast.LENGTH_SHORT).show();
                     getMainHandler().postDelayed(new Runnable() {
                         @Override
                         public void run() {
@@ -1095,10 +1311,15 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
 
     @Override
     public void onBackStackChanged() {
+        if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+            return;
+
         int count = getSupportFragmentManager().getBackStackEntryCount();
         if (count == 0)
             finish();
         else {
+            showActionBar(true);
+
             if (count < lastBackStackCount) {
                 Intent intent = getIntent();
                 intent.setAction(null);
@@ -1127,7 +1348,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     public boolean onOptionsItemSelected(MenuItem item) {
         if (drawerToggle.onOptionsItemSelected(item)) {
             if (nav_pinned)
-                onBackPressed();
+                onExit();
             else {
                 int count = getSupportFragmentManager().getBackStackEntryCount();
                 if (count == 1 && drawerLayout.isLocked(drawerContainer))
@@ -1144,8 +1365,10 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         int undo_timeout = prefs.getInt("undo_timeout", 5000);
 
         if (undo_timeout == 0) {
-            if (move != null)
+            if (move != null) {
                 move.execute(this, args, "undo:move");
+                show.cancel(this);
+            }
         } else
             undo(undo_timeout, title, args, move, show);
     }
@@ -1153,8 +1376,10 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     private void undo(long undo_timeout, String title, final Bundle args, final SimpleTask move, final SimpleTask show) {
         if (drawerLayout == null || drawerLayout.getChildCount() == 0) {
             Log.e("Undo: drawer missing");
-            if (show != null)
+            if (show != null) {
                 show.execute(this, args, "undo:show");
+                move.cancel(this);
+            }
             return;
         }
 
@@ -1170,8 +1395,10 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             public void run() {
                 Log.i("Undo timeout");
                 snackbar.dismiss();
-                if (move != null)
+                if (move != null) {
                     move.execute(ActivityView.this, args, "undo:move");
+                    show.cancel(ActivityView.this);
+                }
             }
         };
 
@@ -1181,8 +1408,10 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                 Log.i("Undo cancel");
                 content.removeCallbacks(timeout);
                 snackbar.dismiss();
-                if (show != null)
+                if (show != null) {
                     show.execute(ActivityView.this, args, "undo:show");
+                    move.cancel(ActivityView.this);
+                }
             }
         });
 
@@ -1222,7 +1451,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             Intent intent = getIntent();
             String action = (intent == null ? null : intent.getAction());
             if (action != null &&
-                    (action.startsWith("thread") || action.equals("widget")))
+                    (action.startsWith("thread") || action.startsWith("widget")))
                 return;
 
             String last = prefs.getString("changelog", null);
@@ -1250,7 +1479,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         new SimpleTask<Long>() {
             @Override
             protected Long onExecute(Context context, Bundle args) throws Throwable {
-                File file = new File(context.getCacheDir(), "crash.log");
+                File file = new File(context.getFilesDir(), "crash.log");
                 if (file.exists()) {
                     StringBuilder sb = new StringBuilder();
                     try {
@@ -1260,7 +1489,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                                 sb.append(line).append("\r\n");
                         }
 
-                        return Log.getDebugInfo(context, R.string.title_crash_info_remark, null, sb.toString()).id;
+                        return Log.getDebugInfo(context, "crash", R.string.title_crash_info_remark, null, sb.toString(), null).id;
                     } finally {
                         file.delete();
                     }
@@ -1296,6 +1525,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         boolean updates = prefs.getBoolean("updates", true);
+        boolean beta = prefs.getBoolean("beta", false) && false;
         boolean weekly = prefs.getBoolean("weekly", Helper.hasPlayStore(this));
         long last_update_check = prefs.getLong("last_update_check", 0);
 
@@ -1308,20 +1538,23 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
 
         Bundle args = new Bundle();
         args.putBoolean("always", always);
+        args.putBoolean("beta", beta);
 
         new SimpleTask<UpdateInfo>() {
             @Override
             protected UpdateInfo onExecute(Context context, Bundle args) throws Throwable {
+                boolean beta = args.getBoolean("beta");
+
                 StringBuilder response = new StringBuilder();
                 HttpsURLConnection urlConnection = null;
                 try {
-                    URL latest = new URL(BuildConfig.GITHUB_LATEST_API);
+                    URL latest = new URL(beta ? BuildConfig.BITBUCKET_DOWNLOADS_API : BuildConfig.GITHUB_LATEST_API);
                     urlConnection = (HttpsURLConnection) latest.openConnection();
                     urlConnection.setRequestMethod("GET");
                     urlConnection.setReadTimeout(UPDATE_TIMEOUT);
                     urlConnection.setConnectTimeout(UPDATE_TIMEOUT);
                     urlConnection.setDoOutput(false);
-                    urlConnection.setRequestProperty("User-Agent", WebViewEx.getUserAgent(context));
+                    ConnectionHelper.setUserAgent(context, urlConnection);
                     urlConnection.connect();
 
                     int status = urlConnection.getResponseCode();
@@ -1341,50 +1574,99 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                         JSONObject jmessage = new JSONObject(response.toString());
                         if (jmessage.has("message"))
                             throw new IllegalArgumentException(jmessage.getString("message"));
-                        throw new IOException("HTTP " + status + ": " + response.toString());
+                        throw new IOException("HTTP " + status + ": " + response);
                     }
                     if (status != HttpsURLConnection.HTTP_OK)
-                        throw new IOException("HTTP " + status + ": " + response.toString());
+                        throw new IOException("HTTP " + status + ": " + response);
 
                     JSONObject jroot = new JSONObject(response.toString());
 
-                    if (!jroot.has("tag_name") || jroot.isNull("tag_name"))
-                        throw new IOException("tag_name field missing");
-                    //if (!jroot.has("html_url") || jroot.isNull("html_url"))
-                    //    throw new IOException("html_url field missing");
-                    if (!jroot.has("assets") || jroot.isNull("assets"))
-                        throw new IOException("assets section missing");
+                    if (beta) {
+                        if (!jroot.has("values"))
+                            throw new IOException("values field missing");
 
-                    // Get update info
-                    UpdateInfo info = new UpdateInfo();
-                    info.tag_name = jroot.getString("tag_name");
-                    info.html_url = jroot.getString("html_url");
-                    //if (TextUtils.isEmpty(info.html_url))
-                    info.html_url = BuildConfig.GITHUB_LATEST_URI;
+                        JSONArray jvalues = jroot.getJSONArray("values");
+                        for (int i = 0; i < jvalues.length(); i++) {
+                            JSONObject jitem = jvalues.getJSONObject(i);
+                            if (!jitem.has("links"))
+                                continue;
 
-                    // Check if new release
-                    JSONArray jassets = jroot.getJSONArray("assets");
-                    for (int i = 0; i < jassets.length(); i++) {
-                        JSONObject jasset = jassets.getJSONObject(i);
-                        if (jasset.has("name") && !jasset.isNull("name")) {
-                            String name = jasset.getString("name");
-                            if (name.endsWith(".apk")) {
-                                info.download_url = jasset.optString("browser_download_url");
-                                Log.i("Latest version=" + info.tag_name);
-                                if (BuildConfig.DEBUG)
-                                    return info;
-                                try {
-                                    if (Double.parseDouble(info.tag_name) <=
-                                            Double.parseDouble(BuildConfig.VERSION_NAME))
-                                        return null;
-                                    else
+                            JSONObject jlinks = jitem.getJSONObject("links");
+                            if (!jlinks.has("self"))
+                                continue;
+
+                            JSONObject jself = jlinks.getJSONObject("self");
+                            if (!jself.has("href"))
+                                continue;
+
+                            // .../FairEmail-v1.1995a-play-preview-release.apk
+                            String link = jself.getString("href");
+                            if (!link.endsWith(".apk"))
+                                continue;
+
+                            int slash = link.lastIndexOf('/');
+                            if (slash < 0)
+                                continue;
+
+                            String[] c = link.substring(slash + 1).split("-");
+                            if (c.length < 4 ||
+                                    !"FairEmail".equals(c[0]) ||
+                                    c[1].length() < 8 ||
+                                    !"github".equals(c[2]) ||
+                                    !"update".equals(c[3]))
+                                continue;
+
+                            // v1.1995a
+                            Integer version = Helper.parseInt(c[1].substring(3, c[1].length() - 1));
+                            if (version == null)
+                                continue;
+                            char revision = c[1].charAt(c[1].length() - 1);
+
+                            int v = BuildConfig.VERSION_CODE;
+                            char r = BuildConfig.REVISION.charAt(0);
+                            if (BuildConfig.DEBUG || version > v || (version == v && revision > r)) {
+                                UpdateInfo info = new UpdateInfo();
+                                info.tag_name = c[1];
+                                info.html_url = BuildConfig.BITBUCKET_DOWNLOADS_URI;
+                                info.download_url = link;
+                                return info;
+                            }
+                        }
+                    } else {
+                        if (!jroot.has("tag_name") || jroot.isNull("tag_name"))
+                            throw new IOException("tag_name field missing");
+                        if (!jroot.has("assets") || jroot.isNull("assets"))
+                            throw new IOException("assets section missing");
+
+                        // Get update info
+                        UpdateInfo info = new UpdateInfo();
+                        info.tag_name = jroot.getString("tag_name");
+                        info.html_url = BuildConfig.GITHUB_LATEST_URI;
+
+                        // Check if new release
+                        JSONArray jassets = jroot.getJSONArray("assets");
+                        for (int i = 0; i < jassets.length(); i++) {
+                            JSONObject jasset = jassets.getJSONObject(i);
+                            if (jasset.has("name") && !jasset.isNull("name")) {
+                                String name = jasset.getString("name");
+                                if (name.endsWith(".apk") && name.contains("github")) {
+                                    info.download_url = jasset.optString("browser_download_url");
+                                    Log.i("Latest version=" + info.tag_name);
+                                    if (BuildConfig.DEBUG)
                                         return info;
-                                } catch (Throwable ex) {
-                                    Log.e(ex);
-                                    if (BuildConfig.VERSION_NAME.equals(info.tag_name))
-                                        return null;
-                                    else
-                                        return info;
+                                    try {
+                                        if (Double.parseDouble(info.tag_name) <=
+                                                Double.parseDouble(BuildConfig.VERSION_NAME))
+                                            return null;
+                                        else
+                                            return info;
+                                    } catch (Throwable ex) {
+                                        Log.e(ex);
+                                        if (BuildConfig.VERSION_NAME.equals(info.tag_name))
+                                            return null;
+                                        else
+                                            return info;
+                                    }
                                 }
                             }
                         }
@@ -1402,7 +1684,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                 boolean always = args.getBoolean("always");
                 if (info == null) {
                     if (always)
-                        ToastEx.makeText(ActivityView.this, BuildConfig.VERSION_NAME, Toast.LENGTH_LONG).show();
+                        ToastEx.makeText(ActivityView.this, R.string.title_no_update, Toast.LENGTH_LONG).show();
                     return;
                 }
 
@@ -1418,14 +1700,14 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                                 .setVisibility(NotificationCompat.VISIBILITY_SECRET);
 
                 Intent update = new Intent(Intent.ACTION_VIEW, Uri.parse(info.html_url))
-                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 PendingIntent piUpdate = PendingIntentCompat.getActivity(
                         ActivityView.this, PI_UPDATE, update, PendingIntent.FLAG_UPDATE_CURRENT);
                 builder.setContentIntent(piUpdate);
 
                 Intent manage = new Intent(ActivityView.this, ActivitySetup.class)
                         .setAction("misc")
-                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK)
                         .putExtra("tab", "misc");
                 PendingIntent piManage = PendingIntentCompat.getActivity(
                         ActivityView.this, ActivitySetup.PI_MISC, manage, PendingIntent.FLAG_UPDATE_CURRENT);
@@ -1437,7 +1719,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
 
                 if (!TextUtils.isEmpty(info.download_url)) {
                     Intent download = new Intent(Intent.ACTION_VIEW, Uri.parse(info.download_url))
-                            .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     PendingIntent piDownload = PendingIntentCompat.getActivity(
                             ActivityView.this, 0, download, 0);
                     NotificationCompat.Action.Builder actionDownload = new NotificationCompat.Action.Builder(
@@ -1449,9 +1731,10 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
 
                 try {
                     NotificationManager nm =
-                            (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                    nm.notify(NotificationHelper.NOTIFICATION_UPDATE,
-                            builder.build());
+                            Helper.getSystemService(ActivityView.this, NotificationManager.class);
+                    if (NotificationHelper.areNotificationsEnabled(nm))
+                        nm.notify(NotificationHelper.NOTIFICATION_UPDATE,
+                                builder.build());
                 } catch (Throwable ex) {
                     Log.w(ex);
                 }
@@ -1466,6 +1749,168 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                         Log.unexpectedError(getSupportFragmentManager(), ex);
             }
         }.execute(this, args, "update:check");
+    }
+
+    private void checkAnnouncements(boolean always) {
+        if (TextUtils.isEmpty(BuildConfig.ANNOUNCEMENT_URI))
+            return;
+
+        long now = new Date().getTime();
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean announcements = prefs.getBoolean("announcements", true);
+        long last_announcement_check = prefs.getLong("last_announcement_check", 0);
+
+        if (!always && !announcements)
+            return;
+        if (!always && last_announcement_check + ANNOUNCEMENT_INTERVAL > now)
+            return;
+
+        prefs.edit().putLong("last_announcement_check", now).apply();
+
+        Bundle args = new Bundle();
+        args.putBoolean("always", always);
+
+        new SimpleTask<List<Announcement>>() {
+            @Override
+            protected List<Announcement> onExecute(Context context, Bundle args) throws Throwable {
+                StringBuilder response = new StringBuilder();
+                HttpsURLConnection urlConnection = null;
+                try {
+                    URL latest = new URL(BuildConfig.ANNOUNCEMENT_URI);
+                    urlConnection = (HttpsURLConnection) latest.openConnection();
+                    urlConnection.setRequestMethod("GET");
+                    urlConnection.setReadTimeout(ANNOUNCEMENT_TIMEOUT);
+                    urlConnection.setConnectTimeout(ANNOUNCEMENT_TIMEOUT);
+                    urlConnection.setDoOutput(false);
+                    ConnectionHelper.setUserAgent(context, urlConnection);
+                    urlConnection.connect();
+
+                    int status = urlConnection.getResponseCode();
+                    InputStream inputStream = (status == HttpsURLConnection.HTTP_OK
+                            ? urlConnection.getInputStream() : urlConnection.getErrorStream());
+
+                    if (inputStream != null) {
+                        BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
+
+                        String line;
+                        while ((line = br.readLine()) != null)
+                            response.append(line);
+                    }
+
+                    if (status != HttpsURLConnection.HTTP_OK)
+                        throw new IOException("HTTP " + status + ": " + response);
+
+                    DateFormat DTF = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.US);
+
+                    List<Announcement> announcements = new ArrayList<>();
+
+                    JSONObject jroot = new JSONObject(response.toString());
+                    JSONArray jannouncements = jroot.getJSONArray("Announcements");
+                    for (int i = 0; i < jannouncements.length(); i++) {
+                        JSONObject jannouncement = jannouncements.getJSONObject(i);
+
+                        String language = Locale.getDefault().getLanguage();
+
+                        String title = jannouncement.optString("Title." + language);
+                        if (TextUtils.isEmpty(title))
+                            title = jannouncement.getString("Title");
+
+                        String text = jannouncement.optString("Text." + language);
+                        if (TextUtils.isEmpty(text))
+                            text = jannouncement.getString("Text");
+
+                        Announcement announcement = new Announcement();
+                        announcement.id = jannouncement.getInt("ID");
+                        announcement.test = jannouncement.optBoolean("Test");
+                        announcement.play = jannouncement.optBoolean("Play", false);
+                        announcement.fdroid = jannouncement.optBoolean("FDroid", true);
+                        announcement.title = title;
+                        announcement.text = HtmlHelper.fromHtml(text, context);
+                        announcement.minVersion = jannouncement.optInt("minVersion", 0);
+                        announcement.maxVersion = jannouncement.optInt("maxVersion", BuildConfig.VERSION_CODE);
+                        if (jannouncement.has("Link"))
+                            announcement.link = Uri.parse(jannouncement.getString("Link"));
+                        announcement.expires = DTF.parse(jannouncement.getString("Expires")
+                                .replace("Z", "+00:00"));
+                        announcements.add(announcement);
+                    }
+
+                    return announcements;
+                } finally {
+                    if (urlConnection != null)
+                        urlConnection.disconnect();
+                }
+            }
+
+            @Override
+            protected void onExecuted(Bundle args, List<Announcement> announcements) {
+                boolean always = args.getBoolean("always");
+
+                NotificationManager nm =
+                        Helper.getSystemService(ActivityView.this, NotificationManager.class);
+                if (!NotificationHelper.areNotificationsEnabled(nm))
+                    return;
+
+                SharedPreferences.Editor editor = prefs.edit();
+
+                for (Announcement announcement : announcements) {
+                    String key = "announcement." + announcement.id;
+                    if (announcement.isExpired()) {
+                        editor.remove(key);
+                        nm.cancel(announcement.id);
+                    } else {
+                        boolean notified = prefs.getBoolean(key, false);
+                        if (notified && !always)
+                            continue;
+                        editor.putBoolean(key, true);
+
+                        NotificationCompat.Builder builder =
+                                new NotificationCompat.Builder(ActivityView.this, "announcements")
+                                        .setSmallIcon(R.drawable.baseline_campaign_white_24)
+                                        .setContentTitle(announcement.title)
+                                        .setContentText(announcement.text)
+                                        .setAutoCancel(true)
+                                        .setShowWhen(true)
+                                        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                                        .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
+                                        .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+                                        .setStyle(new NotificationCompat.BigTextStyle()
+                                                .bigText(announcement.text));
+
+                        if (announcement.link != null) {
+                            Intent link = new Intent(Intent.ACTION_VIEW, announcement.link)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            PendingIntent piLink = PendingIntentCompat.getActivity(
+                                    ActivityView.this, PI_ANNOUNCEMENT, link, PendingIntent.FLAG_UPDATE_CURRENT);
+                            builder.setContentIntent(piLink);
+                        }
+
+                        Intent manage = new Intent(ActivityView.this, ActivitySetup.class)
+                                .setAction("misc")
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                .putExtra("tab", "misc");
+                        PendingIntent piManage = PendingIntentCompat.getActivity(
+                                ActivityView.this, ActivitySetup.PI_MISC, manage, PendingIntent.FLAG_UPDATE_CURRENT);
+                        NotificationCompat.Action.Builder actionManage = new NotificationCompat.Action.Builder(
+                                R.drawable.twotone_settings_24,
+                                getString(R.string.title_setup_manage),
+                                piManage);
+                        builder.addAction(actionManage.build());
+
+                        nm.notify(announcement.id, builder.build());
+                    }
+                }
+
+                editor.apply();
+            }
+
+            @Override
+            protected void onException(Bundle args, Throwable ex) {
+                if (args.getBoolean("always"))
+                    Log.unexpectedError(getSupportFragmentManager(), ex);
+            }
+        }.execute(this, args, "announcements:check");
     }
 
     private void checkIntent() {
@@ -1542,12 +1987,13 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
             } else if (action.startsWith("thread")) {
                 long id = Long.parseLong(action.split(":", 2)[1]);
                 boolean ignore = intent.getBooleanExtra("ignore", false);
+                long group = intent.getLongExtra("group", -1L);
                 if (ignore)
-                    ServiceUI.ignore(this, id);
+                    ServiceUI.ignore(this, id, group);
                 intent.putExtra("id", id);
                 onViewThread(intent);
 
-            } else if (action.equals("widget")) {
+            } else if (action.startsWith("widget")) {
                 long account = intent.getLongExtra("widget_account", -1);
                 long folder = intent.getLongExtra("widget_folder", -1);
                 String type = intent.getStringExtra("widget_type");
@@ -1663,6 +2109,60 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         fragmentTransaction.commit();
     }
 
+    private void onMenuRulesAccount() {
+        new SimpleTask<EntityAccount>() {
+            @Override
+            protected EntityAccount onExecute(Context context, Bundle args) {
+                DB db = DB.getInstance(context);
+
+                List<EntityAccount> accounts = db.account().getSynchronizingAccounts(null);
+                if (accounts != null && accounts.size() == 1)
+                    return accounts.get(0);
+
+                return null;
+            }
+
+            @Override
+            protected void onExecuted(Bundle args, EntityAccount account) {
+                if (account == null) {
+                    FragmentDialogSelectAccount fragment = new FragmentDialogSelectAccount();
+                    fragment.setArguments(new Bundle());
+                    fragment.setTargetActivity(ActivityView.this, REQUEST_RULES_ACCOUNT);
+                    fragment.show(getSupportFragmentManager(), "rules:account");
+                } else {
+                    args.putLong("account", account.id);
+                    args.putInt("protocol", account.protocol);
+                    args.putString("name", account.name);
+                    onMenuRulesFolder(args);
+                }
+            }
+
+            @Override
+            protected void onException(Bundle args, Throwable ex) {
+                Log.unexpectedError(getSupportFragmentManager(), ex);
+            }
+        }.execute(this, new Bundle(), "rules:account");
+    }
+
+    private void onMenuRulesFolder(Bundle args) {
+        args.putInt("icon", R.drawable.twotone_filter_alt_24);
+        args.putString("title", getString(R.string.title_select));
+        args.putLongArray("disabled", new long[0]);
+
+        FragmentDialogSelectFolder fragment = new FragmentDialogSelectFolder();
+        fragment.setArguments(args);
+        fragment.setTargetActivity(this, REQUEST_RULES_FOLDER);
+        fragment.show(getSupportFragmentManager(), "rules:folder");
+    }
+
+    private void onMenuRules(Bundle args) {
+        FragmentRules fragment = new FragmentRules();
+        fragment.setArguments(args);
+        FragmentTransaction fragmentTransaction = getSupportFragmentManager().beginTransaction();
+        fragmentTransaction.replace(R.id.content_frame, fragment).addToBackStack("rules");
+        fragmentTransaction.commit();
+    }
+
     private void onMenuSetup() {
         startActivity(new Intent(ActivityView.this, ActivitySetup.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
@@ -1690,7 +2190,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     }
 
     private void onMenuIssue() {
-        startActivity(Helper.getIntentIssue(this));
+        startActivity(Helper.getIntentIssue(this, "View:issue"));
     }
 
     private void onMenuPrivacy() {
@@ -1711,22 +2211,31 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     }
 
     private void onDebugInfo() {
+        FragmentDialogDebug fragment = new FragmentDialogDebug();
+        fragment.setArguments(new Bundle());
+        fragment.setTargetActivity(this, REQUEST_DEBUG_INFO);
+        fragment.show(getSupportFragmentManager(), "debug");
+    }
+
+    private void onDebugInfo(Bundle args) {
+        Log.logBundle(args);
         new SimpleTask<Long>() {
             @Override
             protected void onPreExecute(Bundle args) {
-                ToastEx.makeText(ActivityView.this, "Debug info ...", Toast.LENGTH_LONG).show();
+                ToastEx.makeText(ActivityView.this, R.string.title_debug_info, Toast.LENGTH_LONG).show();
             }
 
             @Override
             protected Long onExecute(Context context, Bundle args) throws IOException, JSONException {
-                return Log.getDebugInfo(context, R.string.title_debug_info_remark, null, null).id;
+                return Log.getDebugInfo(context, "main", R.string.title_debug_info_remark, null, null, args).id;
             }
 
             @Override
             protected void onExecuted(Bundle args, Long id) {
-                startActivity(new Intent(ActivityView.this, ActivityCompose.class)
-                        .putExtra("action", "edit")
-                        .putExtra("id", id));
+                if (id != null)
+                    startActivity(new Intent(ActivityView.this, ActivityCompose.class)
+                            .putExtra("action", "edit")
+                            .putExtra("id", id));
             }
 
             @Override
@@ -1737,7 +2246,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
                     Log.unexpectedError(getSupportFragmentManager(), ex);
             }
 
-        }.execute(this, new Bundle(), "debug:info");
+        }.execute(this, args, "debug:info");
     }
 
     private void onShowLog() {
@@ -1826,8 +2335,15 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
     }
 
     private void onViewMessages(Intent intent) {
+        boolean unified = intent.getBooleanExtra("unified", false);
         if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-            getSupportFragmentManager().popBackStack("messages", FragmentManager.POP_BACK_STACK_INCLUSIVE);
+            if (unified && "unified".equals(startup)) {
+                getSupportFragmentManager().popBackStack("unified", 0);
+                return;
+            } else {
+                getSupportFragmentManager().popBackStack("thread", FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                getSupportFragmentManager().popBackStack("messages", FragmentManager.POP_BACK_STACK_INCLUSIVE);
+            }
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         boolean foldernav = prefs.getBoolean("foldernav", false);
@@ -1849,7 +2365,8 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         fragment.setArguments(args);
 
         FragmentTransaction fragmentTransaction = getSupportFragmentManager().beginTransaction();
-        fragmentTransaction.replace(R.id.content_frame, fragment).addToBackStack("messages");
+        fragmentTransaction.replace(R.id.content_frame, fragment)
+                .addToBackStack(unified ? "unified" : "messages");
         fragmentTransaction.commit();
     }
 
@@ -1857,6 +2374,7 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         long account = intent.getLongExtra("account", -1);
         long folder = intent.getLongExtra("folder", -1);
         String query = intent.getStringExtra("query");
+        boolean sender_only = intent.getBooleanExtra("sender_only", false);
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         boolean fts = prefs.getBoolean("fts", false);
@@ -1864,6 +2382,14 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         BoundaryCallbackMessages.SearchCriteria criteria = new BoundaryCallbackMessages.SearchCriteria();
         criteria.query = query;
         criteria.fts = fts;
+        criteria.in_senders = true;
+        if (sender_only) {
+            criteria.in_recipients = false;
+            criteria.in_subject = false;
+            criteria.in_keywords = false;
+            criteria.in_message = false;
+            criteria.in_notes = false;
+        }
 
         FragmentMessages.search(
                 this, this, getSupportFragmentManager(),
@@ -1953,62 +2479,40 @@ public class ActivityView extends ActivityBilling implements FragmentManager.OnB
         String download_url;
     }
 
-    public static class FragmentDialogFirst extends FragmentDialogBase {
-        @NonNull
-        @Override
-        public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-            LayoutInflater inflater = LayoutInflater.from(getContext());
-            View dview = inflater.inflate(R.layout.dialog_first, null);
-            ImageButton ibBatteryInfo = dview.findViewById(R.id.ibBatteryInfo);
-            ImageButton ibReformatInfo = dview.findViewById(R.id.ibReformatInfo);
+    private class Announcement {
+        int id;
+        boolean test;
+        boolean play;
+        boolean fdroid;
+        String title;
+        Spanned text;
+        int minVersion;
+        int maxVersion;
+        Uri link;
+        Date expires;
 
-            ibBatteryInfo.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Helper.viewFAQ(v.getContext(), 39);
-                }
-            });
-
-            ibReformatInfo.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Helper.viewFAQ(v.getContext(), 35);
-                }
-            });
-
-            return new AlertDialog.Builder(getContext())
-                    .setView(dview)
-                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
-                            prefs.edit().putBoolean("first", false).apply();
-                        }
-                    })
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .create();
+        boolean isExpired() {
+            if (this.test && !BuildConfig.DEBUG)
+                return true;
+            if (this.play && !BuildConfig.PLAY_STORE_RELEASE)
+                return true;
+            if (this.fdroid && !BuildConfig.FDROID_RELEASE)
+                return true;
+            if (this.minVersion > BuildConfig.VERSION_CODE || BuildConfig.VERSION_CODE > this.maxVersion)
+                return true;
+            if (expires == null)
+                return true;
+            return (expires.getTime() < new Date().getTime());
         }
     }
 
-    public static class FragmentDialogRate extends FragmentDialogBase {
-        @NonNull
+    private final Consumer<WindowLayoutInfo> layoutStateChangeCallback = new Consumer<WindowLayoutInfo>() {
         @Override
-        public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-            return new AlertDialog.Builder(getContext())
-                    .setMessage(R.string.title_issue)
-                    .setPositiveButton(R.string.title_yes, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            Helper.viewFAQ(getContext(), 0);
-                        }
-                    })
-                    .setNegativeButton(R.string.title_no, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            Helper.view(getContext(), Helper.getIntentRate(getContext()));
-                        }
-                    })
-                    .create();
+        public void accept(WindowLayoutInfo info) {
+            List<DisplayFeature> features = info.getDisplayFeatures();
+            Log.i("Display features=" + features.size());
+            for (DisplayFeature feature : features)
+                EntityLog.log(ActivityView.this, "Display feature bounds=" + feature.getBounds());
         }
-    }
+    };
 }

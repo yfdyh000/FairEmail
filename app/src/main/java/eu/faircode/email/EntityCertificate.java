@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.text.TextUtils;
@@ -222,8 +222,19 @@ public class EntityCertificate {
             return result;
 
         for (List altName : altNames)
-            if (altName.get(0).equals(GeneralName.dNSName))
-                result.add((String) altName.get(1));
+            try {
+                if (altName.get(0).equals(GeneralName.dNSName))
+                    result.add((String) altName.get(1));
+                else if (altName.get(0).equals(GeneralName.iPAddress))
+                    if (altName.get(1) instanceof String)
+                        result.add((String) altName.get(1));
+                    else {
+                        Object val = altName.get(1);
+                        Log.e("GeneralName.iPAddress type=" + (val == null ? null : val.getClass()));
+                    }
+            } catch (Throwable ex) {
+                Log.e(ex);
+            }
 
         return result;
     }

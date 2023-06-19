@@ -2,6 +2,7 @@
 <providers>
     <provider
         name="Gmail"
+        appPassword="true"
         domain="gmail\\.com"
         id="gmail"
         link="https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq6"
@@ -15,13 +16,39 @@
             host="smtp.gmail.com"
             port="465"
             starttls="false" />
-        <!-- https://email.faircode.eu/.well-known/assetlinks.json -->
+        <pop
+            host="pop.gmail.com"
+            port="995"
+            starttls="false" />
+        <oauth
+            askAccount="true"
+            authorizationEndpoint="https://accounts.google.com/o/oauth2/auth"
+            clientId="803253368361-11ias0ee6bqhvdi4f21fs1lh7fsb0il2.apps.googleusercontent.com"
+            enabled="true"
+            privacy="https://policies.google.com/privacy"
+            prompt="consent"
+            redirectUri="eu.faircode.email:/"
+            scopes="https://mail.google.com/"
+            tokenEndpoint="https://oauth2.googleapis.com/token">
+            <!-- https://developers.google.com/identity/protocols/oauth2/native-app -->
+            <!-- https://github.com/openid/AppAuth-Android/blob/master/app/README-Google.md -->
+            <parameter
+                key="access_type"
+                value="offline" />
+        </oauth>
+        <!-- https://oauth.faircode.eu/.well-known/assetlinks.json -->
+        <!-- https://developer.android.com/training/app-links/verify-site-associations -->
         <!-- /opt/android-studio/jre/bin/keytool -keystore ~/.android/debug.keystore -list -v -->
     </provider>
     <provider
         name="Outlook"
+        documentation="&lt;b&gt;You may need to use &lt;a href=&quot;https://support.microsoft.com/en-us/account-billing/using-app-passwords-with-apps-that-don-t-support-two-step-verification-5896ed9b-4263-e681-128a-a6f2979a7944&quot;&gt;an app password&lt;/a&gt;&lt;/b&gt;."
+        documentation.de="&lt;b&gt;Möglicherweise müssen Sie ein &lt;a href=&quot;https://support.microsoft.com/de-de/account-billing/verwenden-von-app-kennw%C3%B6rter-mit-apps-die-keine-zweistufige-%C3%BCberpr%C3%BCfung-unterst%C3%BCtzen-5896ed9b-4263-e681-128a-a6f2979a7944&quot;&gt;App-Passwort&lt;/a&gt; verwenden&lt;/b&gt;."
+        documentation.fr="&lt;b&gt;Vous devrez peut-être utiliser &lt;a href=&quot;https://support.microsoft.com/fr-fr/account-billing/utilisation-de-mots-de-passe-d-application-avec-des-applications-qui-ne-prennent-pas-en-charge-la-v%C3%A9rification-en-deux-%C3%A9tapes-5896ed9b-4263-e681-128a-a6f2979a7944&quot;&gt;un mot de passe d\'application&lt;/a&gt;&lt;/b&gt;."
         domain="outlook\\..*"
         link="https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq14"
+        maxtls="1.2"
+        noop="true"
         order="2"
         partial="false"
         useip="false">
@@ -36,8 +63,13 @@
     </provider>
     <provider
         name="Live"
+        documentation="&lt;b&gt;You may need to use &lt;a href=&quot;https://support.microsoft.com/en-us/account-billing/using-app-passwords-with-apps-that-don-t-support-two-step-verification-5896ed9b-4263-e681-128a-a6f2979a7944&quot;&gt;an app password&lt;/a&gt;&lt;/b&gt;."
+        documentation.de="&lt;b&gt;Möglicherweise müssen Sie ein &lt;a href=&quot;https://support.microsoft.com/de-de/account-billing/verwenden-von-app-kennw%C3%B6rter-mit-apps-die-keine-zweistufige-%C3%BCberpr%C3%BCfung-unterst%C3%BCtzen-5896ed9b-4263-e681-128a-a6f2979a7944&quot;&gt;App-Passwort&lt;/a&gt; verwenden&lt;/b&gt;."
+        documentation.fr="&lt;b&gt;Vous devrez peut-être utiliser &lt;a href=&quot;https://support.microsoft.com/fr-fr/account-billing/utilisation-de-mots-de-passe-d-application-avec-des-applications-qui-ne-prennent-pas-en-charge-la-v%C3%A9rification-en-deux-%C3%A9tapes-5896ed9b-4263-e681-128a-a6f2979a7944&quot;&gt;un mot de passe d\'application&lt;/a&gt;&lt;/b&gt;."
         domain="live\\..*"
         link="https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq14"
+        maxtls="1.2"
+        noop="true"
         order="3"
         partial="false"
         useip="false">
@@ -52,8 +84,13 @@
     </provider>
     <provider
         name="Hotmail"
+        documentation="&lt;b&gt;You may need to use &lt;a href=&quot;https://support.microsoft.com/en-us/account-billing/using-app-passwords-with-apps-that-don-t-support-two-step-verification-5896ed9b-4263-e681-128a-a6f2979a7944&quot;&gt;an app password&lt;/a&gt;&lt;/b&gt;."
+        documentation.de="&lt;b&gt;Möglicherweise müssen Sie ein &lt;a href=&quot;https://support.microsoft.com/de-de/account-billing/verwenden-von-app-kennw%C3%B6rter-mit-apps-die-keine-zweistufige-%C3%BCberpr%C3%BCfung-unterst%C3%BCtzen-5896ed9b-4263-e681-128a-a6f2979a7944&quot;&gt;App-Passwort&lt;/a&gt; verwenden&lt;/b&gt;."
+        documentation.fr="&lt;b&gt;Vous devrez peut-être utiliser &lt;a href=&quot;https://support.microsoft.com/fr-fr/account-billing/utilisation-de-mots-de-passe-d-application-avec-des-applications-qui-ne-prennent-pas-en-charge-la-v%C3%A9rification-en-deux-%C3%A9tapes-5896ed9b-4263-e681-128a-a6f2979a7944&quot;&gt;un mot de passe d\'application&lt;/a&gt;&lt;/b&gt;."
         domain="hotmail\\..*"
         link="https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq14"
+        maxtls="1.2"
+        noop="true"
         order="4"
         partial="false"
         useip="false">
@@ -69,6 +106,7 @@
     <provider
         name="MSN"
         domain="\\.msn\\..*"
+        maxtls="1.2"
         partial="false">
         <imap
             host="imap-mail.outlook.com"
@@ -81,9 +119,12 @@
     </provider>
     <provider
         name="Outlook"
-        description="Outlook/Office 365"
+        description="Office 365"
+        enabled="false"
         id="office365"
         link="https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq14"
+        maxtls="1.2"
+        noop="true"
         order="5"
         partial="false"
         useip="false">
@@ -95,6 +136,11 @@
             host="smtp.office365.com"
             port="587"
             starttls="true" />
+        <!--pop
+            host="outlook.office365.com"
+            port="995"
+            starttls="false" /-->
+        <!-- https://outlook.office.com/POP.AccessAsUser.All -->
         <oauth
             askAccount="true"
             authorizationEndpoint="https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize"
@@ -102,16 +148,22 @@
             clientSecret="r=o4@SlzU:MA6MlXM6mPG[44i4gYPq[@"
             enabled="true"
             privacy="https://privacy.microsoft.com/privacystatement"
+            prompt="login"
             redirectUri="https://oauth.faircode.eu/"
             scopes="profile,openid,email,offline_access,https://outlook.office.com/IMAP.AccessAsUser.All,https://outlook.office.com/SMTP.Send"
-            tokenEndpoint="https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token" />
+            tokenEndpoint="https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+            tokenScopes="true" />
+        <!-- https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-auth-code-flow -->
         <!-- https://docs.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth -->
+        <!-- https://learn.microsoft.com/en-us/azure/active-directory/develop/redirect-uris-ios -->
     </provider>
     <provider
         name="Outlook"
-        description="Outlook"
-        id="outlook"
+        description="Office 365"
+        id="office365pcke"
         link="https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq14"
+        maxtls="1.2"
+        noop="true"
         order="5"
         partial="false"
         useip="false">
@@ -123,17 +175,115 @@
             host="smtp.office365.com"
             port="587"
             starttls="true" />
+        <pop
+            host="outlook.office365.com"
+            port="995"
+            starttls="false" />
+        <oauth
+            askAccount="true"
+            authorizationEndpoint="https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize"
+            clientId="3514cf2c-e7a3-45a2-80d4-6a3c3498eca0"
+            enabled="true"
+            privacy="https://privacy.microsoft.com/privacystatement"
+            prompt="login"
+            redirectUri="msauth.eu.faircode.email://auth"
+            scopes="profile,openid,email,offline_access,https://outlook.office.com/IMAP.AccessAsUser.All,https://outlook.office.com/SMTP.Send,https://outlook.office.com/POP.AccessAsUser.All"
+            tokenEndpoint="https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+            tokenScopes="true">
+            <!--parameter
+                key="domain_hint"
+                value="9188040d-6c67-4c5b-b112-36a304b66dad" /-->
+        </oauth>
+        <!-- https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-auth-code-flow -->
+        <!-- https://docs.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth -->
+        <!-- https://learn.microsoft.com/en-us/azure/active-directory/develop/redirect-uris-ios -->
+    </provider>
+    <provider
+        name="Outlook"
+        description="Outlook/Hotmail/Live"
+        id="outlookgraph"
+        link="https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq14"
+        maxtls="1.2"
+        noop="true"
+        order="6"
+        partial="false"
+        useip="false">
+        <imap
+            host="outlook.office365.com"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="smtp.office365.com"
+            port="587"
+            starttls="true" />
+        <pop
+            host="outlook.office365.com"
+            port="995"
+            starttls="false" />
+        <oauth
+            askAccount="true"
+            authorizationEndpoint="https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize"
+            clientId="3514cf2c-e7a3-45a2-80d4-6a3c3498eca0"
+            enabled="true"
+            privacy="https://privacy.microsoft.com/privacystatement"
+            prompt="login"
+            redirectUri="msauth.eu.faircode.email://auth"
+            scopes="profile,openid,email,offline_access,https://outlook.office.com/IMAP.AccessAsUser.All,https://outlook.office.com/SMTP.Send,https://outlook.office.com/POP.AccessAsUser.All"
+            tokenEndpoint="https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+            tokenScopes="true">
+            <!--parameter
+                key="domain_hint"
+                value="9188040d-6c67-4c5b-b112-36a304b66dad" /-->
+        </oauth>
+        <graph
+            askAccount="true"
+            authorizationEndpoint="https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+            clientId="835c3383-543c-4aa2-98ca-c465eb039987"
+            enabled="true"
+            privacy="https://privacy.microsoft.com/privacystatement"
+            prompt="login"
+            redirectUri="msauth://eu.faircode.email/xSLzBBuLJunOQPB89rtzM54FXx4%3D"
+            scopes="offline_access,https://graph.microsoft.com/Mail.Send"
+            tokenEndpoint="https://login.microsoftonline.com/common/oauth2/v2.0/token"
+            tokenScopes="true" />
+        <!-- https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-auth-code-flow -->
+        <!-- https://docs.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth -->
+        <!-- https://learn.microsoft.com/en-us/azure/active-directory/develop/redirect-uris-ios -->
+    </provider>
+    <provider
+        name="Outlook"
+        alt="true"
+        description="Office 365 (alt)"
+        id="outlook"
+        link="https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq14"
+        maxtls="1.2"
+        noop="true"
+        order="5"
+        partial="false"
+        useip="false">
+        <imap
+            host="outlook.office365.com"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="smtp.office365.com"
+            port="587"
+            starttls="true" />
+        <pop
+            host="outlook.office365.com"
+            port="995"
+            starttls="false" />
         <oauth
             askAccount="true"
             authorizationEndpoint="https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize"
             clientId="17e57eca-a59b-4574-ac91-b343004898a6"
-            clientSecret="k847Q~ZKtIBNp~ls_riKEbFDsvOQEdUA.YDNt"
-            enabled="false"
+            enabled="true"
             privacy="https://privacy.microsoft.com/privacystatement"
-            redirectUri="https://oauth.faircode.eu/"
-            scopes="openid,email,offline_access,https://outlook.office.com/IMAP.AccessAsUser.All,https://outlook.office.com/SMTP.Send"
-            tokenEndpoint="https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token" />
-        <!-- https://docs.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth -->
+            prompt="login"
+            redirectUri="msauth://eu.faircode.email/xSLzBBuLJunOQPB89rtzM54FXx4%3D"
+            scopes="profile,openid,email,offline_access,https://outlook.office.com/IMAP.AccessAsUser.All,https://outlook.office.com/SMTP.Send,https://outlook.office.com/POP.AccessAsUser.All"
+            tokenEndpoint="https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+            tokenScopes="true" />
     </provider>
     <!-- needs subscription -->
     <provider
@@ -153,8 +303,7 @@
     <provider
         name="Yahoo.co.jp"
         domain="yahoo\\.co\\.jp"
-        enabled="false"
-        order="6"
+        order="7"
         user="local">
         <imap
             host="imap.mail.yahoo.co.jp"
@@ -167,12 +316,16 @@
     </provider>
     <!-- no IMAP IDLE -->
     <provider
-        name="Yahoo/AT&amp;T"
+        name="Yahoo"
         appPassword="true"
-        domain="yahoo\\..*"
+        description="Yahoo/AT&amp;T"
+        domain="yahoo\\..*,ymail\\.com"
+        enabled="false"
         id="yahoo"
         link="https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq88"
-        order="6">
+        noop="true"
+        order="8"
+        partial="true">
         <imap
             host="imap.mail.yahoo.com"
             port="993"
@@ -181,17 +334,54 @@
             host="smtp.mail.yahoo.com"
             port="465"
             starttls="false" />
+        <pop
+            host="pop.mail.yahoo.com"
+            port="995"
+            starttls="false" />
         <oauth
             askAccount="true"
             authorizationEndpoint="https://api.login.yahoo.com/oauth2/request_auth"
             clientId="dj0yJmk9SWtNZm1vUFc2THJDJnM9Y29uc3VtZXJzZWNyZXQmc3Y9MCZ4PWRi"
             clientSecret="261a91fbbdb2852c4e80fdd3d1db4a8ebfa4c42b"
             enabled="true"
-            pcke="true"
             privacy="https://www.verizonmedia.com/policies/us/en/verizonmedia/privacy/index.html"
             redirectUri="https://oauth.faircode.eu/"
             scopes="mail-w"
             tokenEndpoint="https://api.login.yahoo.com/oauth2/get_token" />
+        <!-- https://developer.yahoo.com/oauth2/guide/ -->
+    </provider>
+    <provider
+        name="Yahoo"
+        appPassword="true"
+        description="Yahoo/AT&amp;T"
+        domain="yahoo\\..*,ymail\\.com"
+        id="yahoo2"
+        link="https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq88"
+        noop="true"
+        order="8"
+        partial="true">
+        <imap
+            host="imap.mail.yahoo.com"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="smtp.mail.yahoo.com"
+            port="465"
+            starttls="false" />
+        <pop
+            host="pop.mail.yahoo.com"
+            port="995"
+            starttls="false" />
+        <oauth
+            askAccount="true"
+            authorizationEndpoint="https://api.login.yahoo.com/oauth2/request_auth"
+            clientId="dj0yJmk9RnRORGNuNTlnaXlUJmQ9WVdrOVVrMXViV2RDU1dZbWNHbzlNQT09JnM9Y29uc3VtZXJzZWNyZXQmc3Y9MCZ4PTBm"
+            enabled="true"
+            privacy="https://www.verizonmedia.com/policies/us/en/verizonmedia/privacy/index.html"
+            redirectUri="https://oauth.faircode.eu/"
+            scopes="mail-w"
+            tokenEndpoint="https://api.login.yahoo.com/oauth2/get_token" />
+        <!-- https://developer.yahoo.com/oauth2/guide/ -->
     </provider>
     <provider
         name="Sky.com"
@@ -211,7 +401,8 @@
         name="Posteo.de"
         documentation="Please check if &lt;a href=&quot;https://posteo.de/en/help/activating-additional-email-account-protection&quot;&gt;additional email account protection&lt;/a&gt; isn't enabled."
         domain="posteo\\..*"
-        link="https://posteo.de/en/help/how-do-i-set-up-posteo-in-an-email-client-pop3-imap-and-smtp">
+        link="https://posteo.de/en/help/how-do-i-set-up-posteo-in-an-email-client-pop3-imap-and-smtp"
+        user="*@posteo.net">
         <imap
             host="posteo.de"
             port="993"
@@ -226,7 +417,8 @@
         appPassword="true"
         documentation="SMTP est désactivé par défaut, veuillez &lt;a href=&quot;http://jc.etiemble.free.fr/abc/index.php/trucs-astuces/configurer-smtp-free-fr&quot;&gt;voir ici&lt;/a&gt; pour un guide détaillé."
         domain="free\\.fr,libertysurf\\.fr"
-        link="https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq157">
+        link="https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq157"
+        maxtls="1.2">
         <imap
             host="imap.free.fr"
             port="993"
@@ -251,6 +443,8 @@
     </provider>
     <provider
         name="FastMail"
+        appPassword="true"
+        documentation="You might need an app password; You can\'t use third party email apps with the basic plan, please &lt;a href=&quot;https://www.fastmail.help/hc/en-us/articles/360058752854-App-passwords&quot;&gt;see here&lt;/a&gt;."
         domain="fastmail\\..*"
         link="https://www.fastmail.com/help/technical/servernamesandports.html">
         <imap
@@ -376,6 +570,11 @@
             host="smtp.yandex.com"
             port="465"
             starttls="false" />
+        <!--pop
+            host="pop.yandex.ru"
+            port="995"
+            starttls="false" /-->
+        <!-- No OAuth/POP3 support -->
         <oauth
             askAccount="true"
             authorizationEndpoint="https://oauth.yandex.com/authorize"
@@ -385,11 +584,19 @@
             privacy="https://yandex.com/legal/confidential/"
             redirectUri="https://oauth.faircode.eu/"
             scopes="mail:imap_full,mail:smtp"
-            tokenEndpoint="https://oauth.yandex.com/token" />
+            tokenEndpoint="https://oauth.yandex.com/token">
+            <parameter
+                key="device_name"
+                value="Android/FairEmail" />
+            <parameter
+                key="force_confirm"
+                value="true" />
+        </oauth>
+        <!-- https://yandex.com/dev/id/doc/dg/imap/index.html -->
     </provider>
     <provider
         name="web.de"
-        documentation="Please check if &lt;a href=&quot;https://hilfe.web.de/email/einstellungen/pop3-imap-einschalten.html&quot;&gt;IMAP is enabled&lt;/a&gt;"
+        documentation="Ist &lt;a href=&quot;https://hilfe.web.de/email/einstellungen/pop3-imap-einschalten.html&quot;&gt;IMAP aktiviert&lt;/a&gt;? Die Zwei-Faktor-Authentifizierung erfordert &lt;a href=&quot;https://web.de/email/sicherheit/zwei-faktor-authentifizierung/&quot;&gt;ein Anwendungsspezifische Passwort&lt;/a&gt;!"
         domain="web\\.de"
         keepalive="12"
         link="https://hilfe.web.de/pop-imap/imap/imap-serverdaten.html"
@@ -401,8 +608,8 @@
             starttls="false" />
         <smtp
             host="smtp.web.de"
-            port="587"
-            starttls="true" />
+            port="465"
+            starttls="false" />
     </provider>
     <provider
         name="Telstra"
@@ -435,7 +642,7 @@
     <provider
         name="Ionos (1und1)"
         appPassword="true"
-        documentation="Für Ionos müssen Sie ein App-Passwort anstelle Ihres normalen Kontopassworts verwenden, &lt;a href=&quot;https://www.ionos.de/hilfe/e-mail/problemloesungen-mail-basicmail-business/passwort-fuer-e-mail-konto-bei-11-ionos-aendern/&quot;&gt;siehe hier&lt;/a&gt;."
+        documentation="Für Ionos müssen Sie ein E-Mail-Passwort anstelle Ihres normalen Kontopassworts verwenden, &lt;a href=&quot;https://www.ionos.de/hilfe/e-mail/problemloesungen-mail-basicmail-business/passwort-fuer-e-mail-konto-bei-11-ionos-aendern/&quot;&gt;siehe hier&lt;/a&gt;."
         domain="ionos\\.de,ionos\\.com,online\\.de"
         keepalive="12"
         link="https://www.ionos.de/hilfe/e-mail/allgemeine-themen/serverinformationen-fuer-imap-pop-und-smtp/">
@@ -451,7 +658,7 @@
     <provider
         name="Ionos.com"
         appPassword="true"
-        documentation="For Ionos you need to use an app password instead of your normal account password, please  &lt;a href=&quot;https://www.ionos.com/help/email/troubleshooting-mail-basicmail-business/changing-a-11-ionos-email-account-password/&quot;&gt;see here&lt;/a&gt;."
+        documentation="For Ionos you need to use an email password instead of your normal account password, please &lt;a href=&quot;https://www.ionos.com/help/email/troubleshooting-mail-basicmail-business/changing-a-11-ionos-email-account-password/&quot;&gt;see here&lt;/a&gt;."
         keepalive="12"
         link="https://www.ionos.com/help/email/general-topics/settings-for-your-email-programs-imap-pop3/">
         <imap
@@ -460,6 +667,35 @@
             starttls="false" />
         <smtp
             host="smtp.ionos.com"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="Ionos.co.uk"
+        appPassword="true"
+        documentation="For Ionos you need to use an email password instead of your normal account password, please &lt;a href=&quot;https://www.ionos.co.uk/help/email/troubleshooting-mail-basicmail-business/changing-a-11-ionos-email-account-password/&quot;&gt;see here&lt;/a&gt;."
+        keepalive="12"
+        link="https://www.ionos.co.uk/help/email/general-topics/settings-for-your-email-programs-imap-pop3/">
+        <imap
+            host="imap.ionos.co.uk"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="smtp.ionos.co.uk"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="Ionos.fr"
+        appPassword="true"
+        keepalive="12"
+        link="https://www.ionos.fr/assistance/email/sujets-generaux/parametres-pour-les-programmes-de-messagerie/">
+        <imap
+            host="imap.ionos.fr"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="smtp.ionos.fr"
             port="465"
             starttls="false" />
     </provider>
@@ -506,6 +742,7 @@
     </provider>
     <provider
         name="freenet.de"
+        documentation="Haben Sie SMTP über die Systemsteuerung des E-Mail-Anbieters aktiviert?"
         domain="freenet\\.de,fn\\.de,freenetmail\\.de,bossmail\\.de,justmail\\.de"
         link="https://kundenservice.freenet.de/artikel/1869">
         <imap
@@ -519,8 +756,10 @@
     </provider>
     <provider
         name="Zoho"
+        documentation="You might need to use &lt;a href=&quot;https://help.zoho.com/portal/en/kb/bigin/channels/email/articles/generate-an-app-specific-password&quot;&gt;an app password&lt;/a&gt;."
         domain="zoho\\.com"
-        link="https://www.zoho.com/mail/help/imap-access.html">
+        link="https://www.zoho.com/mail/help/imap-access.html"
+        maxtls="1.2">
         <imap
             host="imap.zoho.com"
             port="993"
@@ -532,8 +771,10 @@
     </provider>
     <provider
         name="Zoho EU"
+        documentation="You might need to use &lt;a href=&quot;https://help.zoho.com/portal/en/kb/bigin/channels/email/articles/generate-an-app-specific-password&quot;&gt;an app password&lt;/a&gt;."
         domain="zohomail\\.eu"
-        link="https://www.zoho.eu/mail/help/imap-access.html">
+        link="https://www.zoho.eu/mail/help/imap-access.html"
+        maxtls="1.2">
         <imap
             host="imap.zoho.eu"
             port="993"
@@ -545,7 +786,9 @@
     </provider>
     <provider
         name="Zoho AU"
-        domain="zohomail\\.com\\.au">
+        documentation="You might need to use &lt;a href=&quot;https://help.zoho.com/portal/en/kb/bigin/channels/email/articles/generate-an-app-specific-password&quot;&gt;an app password&lt;/a&gt;."
+        domain="zohomail\\.com\\.au"
+        maxtls="1.2">
         <imap
             host="imap.zoho.com.au"
             port="993"
@@ -559,7 +802,8 @@
         name="Mail.ru"
         domain="mail\\.ru,inbox\\.ru,list\\.ru,bk\\.ru"
         id="mailru"
-        link="https://help.mail.ru/mail-help/mailer/popsmtp">
+        link="https://help.mail.ru/mail-help/mailer/popsmtp"
+        maxtls="1.2">
         <imap
             host="imap.mail.ru"
             port="993"
@@ -568,6 +812,11 @@
             host="smtp.mail.ru"
             port="465"
             starttls="false" />
+        <!--pop
+            host="pop.mail.ru"
+            port="995"
+            starttls="false" /-->
+        <!-- No OAuth/POP3 support -->
         <oauth
             askAccount="false"
             authorizationEndpoint="https://oauth.mail.ru/login"
@@ -577,7 +826,11 @@
             privacy="https://help.mail.ru/legal/terms/common/privacy"
             redirectUri="https://oauth.faircode.eu/"
             scopes="userinfo mail.imap"
-            tokenEndpoint="https://oauth.mail.ru/token" />
+            tokenEndpoint="https://oauth.mail.ru/token">
+            <parameter
+                key="prompt_force"
+                value="1" />
+        </oauth>
         <!-- https://oauth.mail.ru/docs -->
     </provider>
     <provider
@@ -621,7 +874,8 @@
     <provider
         name="Runbox"
         domain="runbox\\..*"
-        link="https://help.runbox.com/email-program-settings/">
+        link="https://help.runbox.com/email-program-settings/"
+        maxtls="1.2">
         <imap
             host="mail.runbox.com"
             port="993"
@@ -755,9 +1009,12 @@
     </provider>
     <provider
         name="AOL"
-        documentation="For AOL you need to use an app password instead of your normal account password, please  &lt;a href=&quot;https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq88&quot;&gt;see here&lt;/a&gt;."
-        domain="aol\\..*"
-        link="https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq88">
+        documentation="For AOL you need to use an app password instead of your normal account password, please &lt;a href=&quot;https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq88&quot;&gt;see here&lt;/a&gt;."
+        domain="aol\\..*,compuserve\\.com"
+        id="aol"
+        link="https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq88"
+        noop="true"
+        partial="true">
         <imap
             host="imap.aol.com"
             port="993"
@@ -766,6 +1023,15 @@
             host="smtp.aol.com"
             port="465"
             starttls="false" />
+        <oauth
+            askAccount="true"
+            authorizationEndpoint="https://api.login.aol.com/oauth2/request_auth"
+            clientId="dj0yJmk9SFVJYWVtS21RMjYyJmQ9WVdrOVJVcENRMXBTT1drbWNHbzlNQT09JnM9Y29uc3VtZXJzZWNyZXQmc3Y9MCZ4PTJh"
+            enabled="true"
+            privacy="https://legal.yahoo.com/us/en/yahoo/privacy/index.html"
+            redirectUri="https://oauth.faircode.eu/"
+            scopes="mail-w"
+            tokenEndpoint="https://api.login.aol.com/oauth2/get_token" />
     </provider>
     <provider
         name="Verizon"
@@ -782,7 +1048,8 @@
     </provider>
     <provider
         name="Hetzner Online"
-        link="https://wiki.hetzner.de/index.php/KonsoleH:Email-Konto_einrichten/en">
+        link="https://wiki.hetzner.de/index.php/KonsoleH:Email-Konto_einrichten/en"
+        mx=".*your-server\\.de">
         <imap
             host="mail.your-server.de"
             port="993"
@@ -884,8 +1151,10 @@
     </provider>
     <provider
         name="o2.pl"
-        domain="o2\\.pl"
-        link="https://pomoc.o2.pl/jak-skonfigurowac-program-pocztowy">
+        domain="o2\\.pl,go2\\.pl"
+        link="https://pomoc.o2.pl/jak-skonfigurowac-program-pocztowy"
+        maxtls="1.2"
+        noop="true">
         <imap
             host="poczta.o2.pl"
             port="993"
@@ -953,6 +1222,7 @@
     </provider>
     <provider
         name="Laposte.net"
+        documentation="19 avril 2022 La Posté a désactivé l'accès externe en raison de problèmes techniques. Veuillez consulter le site Web de La Poste pour plus d'informations."
         domain="laposte\\.net"
         link="https://www.laposte.fr/votre-vie-digitale/conseils-pratiques/configuration-webmail-laposte.net">
         <imap
@@ -1096,6 +1366,7 @@
     </provider>
     <provider
         name="Interia"
+        documentation="Please check if IMAP is enabled on the website of the email provider. Sprawdź, czy protokół IMAP jest włączony na stronie internetowej dostawcy poczty e-mail."
         domain="interia\\.pl,interia\\.eu,poczta\\.fm,vip\\.interia\\.pl,intmail\\.pl,interia\\.com,interiowy\\.pl,adresik\\.net,pacz\\.to,pisz\\.to,ogarnij\\.se,.*\\.hub\\.pl"
         link="https://pomoc.poczta.interia.pl/news-parametry-do-konfiguracji-programow-pocztowych,nId,2136275">
         <imap
@@ -1185,7 +1456,7 @@
     <provider
         name="Charter.net"
         appPassword="true"
-        domain="charter\\.net"
+        domain="bresnan\\.net,charter\\.net,spectrum\\.net"
         link="https://www.spectrum.net/support/internet/spectrum-email-server-settings/">
         <imap
             host="mobile.charter.net"
@@ -1196,6 +1467,35 @@
             port="587"
             starttls="false" />
         <!-- Unusual, but no STARTTLS at port 587 -->
+    </provider>
+    <provider
+        name="Spectrum"
+        appPassword="true"
+        domain="brighthouse\\.com,bak\\.rr\\.com,bham\\.rr\\.com,cfl\\.rr\\.com,emore\\.rr\\.com,eufala\\.rr\\.com,indy\\.rr\\.com,mi\\.rr\\.com,panhandle\\.rr\\.com,tampabay\\.rr\\.com"
+        link="https://www.spectrum.net/support/internet/spectrum-email-server-settings/">
+        <imap
+            host="mail.brighthouse.com"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="mail.brighthouse.com"
+            port="587"
+            starttls="false" />
+        <!-- Unusual, but no STARTTLS at port 587 -->
+    </provider>
+    <provider
+        name="TWC"
+        appPassword="true"
+        domain=".*\\.rr\\.com"
+        link="https://www.spectrum.net/support/internet/spectrum-email-server-settings/">
+        <imap
+            host="mail.twc.com"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="mail.twc.com"
+            port="587"
+            starttls="true" />
     </provider>
     <provider
         name="Tin.it"
@@ -1276,6 +1576,7 @@
     </provider>
     <provider
         name="Xfinity/Comcast"
+        documentation="Please check if &lt;a href=&quot;https://www.xfinity.com/support/articles/third-party-email-access&quot;&gt;third party email access&lt;/a&gt; is enabled"
         domain="comcast\\.net"
         link="https://www.xfinity.com/support/articles/email-client-programs-with-xfinity-email">
         <imap
@@ -1355,11 +1656,11 @@
         domain="alice\\.de,alice-dsl\\.de,alice-dsl\\.net"
         link="https://maildienste.de/alice/">
         <imap
-            host="imap.alice-dsl.de"
+            host="imap.alice.de"
             port="993"
             starttls="false" />
         <smtp
-            host="smtp.alice-dsl.de"
+            host="smtp.alice.de"
             port="587"
             starttls="true" />
     </provider>
@@ -1419,7 +1720,8 @@
         name="wp.pl"
         appPassword="true"
         domain="wp\\.pl"
-        link="https://pomoc.wp.pl/jak-skonfigurowac-program-pocztowy">
+        link="https://pomoc.wp.pl/jak-skonfigurowac-program-pocztowy"
+        maxtls="1.2">
         <imap
             host="imap.wp.pl"
             port="993"
@@ -1500,6 +1802,304 @@
             starttls="false" />
         <smtp
             host="smtp.purelymail.com"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="USFamily.net"
+        domain="usfamily\\.net"
+        link="http://help.usfamily.net/usfhelp/vfaq.jsp?faq=284">
+        <imap
+            host="mail.usgo.net"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="mail.usgo.net"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="Vodafone Hungary"
+        domain="vodafone\\.hu">
+        <imap
+            host="mail.vodamail.hu"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="mail.vodamail.hu"
+            port="587"
+            starttls="true" />
+    </provider>
+    <provider
+        name="Bbox/Bouygues"
+        domain="bbox\\.fr"
+        link="https://www.assistance.bouyguestelecom.fr/s/article/logiciel-messagerie-emails-bbox">
+        <imap
+            host="imap.bbox.fr"
+            port="993"
+            starttls="false" />
+        <!-- port 587 is SSL/TLS ! -->
+        <smtp
+            host="smtp.bbox.fr"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="ILJ Mail"
+        domain="ilj\\.com,tidetalk\\.com,whatacool\\.com,righttackle\\.com,friday\\.tv,saturday\\.tv,militaryproud\\.com,oicu812\\.com,1fj\\.com,ilovejesus\\.com,christianman\\.com,christianlady\\.com"
+        link="https://www.iljmail.com/knowledge-base/incoming-outgoing-mail-server-settings-2/">
+        <imap
+            host="secure.iljmail.com"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="secure.iljmail.com"
+            port="587"
+            starttls="true" />
+    </provider>
+    <provider
+        name="NIC/gov.in"
+        domain="nic\\.in,.*\\.nic\\.in">
+        <imap
+            host="imap.mail.gov.in"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="smtp.mail.gov.in"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="Cytanet"
+        domain="cablenet\\.com\\.cy"
+        link="https://www.eworkswsi.com.cy/eworkswsi-cyprus-internet-marketing-blog/using-your-own-smtp-server-with-a-cytanet-e-mail-account-in-cyprus-1">
+        <imap
+            host="mail.cytanet.com.cy"
+            port="143"
+            starttls="true" />
+        <smtp
+            host="mail-out.cytanet.com.cy"
+            port="587"
+            starttls="true" />
+    </provider>
+    <provider
+        name="Plusnet"
+        domain=".*\\.plus\\.com"
+        link="https://www.plus.net/help/email-guides/how-to-set-up-plusnet-email/">
+        <imap
+            host="imap.plus.net"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="relay.plus.net"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="Plusnet/force9"
+        domain=".*\\.force9\\.co\\.uk"
+        link="https://www.plus.net/help/email-guides/how-to-set-up-plusnet-email/">
+        <imap
+            host="imap.force9.net"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="relay.force9.net"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="Plusnet/free"
+        domain=".*\\.free-online\\.net"
+        link="https://www.plus.net/help/email-guides/how-to-set-up-plusnet-email/">
+        <imap
+            host="imap.free-online.net"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="relay.free-online.net"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider name="Netbeat">
+        <imap
+            host="mail.netbeat.de"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="smtp.netbeat.de"
+            port="587"
+            starttls="true" />
+    </provider>
+    <provider
+        name="Email.it"
+        link="https://assistenza.email.it/configurazione-caselle-email-it.php">
+        <imap
+            host="in.email.it"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="out.email.it"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="AT&amp;T"
+        appPassword="true"
+        documentation="Instead of a password you should use &lt;a href=&quot;https://www.att.com/support/article/email-support/KM1240308&quot;&gt;a secure mail key&lt;/a&gt;"
+        domain="ameritech\\.net,att\\.net,bellsouth\\.net,flash\\.net,nvbell\\.net,pacbell\\.net,prodigy\\.net,sbcglobal\\.net,snet\\.net,swbell\\.net,wans\\.net"
+        link="https://www.att.com/support/article/email-support/KM1010523/">
+        <imap
+            host="imap.mail.att.net"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="smtp.mail.att.net"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="PenTeleData"
+        domain="ptd\\.net"
+        link="https://www.ptd.net/support/email-communication/how-setup-your-email/smartphone-imap">
+        <imap
+            host="promail.ptd.net"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="promail.ptd.net"
+            port="587"
+            starttls="true" />
+    </provider>
+    <provider
+        name="Gelsen-net"
+        domain="gelsennet\\.de"
+        link="https://help.gelsennet.de/faq.php">
+        <imap
+            host="mx.gelsennet.de"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="mx.gelsennet.de"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="Cox"
+        domain="cox\\.net"
+        link="https://www.cox.com/residential/support/imap-server-settings.html">
+        <imap
+            host="imap.cox.net"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="smtp.cox.net"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="minuskel.de"
+        domain="minuskel\\.de"
+        link="https://support.minuskel.de/mail-einstellungen.html"
+        mx="mail\\.ipn\\.de">
+        <imap
+            host="home.minuskel.de"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="mail.minuskel.de"
+            port="587"
+            starttls="true" />
+    </provider>
+    <provider
+        name="Drie.at"
+        domain="drei\\.at"
+        link="https://www.drei.at/de/info/support/e-mail-einstellungen/">
+        <imap
+            host="imap.drei.at"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="smtp.drei.at"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="Virgilio.it"
+        domain="virgilio\\.it"
+        link="https://aiuto.virgilio.it/articolo/mail/parametri-di-configurazione-per-il-client-di-posta/">
+        <imap
+            host="in.virgilio.it"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="out.virgilio.it"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="Optimum"
+        domain="optimum\\.net,optonline\\.net"
+        link="https://faq.optimum.net/node/7327">
+        <imap
+            host="mail.optimum.net"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="mail.optimum.net"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="FREE!"
+        appPassword="true"
+        domain="free\\.de"
+        link="https://faq.free.de/content/310251/44/de/wie-lauten-die-einstellungen-fuer-den-zugriff-auf-mein-free-@freede-mailkonto.html">
+        <imap
+            host="pop.free.de"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="smtp.free.de"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="Greensta.de"
+        link="https://support.greensta.de/help/de-de/4-e-mail/55-wie-kann-ich-mein-e-mail-programm-z-b-outlook-thunderbird-einrichten"
+        mx=".*\\.greensta\\.de">
+        <imap
+            host="mail.greensta.de"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="mail.greensta.de"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="BT internet"
+        domain="btinternet\\.com,btopenworld\\.com"
+        link="https://www.bt.com/help/email/manage-email-account/manual-settings/what-are-the-settings-for-outgoing-and-incoming-bt-email-servers">
+        <imap
+            host="mail.btinternet.com"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="mail.btinternet.com"
+            port="465"
+            starttls="false" />
+    </provider>
+    <provider
+        name="rediff email"
+        domain="rediff\\.com"
+        link="https://support.rediff.com/imap-settings-for-outlook/">
+        <imap
+            host="imap.rediffmailpro.com"
+            port="993"
+            starttls="false" />
+        <smtp
+            host="smtp.rediffmailpro.com"
             port="465"
             starttls="false" />
     </provider>

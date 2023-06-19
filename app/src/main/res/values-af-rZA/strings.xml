@@ -9,7 +9,6 @@
     <string name="app_exit">Gaan weer \'terug\' om uit te gaan</string>
     <string name="app_cake">onvoldoende stoorplek oor</string>
     <string name="app_updated">Laaste opdatering: %1$s</string>
-    <string name="channel_service">Receive</string>
     <string name="channel_send">stuur</string>
     <string name="channel_notification">Email</string>
     <string name="channel_progress">Progress</string>
@@ -48,6 +47,7 @@
     <string name="menu_setup">Instellings</string>
     <string name="title_disagree">I disagree</string>
     <string name="title_setup">Instellings</string>
+    <string name="title_setup_inbound">Slegs Inkommende eposse(epos kan nie gestuur word nie!)</string>
     <string name="title_importing_account">Rekening %1$s</string>
     <string name="title_importing_identity">Identiteit %1$s</string>
     <string name="title_importing_exists">Oorgeslaan: bestaan alreeds</string>
@@ -59,6 +59,7 @@
     <string name="title_advanced_threading">Conversation threading</string>
     <string name="title_advanced_poll_battery">Hierdie kan verhoogte battery gebruik veroorsaak!</string>
     <string name="title_synchronize_enabled">Sinkroniseer</string>
+    <string name="title_contact_email">Email</string>
     <string name="title_inbox_root_hint">        Some providers require new folders to be created below the inbox.        In this case, you can long press the inbox in the folder list and select \'Create sub folder\'.
     </string>
     <string name="title_raw_send_message">Message</string>
@@ -68,6 +69,7 @@
     <string name="title_disable_widths">Deaktiveer breedte</string>
     <string name="title_compose">Komponeer</string>
     <string name="title_send">stuur</string>
+    <string name="title_rule_time_every_day">Elke dag</string>
     <string name="title_legend_section_synchronize">Sinkroniseer</string>
     <string name="title_legend_section_folders">Dopsies</string>
     <string name="title_legend_section_messages">Boodskappe</string>
@@ -79,9 +81,11 @@
         FairEmail shows a small message to remind you of this, which will be removed if you purchase the pro features.
     </string>
     <!-- Thunderbird -->
+    <string name="title_accessibility_folders">Dopsies</string>
     <string-array name="pollIntervalNames">
         <item>Always</item>
         <item>Elke 5 minute</item>
+        <item>Elke 10 minute</item>
         <item>Elke 15 minute</item>
         <item>Elke 30 minute</item>
         <item>Elke uur</item>

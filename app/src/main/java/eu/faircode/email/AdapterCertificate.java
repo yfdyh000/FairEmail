@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -101,15 +101,15 @@ public class AdapterCertificate extends RecyclerView.Adapter<AdapterCertificate.
             ss.setSpan(new RelativeSizeSpan(0.9f), 0, ss.length(), 0);
             popupMenu.getMenu().add(Menu.NONE, 0, 0, ss).setEnabled(false);
 
-            popupMenu.getMenu().add(Menu.NONE, R.string.title_save, 1, R.string.title_save);
+            popupMenu.getMenu().add(Menu.NONE, R.string.title_share, 1, R.string.title_share);
             popupMenu.getMenu().add(Menu.NONE, R.string.title_delete, 2, R.string.title_delete);
 
             popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
                 @Override
                 public boolean onMenuItemClick(MenuItem item) {
                     int id = item.getItemId();
-                    if (id == R.string.title_save) {
-                        onActionSave();
+                    if (id == R.string.title_share) {
+                        onActionShare();
                         return true;
                     } else if (id == R.string.title_delete) {
                         onActionDelete();
@@ -118,7 +118,7 @@ public class AdapterCertificate extends RecyclerView.Adapter<AdapterCertificate.
                     return false;
                 }
 
-                private void onActionSave() {
+                private void onActionShare() {
                     Bundle args = new Bundle();
                     args.putLong("id", certificate.id);
 
@@ -132,10 +132,7 @@ public class AdapterCertificate extends RecyclerView.Adapter<AdapterCertificate.
                             if (certificate == null)
                                 return null;
 
-                            File dir = new File(context.getCacheDir(), "shared");
-                            if (!dir.exists())
-                                dir.mkdir();
-
+                            File dir = Helper.ensureExists(new File(context.getFilesDir(), "shared"));
                             String name = Helper.sanitizeFilename(certificate.email);
                             File file = new File(dir, name + ".pem");
                             Helper.writeText(file, certificate.getPem());
@@ -147,6 +144,7 @@ public class AdapterCertificate extends RecyclerView.Adapter<AdapterCertificate.
                         protected void onExecuted(Bundle args, File file) {
                             if (file == null)
                                 return;
+                            // application/x-pem-file is generally unsupported
                             Helper.share(context, file, "application/*", file.getName());
                         }
 
@@ -154,7 +152,7 @@ public class AdapterCertificate extends RecyclerView.Adapter<AdapterCertificate.
                         protected void onException(Bundle args, Throwable ex) {
                             Log.unexpectedError(parentFragment.getParentFragmentManager(), ex);
                         }
-                    }.execute(context, owner, args, "certificate:save");
+                    }.execute(context, owner, args, "certificate:share");
                 }
 
                 private void onActionDelete() {
@@ -250,7 +248,12 @@ public class AdapterCertificate extends RecyclerView.Adapter<AdapterCertificate.
                 Log.d("Changed @" + position + " #" + count);
             }
         });
-        diff.dispatchUpdatesTo(this);
+
+        try {
+            diff.dispatchUpdatesTo(this);
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
     }
 
     private static class DiffCallback extends DiffUtil.Callback {

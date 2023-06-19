@@ -16,17 +16,23 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.app.Activity.RESULT_OK;
 
 import android.app.Dialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Bundle;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -36,16 +42,39 @@ public class FragmentDialogEditName extends FragmentDialogBase {
     @NonNull
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-        View view = LayoutInflater.from(getContext()).inflate(R.layout.dialog_edit_name, null);
+        final Context context = getContext();
+        View view = LayoutInflater.from(context).inflate(R.layout.dialog_edit_name, null);
         final EditText etName = view.findViewById(R.id.etName);
-        etName.setText(getArguments().getString("name"));
+        final CheckBox cbPrimary = view.findViewById(R.id.cbPrimary);
 
-        return new AlertDialog.Builder(getContext())
+        Bundle args = getArguments();
+        etName.setText(args.getString("name"));
+        cbPrimary.setChecked(args.getBoolean("primary"));
+        cbPrimary.setVisibility(args.containsKey("primary") ? View.VISIBLE : View.GONE);
+
+        etName.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                if (actionId != EditorInfo.IME_ACTION_DONE)
+                    return false;
+                AlertDialog dialog = (AlertDialog) getDialog();
+                if (dialog == null)
+                    return false;
+                Button btnOk = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+                if (btnOk == null)
+                    return false;
+                btnOk.performClick();
+                return true;
+            }
+        });
+
+        return new AlertDialog.Builder(context)
                 .setView(view)
                 .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        getArguments().putString("name", etName.getText().toString());
+                        args.putString("name", etName.getText().toString());
+                        args.putBoolean("primary", cbPrimary.isChecked());
                         sendResult(RESULT_OK);
                     }
                 })

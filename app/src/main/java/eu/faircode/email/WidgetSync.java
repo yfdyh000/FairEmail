@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.app.PendingIntent;
@@ -27,6 +27,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.os.Build;
 import android.widget.RemoteViews;
 
 import androidx.core.graphics.ColorUtils;
@@ -37,6 +38,7 @@ public class WidgetSync extends AppWidgetProvider {
     public void onUpdate(final Context context, final AppWidgetManager appWidgetManager, final int[] appWidgetIds) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean enabled = prefs.getBoolean("enabled", true);
+        boolean connected = prefs.getBoolean("connected", false);
 
         try {
             Intent intent = new Intent(context, ServiceSynchronize.class)
@@ -45,7 +47,10 @@ public class WidgetSync extends AppWidgetProvider {
             PendingIntent pi = PendingIntentCompat.getForegroundService(
                     context, ServiceSynchronize.PI_ENABLE, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
+            int colorWidgetForeground = context.getResources().getColor(R.color.colorWidgetForeground);
+
             for (int appWidgetId : appWidgetIds) {
+                boolean daynight = prefs.getBoolean("widget." + appWidgetId + ".daynight", false);
                 boolean semi = prefs.getBoolean("widget." + appWidgetId + ".semi", true);
                 int background = prefs.getInt("widget." + appWidgetId + ".background", Color.TRANSPARENT);
                 int version = prefs.getInt("widget." + appWidgetId + ".version", 0);
@@ -55,25 +60,34 @@ public class WidgetSync extends AppWidgetProvider {
 
                 RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_sync);
                 views.setOnClickPendingIntent(R.id.ivSync, pi);
-                views.setImageViewResource(R.id.ivSync, enabled ? R.drawable.twotone_sync_24 : R.drawable.twotone_sync_disabled_24);
 
-                if (background == Color.TRANSPARENT) {
+                views.setImageViewResource(R.id.ivSync, enabled ? R.drawable.twotone_sync_24 : R.drawable.twotone_sync_disabled_24);
+                views.setInt(R.id.ivSync, "setImageAlpha",
+                        !enabled || connected ? 255 : Math.round(Helper.LOW_LIGHT * 255));
+
+                if (!daynight && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                    views.setColorStateListAttr(R.id.background, "setBackgroundTintList", 0);
+
+                if (daynight && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    views.setInt(R.id.background, "setBackgroundColor", Color.WHITE);
+                    views.setColorStateListAttr(R.id.background, "setBackgroundTintList", android.R.attr.colorBackground);
+                    views.setColorAttr(R.id.ivSync, "setColorFilter", android.R.attr.textColorPrimary);
+                } else if (background == Color.TRANSPARENT) {
                     if (semi)
-                        views.setInt(android.R.id.background, "setBackgroundResource", R.drawable.widget_background);
+                        views.setInt(R.id.background, "setBackgroundResource", R.drawable.widget_background);
                     else
-                        views.setInt(android.R.id.background, "setBackgroundColor", background);
-                    views.setInt(R.id.ivSync, "setColorFilter",
-                            context.getResources().getColor(R.color.colorWidgetForeground));
+                        views.setInt(R.id.background, "setBackgroundColor", background);
+                    views.setInt(R.id.ivSync, "setColorFilter", colorWidgetForeground);
                 } else {
                     float lum = (float) ColorUtils.calculateLuminance(background);
 
                     if (semi)
                         background = ColorUtils.setAlphaComponent(background, 127);
 
-                    views.setInt(android.R.id.background, "setBackgroundColor", background);
+                    views.setInt(R.id.background, "setBackgroundColor", background);
 
-                    if (lum > 0.7f)
-                        views.setInt(R.id.ivSync, "setColorFilter", Color.BLACK);
+                    int fg = (lum > 0.7f ? Color.BLACK : colorWidgetForeground);
+                    views.setInt(R.id.ivSync, "setColorFilter", fg);
                 }
 
                 int dp6 = Helper.dp2pixels(context, 6);

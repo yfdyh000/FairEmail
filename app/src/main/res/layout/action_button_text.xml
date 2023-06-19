@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:theme="?actionBarTheme">
 
-    <eu.faircode.email.FixedImageButton
+    <ImageButton
         android:id="@+id/button"
         style="@android:style/Widget.ActionButton"
         android:layout_width="wrap_content"
@@ -16,7 +16,7 @@
         app:srcCompat="@drawable/twotone_lock_24"
         app:tint="?android:attr/textColorPrimary" />
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

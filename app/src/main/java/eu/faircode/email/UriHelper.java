@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -26,11 +26,15 @@ import android.util.Base64;
 import android.webkit.URLUtil;
 
 import androidx.annotation.NonNull;
+import androidx.core.net.MailTo;
 import androidx.core.util.PatternsCompat;
+
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.IDN;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -70,7 +74,21 @@ public class UriHelper {
 
             "zanpid", // Zanox (Awin)
 
-            "kclickid" // https://support.freespee.com/hc/en-us/articles/202577831-Kenshoo-integration
+            "kclickid", // https://support.freespee.com/hc/en-us/articles/202577831-Kenshoo-integration
+
+            // https://github.com/brave/brave-core/blob/master/browser/net/brave_site_hacks_network_delegate_helper.cc
+            "oly_anon_id", "oly_enc_id", // https://training.omeda.com/knowledge-base/olytics-product-outline/
+            "_openstat", // https://yandex.com/support/direct/statistics/url-tags.html
+            "vero_conv", "vero_id", // https://help.getvero.com/cloud/articles/what-is-vero_id/
+            "wickedid", // https://help.wickedreports.com/how-to-manually-tag-a-facebook-ad-with-wickedid
+            "yclid", // https://ads-help.yahoo.co.jp/yahooads/ss/articledetail?lan=en&aid=20442
+            "__s", // https://ads-help.yahoo.co.jp/yahooads/ss/articledetail?lan=en&aid=20442
+            "rb_clickid", // Russian
+            "s_cid", // https://help.goacoustic.com/hc/en-us/articles/360043311613-Track-lead-sources
+            "ml_subscriber", "ml_subscriber_hash", // https://www.mailerlite.com/help/how-to-integrate-your-forms-to-a-wix-website
+            "twclid", // https://business.twitter.com/en/blog/performance-advertising-on-twitter.html
+            "gbraid", "wbraid", // https://support.google.com/google-ads/answer/10417364
+            "_hsenc", "__hssc", "__hstc", "__hsfp", "hsCtaTracking" // https://knowledge.hubspot.com/reports/what-cookies-does-hubspot-set-in-a-visitor-s-browser
     ));
 
     // https://github.com/snarfed/granary/blob/master/granary/facebook.py#L1789
@@ -86,37 +104,69 @@ public class UriHelper {
     static String getParentDomain(Context context, String host) {
         if (host == null)
             return null;
-        String parent = _getSuffix(context, host);
-        return (parent == null ? host : parent);
+        int dot = host.indexOf('.');
+        if (dot < 0)
+            return null;
+        String parent = host.substring(dot + 1);
+        String tld = getTld(context, host);
+        if (tld == null || tld.equals(parent) || parent.length() < tld.length())
+            return null;
+        return parent;
     }
 
-    static boolean hasParentDomain(Context context, String host) {
-        return (host != null && _getSuffix(context, host) != null);
+    static String getRootDomain(Context context, String host) {
+        if (host == null)
+            return null;
+        String tld = getTld(context, host);
+        if (tld == null)
+            return null;
+        if (tld.equalsIgnoreCase(host))
+            return null;
+        int len = host.length() - tld.length() - 1;
+        if (len < 0) {
+            Log.e("getRootDomain host=" + host + " tld=" + tld);
+            return null;
+        }
+        int dot = host.substring(0, len).lastIndexOf('.');
+        if (dot < 0)
+            return host;
+        return host.substring(dot + 1);
     }
 
-    private static String _getSuffix(Context context, @NonNull String host) {
+    static boolean isTld(Context context, String host) {
+        if (host == null)
+            return false;
+        String tld = getTld(context, host);
+        return (tld != null && tld.equals(host));
+    }
+
+    static boolean hasTld(Context context, String host) {
+        return (getTld(context, host) != null);
+    }
+
+    static String getTld(Context context, @NonNull String host) {
         ensureSuffixList(context);
 
-        String h = host.toLowerCase(Locale.ROOT);
+        String eval = host.toLowerCase(Locale.ROOT);
         while (true) {
-            int dot = h.indexOf('.');
+            int d = eval.indexOf('.');
+            String w = (d < 0 ? null : '*' + eval.substring(d));
+
+            synchronized (suffixList) {
+                if (suffixList.contains(eval))
+                    return eval;
+                if (suffixList.contains(w))
+                    if (suffixList.contains('!' + eval))
+                        return eval.substring(d + 1);
+                    else
+                        return eval;
+            }
+
+            int dot = eval.indexOf('.');
             if (dot < 0)
                 return null;
 
-            String prefix = h.substring(0, dot);
-            h = h.substring(dot + 1);
-
-            int d = h.indexOf('.');
-            String w = (d < 0 ? null : '*' + h.substring(d));
-
-            synchronized (suffixList) {
-                if (!suffixList.contains('!' + h) &&
-                        (suffixList.contains(h) || suffixList.contains(w))) {
-                    String parent = prefix + "." + h;
-                    Log.d("Host=" + host + " parent=" + parent);
-                    return parent;
-                }
-            }
+            eval = eval.substring(dot + 1);
         }
     }
 
@@ -185,11 +235,22 @@ public class UriHelper {
                 String line;
                 while ((line = br.readLine()) != null) {
                     line = line.trim();
+
                     if (TextUtils.isEmpty(line))
                         continue;
+
                     if (line.startsWith("//"))
                         continue;
+
                     suffixList.add(line);
+
+                    try {
+                        String ascii = IDN.toASCII(line, IDN.ALLOW_UNASSIGNED);
+                        if (!line.equals(ascii))
+                            suffixList.add(line);
+                    } catch (Throwable ex) {
+                        Log.e(ex);
+                    }
                 }
                 Log.i(SUFFIX_LIST_NAME + "=" + suffixList.size());
             } catch (Throwable ex) {
@@ -207,14 +268,16 @@ public class UriHelper {
         if (uri.getHost() != null &&
                 uri.getHost().endsWith("safelinks.protection.outlook.com") &&
                 !TextUtils.isEmpty(uri.getQueryParameter("url"))) {
-            changed = true;
-            url = Uri.parse(uri.getQueryParameter("url"));
+            Uri result = Uri.parse(uri.getQueryParameter("url"));
+            changed = (result != null && isHyperLink(result));
+            url = (changed ? result : uri);
         } else if ("https".equals(uri.getScheme()) &&
                 "smex-ctp.trendmicro.com".equals(uri.getHost()) &&
                 "/wis/clicktime/v1/query".equals(uri.getPath()) &&
                 !TextUtils.isEmpty(uri.getQueryParameter("url"))) {
-            changed = true;
-            url = Uri.parse(uri.getQueryParameter("url"));
+            Uri result = Uri.parse(uri.getQueryParameter("url"));
+            changed = (result != null && isHyperLink(result));
+            url = (changed ? result : uri);
         } else if ("https".equals(uri.getScheme()) &&
                 "www.google.com".equals(uri.getHost()) &&
                 uri.getPath() != null &&
@@ -237,38 +300,96 @@ public class UriHelper {
                 p = u.indexOf("/");
             }
 
-            changed = (result != null);
-            url = (result == null ? uri : result);
+            changed = (result != null && isHyperLink(result));
+            url = (changed ? result : uri);
         } else if ("https".equals(uri.getScheme()) &&
                 uri.getHost() != null &&
                 uri.getHost().startsWith("www.google.") &&
                 uri.getQueryParameter("url") != null) {
             // Google non-com redirects
             Uri result = Uri.parse(uri.getQueryParameter("url"));
-            changed = (result != null);
-            url = (result == null ? uri : result);
-        } else if (uri.getQueryParameterNames().size() == 1) {
-            // Sophos Email Appliance
+            changed = (result != null && isHyperLink(result));
+            url = (changed ? result : uri);
+        } else if (uri.getPath() != null &&
+                uri.getPath().startsWith("/track/click") &&
+                uri.getQueryParameter("p") != null) {
             Uri result = null;
-
-            String key = uri.getQueryParameterNames().iterator().next();
-            if (TextUtils.isEmpty(uri.getQueryParameter(key)))
-                try {
-                    String data = new String(Base64.decode(key, Base64.DEFAULT));
-                    int v = data.indexOf("ver=");
-                    int u = data.indexOf("&&url=");
-                    if (v == 0 && u > 0)
-                        result = Uri.parse(URLDecoder.decode(data.substring(u + 6), StandardCharsets.UTF_8.name()));
-                } catch (Throwable ex) {
-                    Log.w(ex);
-                }
-
-            changed = (result != null);
-            url = (result == null ? uri : result);
+            try {
+                // Mandrill
+                String p = new String(Base64.decode(uri.getQueryParameter("p"), Base64.URL_SAFE));
+                JSONObject json = new JSONObject(p);
+                json = new JSONObject(json.getString("p"));
+                result = Uri.parse(json.getString("url"));
+            } catch (Throwable ex) {
+                Log.i(ex);
+            }
+            changed = (result != null && isHyperLink(result));
+            url = (changed ? result : uri);
+        } else if (uri.getHost() != null && uri.getHost().endsWith(".awstrack.me")) {
+            // https://docs.aws.amazon.com/ses/latest/dg/configure-custom-open-click-domains.html
+            String path = uri.getPath();
+            int s = path.indexOf('/', 1);
+            Uri result = (s > 0 ? Uri.parse(path.substring(s + 1)) : null);
+            changed = (result != null && isHyperLink(result));
+            url = (changed ? result : uri);
+        } else if (uri.getQueryParameter("redirectUrl") != null) {
+            // https://.../link-tracker?redirectUrl=<base64>&sig=...&iat=...&a=...&account=...&email=...&s=...&i=...
+            Uri result = null;
+            try {
+                byte[] bytes = Base64.decode(uri.getQueryParameter("redirectUrl"), Base64.URL_SAFE);
+                String u = URLDecoder.decode(new String(bytes), StandardCharsets.UTF_8.name());
+                result = Uri.parse(u);
+            } catch (Throwable ex) {
+                Log.i(ex);
+            }
+            changed = (result != null && isHyperLink(result));
+            url = (changed ? result : uri);
         } else
             url = uri;
 
-        if (url.isOpaque())
+        if (!changed) {
+            // Sophos Email Appliance
+            // http://<host>/?<base64>
+            Uri result = null;
+            try {
+                if (uri.getQueryParameterNames().size() == 1) {
+                    String key = uri.getQueryParameterNames().iterator().next();
+                    if (TextUtils.isEmpty(uri.getQueryParameter(key))) {
+                        String data = new String(Base64.decode(key, Base64.URL_SAFE));
+                        int v = data.indexOf("ver=");
+                        int u = data.indexOf("&&url=");
+                        if (v == 0 && u > 0)
+                            result = Uri.parse(URLDecoder.decode(data.substring(u + 6), StandardCharsets.UTF_8.name()));
+                    }
+                }
+            } catch (Throwable ex) {
+                Log.i(ex);
+            }
+            changed = (result != null && isHyperLink(result));
+            url = (changed ? result : uri);
+        }
+
+        if (!changed) {
+            // go.dhlparcel.nl and others
+            // Try base64 last path segment
+            Uri result = null;
+            String path = uri.getPath();
+            try {
+                if (path != null) {
+                    int s = path.lastIndexOf('/');
+                    if (s > 0) {
+                        String b = new String(Base64.decode(path.substring(s + 1), Base64.URL_SAFE));
+                        result = Uri.parse(b);
+                    }
+                }
+            } catch (Throwable ex) {
+                Log.i(ex);
+            }
+            changed = (result != null && isHyperLink(result));
+            url = (changed ? result : uri);
+        }
+
+        if (url.isOpaque() || !isHyperLink(url))
             return uri;
 
         Uri.Builder builder = url.buildUpon();
@@ -299,12 +420,9 @@ public class UriHelper {
                 for (String value : url.getQueryParameters(key)) {
                     Log.i("Query " + key + "=" + value);
                     Uri suri = Uri.parse(value);
-                    if ("http".equals(suri.getScheme()) || "https".equals(suri.getScheme())) {
+                    if (suri != null && isHyperLink(suri)) {
                         Uri s = sanitize(suri);
-                        if (s != null) {
-                            changed = true;
-                            value = s.toString();
-                        }
+                        return (s == null ? suri : s);
                     }
                     builder.appendQueryParameter(key, value);
                 }
@@ -332,11 +450,46 @@ public class UriHelper {
     }
 
     static boolean isSecure(Uri uri) {
-        return (!uri.isOpaque() && "https".equals(uri.getScheme()));
+        return (!uri.isOpaque() && "https".equalsIgnoreCase(uri.getScheme()));
     }
 
     static boolean isHyperLink(Uri uri) {
         return (!uri.isOpaque() &&
-                ("http".equals(uri.getScheme()) || "https".equals(uri.getScheme())));
+                ("http".equalsIgnoreCase(uri.getScheme()) ||
+                        "https".equalsIgnoreCase(uri.getScheme())));
+    }
+
+    static Uri fix(Uri uri) {
+        if ("HTTP".equals(uri.getScheme()) || "HTTPS".equals(uri.getScheme())) {
+            String u = uri.toString();
+            int semi = u.indexOf(':');
+            if (semi > 0)
+                return Uri.parse(u.substring(0, semi).toLowerCase(Locale.ROOT) + u.substring(semi));
+        }
+
+        return uri;
+    }
+
+    static String getHost(Uri uri) {
+        if ("mailto".equalsIgnoreCase(uri.getScheme())) {
+            MailTo email = MailTo.parse(uri.toString());
+            return getEmailDomain(email.getTo());
+        } else
+            return uri.getHost();
+    }
+
+    static void test(Context context) {
+        String[] hosts = new String[]{
+                "child.parent.example.com", "parent.example.com", "example.com", "com",
+                "child.parent.co.uk", "parent.co.uk", "co.uk", "uk",
+                "child.parent.aaa.ck", "parent.aaa.ck", "aaa.ck", "ck",
+                "child.parent.www.ck", "parent.www.ck", "www.ck", "ck"
+        };
+
+        for (String host : hosts)
+            Log.i("PSL " + host + ":" +
+                    " tld=" + getTld(context, host) +
+                    " root=" + getRootDomain(context, host) +
+                    " parent=" + getParentDomain(context, host));
     }
 }

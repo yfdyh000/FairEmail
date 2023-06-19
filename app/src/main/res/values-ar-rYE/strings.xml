@@ -4,14 +4,21 @@
     <string name="app_changelog">سجل التغييرات</string>
     <string name="app_welcome">فيرميل هو تطبيق بريد إلكتروني مفتوح المصدر يركز على الخصوصية والأمان. لهذا السبب ، قد تعمل بعض الميزات بشكل مختلف عن ما اعتدت عليه.</string>
     <string name="app_limitations">على سبيل المثال، يتم إعادة تنسيق الرسائل بشكل افتراضي لإزالة العناصر غير الآمنة وتحسين إمكانية القراءة، كما ويجب تأكيد فتح الروابط من أجل السلامة. وكلاهما يمكن أن يُعطلا إذا رُغب في ذلك.</string>
+    <string name="app_unsupported">الأخطاء في إصدار الأندرويد لهذا الجهاز المعين تسبب أعطال</string>
+    <string name="app_data_loss">قد تفقد جميع البيانات</string>
+    <string name="app_continue">استمر على أي حال</string>
     <string name="app_exit">أنقر مرة أخرى للخروج من التطبيق</string>
     <string name="app_cake">مساحة تخزين غير كافية</string>
+    <string name="app_cake_remaining">مساحة التخزين المتبقية على الجهاز: %1$s</string>
+    <string name="app_cake_required">الحد الأدنى لمساحة التخزين المطلوبة: %1$s</string>
     <string name="app_updated">آخر تحديث: %1$s</string>
-    <string name="channel_service">إستلام</string>
+    <string name="app_download">نُزّل من: %1$s</string>
+    <string name="channel_service">المتابع</string>
     <string name="channel_send">أرسل</string>
     <string name="channel_notification">البريد الإلكتروني</string>
     <string name="channel_progress">التفدم</string>
     <string name="channel_update">التحديثات</string>
+    <string name="channel_announcements">إعلانات</string>
     <string name="channel_warning">التحذيرات</string>
     <string name="channel_error">الأخطاء</string>
     <string name="channel_alert">تنبيهات الخادم</string>
@@ -93,16 +100,33 @@
     </plurals>
     <string name="title_ask_spam_who">جعل الرسالة من %1$s كرسالة غير مرغوب فيها؟</string>
     <string name="title_junk_hint">مزود البريد الإلكتروني الخاص بك مسؤول عن تصفية البريد غير المرغوب فيه. تطبيق البريد الإلكتروني لا يحتوي على جميع البيانات المطلوبة للقيام بذلك بشكل موثوق.</string>
+    <string name="title_junk_pop_hint">        لن يتم تنزيل الرسائل الواردة من المرسلين المحظورين.
+        إذا لم يتم تمكين \"ترك الرسائل على الخادم\"، فستفقد هذه الرسائل نهائيا!
+    </string>
     <string name="title_block">حظر %1$s</string>
     <string name="title_block_sender">حظر المرسل</string>
+    <string name="title_block_sender_domain">حظر دومين \'%1$s\'</string>
+    <string name="title_block_sender_hint">        حظر المرسل هو ميزة مجانية.
+        حظر دومين المرسل باستخدام قواعد الفلتر، هي ميزة احترافية.
+    </string>
+    <string name="title_blocked_senders">المرسلون المحظورون</string>
     <string name="title_junk_filter">استخدام فلتر البريد المزعج محليا</string>
+    <string name="title_junk_filter_hint">يمكن أن يؤدي ذلك إلى زيادة استخدام البطارية ووضع علامة على الرسائل كرسائل غير مرغوب فيها بشكل غير صحيح</string>
+    <string name="title_junk_blocklist">استخدم قوائم حظر البريد المزعج</string>
     <string name="title_junk_clear">محو</string>
+    <string name="title_junk_clear_hint">سيؤدي هذا إلى حذف جميع قواعد الحظر للمرسل</string>
     <string name="title_notification_sending">جارٍ إرسال الرسالة</string>
     <string name="title_notification_waiting">في انتظار اتصال مناسب</string>
     <string name="title_notification_idle">خامل</string>
     <string name="title_notification_failed">\'%1$s\' فشل</string>
+    <string name="title_notification_alert">تنبيه الخادم: \'%1$s\'</string>
+    <string name="title_notification_sending_left">المحاولات المتبقية: %1$d</string>
+    <string name="title_notification_sending_retry">سيتم إعادة الإرسال عند تغيير الاتصال بالإنترنت أو السحب للأسفل على صندوق الصادر</string>
+    <string name="title_notification_sending_failed">الإرسال إلى %1$s فشل</string>
+    <string name="title_notification_redacted">منقح: تم تمكين المصادقة بالقياسات الحيوية أو برقم التعريف الشخصي</string>
     <string name="title_factor_minutes">%1$d دقيقة</string>
     <string name="menu_answers">النماذج</string>
+    <string name="menu_rules">القواعد</string>
     <string name="menu_operations">الإجراءات</string>
     <string name="menu_contacts">المُراسِلون المحليون</string>
     <string name="menu_setup">الإعدادات</string>
@@ -111,100 +135,218 @@
     <string name="menu_faq">الدعم</string>
     <string name="menu_translate">ساعد في الترجمة</string>
     <string name="menu_issue">الإبلاغ عن خلل</string>
+    <string name="menu_attribution">الإسنادات</string>
     <string name="menu_privacy">الخصوصية</string>
     <string name="menu_about">عن التطبيق</string>
     <string name="menu_pro">ميزات النسخة الكاملة</string>
     <string name="menu_rate">قيّم هذا التطبيق</string>
     <string name="title_welcome">مرحباً</string>
     <string name="title_eula">اتفاقية ترخيص المستخدم النهائي</string>
+    <string name="title_license">ترخيص مفتوح المصدر</string>
+    <string name="title_contributors">المساهمين</string>
     <string name="title_agree">أنا أوافق</string>
     <string name="title_disagree">أنا لا أوافق</string>
     <string name="title_version">الإصدار %1$s</string>
+    <string name="title_privacy_policy">سياسة الخصوصية</string>
     <string name="title_list_accounts">الحسابات</string>
     <string name="title_list_identities">الهويات</string>
     <string name="title_edit_account">تعديل الحساب</string>
     <string name="title_edit_identity">تعديل الهوية</string>
     <string name="title_edit_folder">تعديل المجلد</string>
+    <string name="title_disable_gmail">تعطيل تطبيق جيميل</string>
     <string name="title_setup">الإعدادات</string>
     <string name="title_setup_help">المساعدة</string>
     <string name="title_setup_quick">الإعداد السريع</string>
+    <string name="title_setup_intro">إعداد الحساب فقط بثلاث خطوات وبعد ذلك يمكنك إرسال واستقبال رسائل البريد الإلكتروني</string>
+    <string name="title_setup_simple">لا حاجة لتغيير أي خيارات أخرى</string>
+    <string name="title_setup_issue">تم تطوير FairEmail لمساعدتك على حماية خصوصيتك ويمثل حرفيا آلاف الساعات من العمل. إذا كان لديك أي مشاكل، يرجى الاتصال بي أولاً للحصول على الدعم قبل ترك مراجعة سيئة. يسعدني أن أساعد!</string>
+    <string name="title_setup_analytics">تطبيق FairEmail لا يعرض الإعلانات ولا يتتبع أو يحلل سلوكك. يتم استخدام Bugsnag للإبلاغ عن الأخطاء وهو غير ممكن بشكل افتراضي.</string>
+    <string name="title_setup_quick_accounts">إضافة أو تغيير الحسابات</string>
+    <string name="title_setup_quick_support">بعض مقدمي الخدمات يجعلون من الصعب إضافة حساب. الرجاء عدم إلقاء اللوم على FairEmail لهذا الغرض، بدلاً من ذلك أطلب الدعم من مزود الخدمة.</string>
+    <string name="title_setup_quick_hint">يتم استخدام عنوان البريد الإلكتروني المدخل للاستعلام عن خادم البريد الإلكتروني و autoconfig.thunderbird.net لمعلومات التكوين</string>
+    <string name="title_setup_quick_patience">الرجاء التحلي بالصبر &#8230;</string>
     <string name="title_setup_quick_imap">خادم IMAP لتلقي الرسائل</string>
     <string name="title_setup_quick_smtp">خادم SMTP لإرسال الرسائل</string>
+    <string name="title_setup_quick_certificates">شهادات الخادم</string>
     <string name="title_setup_wizard">المساعد</string>
+    <string name="title_setup_wizard_tutorials">الدروس</string>
+    <string name="title_setup_wizard_multiple">يمكن استخدام المعالج عدة مرات لإعداد حسابات متعددة</string>
+    <string name="title_setup_wizard_new">أحتاج إلى عنوان بريد إلكتروني جديد</string>
     <string name="title_setup_manual">خيارات الحساب والاعدادات يدويا</string>
+    <string name="title_setup_classic">التكوين الكلاسيكي</string>
+    <string name="title_setup_documentation">يرجى الاطلاع على وثائق موفر البريد الإلكتروني الخاص بك لتكوين خادم البريد الإلكتروني الصحيح</string>
+    <string name="title_setup_account_remark">تلقي البريد الإلكتروني</string>
     <string name="title_setup_identity_remark">ارسل بريد</string>
+    <string name="title_setup_account_identity_hint">يمكنك تكوين الاسم، اللون و إجراءات السحب في إعدادات الحساب، و تكوين توقيع في إعدادات الهوية</string>
     <string name="title_setup_accounts">الحسابات</string>
     <string name="title_setup_identities">الهويات</string>
+    <string name="title_setup_google_sign_in">تسجيل الدخول باستخدام جوجل</string>
     <string name="title_setup_other">مزود اخر</string>
+    <string name="title_setup_inbound">البريد الإلكتروني الوارد فقط (لا يمكن إرسال البريد الإلكتروني!)</string>
+    <string name="title_setup_pop3">حساب POP3</string>
+    <string name="title_setup_oauth_permission">مزود البريد الإلكتروني وافق على OAuth فقط لإصدارة متجر Play وإصدارة GitHub</string>
+    <string name="title_setup_gmail_support">تفويض حسابات جوجل سيعمل فقط مع إصدارة متجر Play وإصدارة GitHub لأن أندرويد يفحص توقيع التطبيق الرقمي</string>
     <string name="title_setup_gmail_rationale">الرجاء منح الصلاحيات لتحديد الحساب وقراءة اسمك</string>
     <string name="title_setup_gmail_permissions">جوجل سوف تطلب موافقتك لقراءة, تأليف, أرسال وحذف نهائي لكل الرسائل. فيرميل لن يمسح رسائلك ابدا بدون موافقتك.</string>
-    <string name="title_setup_gmail_drafts">إذا تعذر الوصول إلى مجلد المسودات بواسطة IMAP ، يمكن إصلاح هذا في إعدادات تسمية Gmail</string>
+    <string name="title_setup_gmail_login">إذا تم تسجيل الدخول بحساب جوجل في متصفح كروم، يمكن إضافة حساب جديد فقط من خلال أندرويد. يمكن تجنب هذا عن طريق تسجيل الخروج من حساب جوجل في متصفح كروم عن طريق إعدادات مزامنة كروم.</string>
+    <string name="title_setup_gmail_max">في حالة ظهور رسالة الخطأ \"لقد قمت بتسجيل الدخول إلى الحد الأقصى لعدد الحسابات\"، فأنت بحاجة إلى تسجيل الخروج من المتصفح من جميع حسابات غوغل.</string>
+    <string name="title_setup_gmail_on_device">لماذا أحتاج إلى اختيار حساب على الجهاز؟</string>
+    <string name="title_setup_gmail_password">أريد تخويل حساب بكلمة مرور بدلا من حساب على الجهاز</string>
+    <string name="title_setup_office_auth">يمكن أن يكون سبب الخطأ \"فشل المصادقة\" هو عدم تمكين IMAP/SMTP بواسطة مسؤول النظام</string>
     <string name="title_setup_oauth_rationale">السماح بالوصول إلى حسابك %1$s</string>
+    <string name="title_setup_oauth_update">تفويض حساب موجود مرة أخرى (وإلا قم بإنشاء حساب جديد)</string>
+    <string name="title_setup_oauth_updated">تم تحديث تفويض الحساب</string>
     <string name="title_setup_oauth_authorize">ترخيص</string>
     <string name="title_setup_select_account">اختيار الحساب</string>
     <string name="title_setup_instructions">تعليمات الضبط</string>
     <string name="title_setup_no_settings">لا اعدادات وجدت للنطاق \'%1$s\'</string>
+    <string name="title_setup_no_settings_hint">حاول إعداد حساب يدوياً باستخدام الإعدادات التي يوفرها مزود البريد الإلكتروني الخاص بك</string>
+    <string name="title_setup_no_auth_hint">يرجى التحقق مرة أخرى من عنوان بريدك الإلكتروني وكلمة المرور والتأكد من تمكين الوصول الخارجي (IMAP/SMTP) لحسابك</string>
+    <string name="title_setup_app_password_hint">يتطلب هذا المزود كلمة مرور للتطبيق بدلا من كلمة مرور الحساب، يرجى التحقق من تعليمات مزود الخدمة الخاص بك</string>
     <string name="title_setup_no_inbox">صندوق الوارد غير موجود</string>
+    <string name="title_setup_advanced_protection">عند التسجيل في برنامج الحماية المتقدمة، لا يمكن استخدام تطبيق بريد إلكتروني تابع لجهة خارجية. هذا قيد تفرضه جوجل.</string>
+    <string name="title_setup_quick_success">تمت إضافة حساب بنجاح</string>
+    <string name="title_setup_quick_no_sent">لم يتم تحديد مجلد الرسائل المرسلة. قد لا يتم تخزين الرسائل المرسلة.</string>
+    <string name="title_setup_quick_configure">لتحرير الاسم واللون وإجراءات التمرير السريع وما إلى ذلك</string>
     <string name="title_setup_manage">إدارة</string>
     <string name="title_setup_grant">السماح</string>
     <string name="title_setup_grant_again">أمنح الاذونات المطلوبة</string>
+    <string name="title_setup_exchange_support">هل مايكروسوفت إكستشينج مدعوم؟</string>
     <string name="title_setup_identity_what">ما هي الهوية؟</string>
+    <string name="title_setup_free">هل هذا التطبيق مجاني للاستخدام؟</string>
     <string name="title_setup_permissions">منح الأذونات</string>
     <string name="title_setup_permissions_remark">للحصول على معلومات جهة الاتصال (اختياري)</string>
+    <string name="title_setup_permissions_calendar">لتخزين الدعوات (اختياري)</string>
+    <string name="title_setup_permissions_explanation">إذن جهات الاتصال مطلوب للبحث عن معلومات الاتصال واقتراح جهات الاتصال</string>
+    <string name="title_setup_permissions_notify">لعرض إشعارات الرسائل الجديدة (اختياري)</string>
+    <string name="title_setup_permissions_notify_explanation">إذن الإشعارات مطلوب لإظهار إشعارات الرسائل الجديدة في شريط الحالة</string>
+    <string name="title_setup_permission_why">ما هي الأذونات المطلوبة ولماذا؟</string>
+    <string name="title_setup_permission_import_contacts">كيف يمكنني استيراد جهات الاتصال؟</string>
     <string name="title_setup_doze">تجاهل تحسينات البطارية</string>
+    <string name="title_setup_doze_remark">لإرسال واستقبال البريد الإلكتروني بشكل موثوق في الخلفية</string>
+    <string name="title_setup_doze_explanation">يجب تعطيل تحسينات البطارية للتطبيق لضمان إرسال واستقبال الرسائل بشكل موثوق في الخلفية</string>
+    <string name="title_setup_doze_hint">على الرغم من أن هذا قد يبدو متناقضا، إلا أن إيقاف تشغيل تحسينات البطارية لهذا التطبيق سيؤدي إلى استخدام أقل للبطارية</string>
+    <string name="title_setup_doze_why">لماذا يجب تعطيل تحسينات البطارية؟</string>
+    <string name="title_setup_doze_instructions">في مربع حوار الأندرويد التالي، قم بتغيير \"غير محسن\" إلى \"جميع التطبيقات\"، وحدد هذا التطبيق من القائمة وحدد \"عدم التحسين\"</string>
     <string name="title_setup_doze_battery">استخدام عالي للبطارية؟</string>
     <string name="title_setup_doze_stopped">المزامنة توقفت؟</string>
+    <string name="title_setup_doze_device">ربما يكون هذا مطلوبا لهذا الجهاز</string>
+    <string name="title_setup_inexact">تم تعطيل المنبهات &amp; والتذكيرات</string>
     <string name="title_setup_background">القيود الخلفية مفعلة</string>
     <string name="title_setup_data">وضع حفظ البيانات قد فعل</string>
+    <string name="title_setup_always">إشعارات فورية بالرسائل الجديدة</string>
+    <string name="title_setup_always_remark">في حالة التمكين، قد تؤدي الاتصالات غير المستقرة وأجهزة الشبكة القديمة وما إلى ذلك إلى زيادة استخدام البطارية</string>
+    <string name="title_setup_advanced_options">إظهار الخيارات المتقدمة</string>
     <string name="title_setup_inbox">الذهاب الى البريد الوارد</string>
     <string name="title_setup_go">إبدأ</string>
     <string name="title_setup_to_do">للانجاز</string>
     <string name="title_setup_done">تمّ</string>
     <string name="title_setup_still">لا يزال يتعين القيام به</string>
     <string name="title_setup_error">خطأ</string>
+    <string name="title_setup_pop">استخدام POP3 (غير مستحسن)</string>
+    <string name="title_setup_recent">استخدم \"الحديث\" لبرامج البريد الإلكتروني المتعددة</string>
+    <string name="title_setup_configuring">تكوين الحساب &#8230;</string>
+    <string name="title_setup_app_password">قد تحتاج إلى استخدام كلمة مرور التطبيق</string>
+    <string name="title_setup_extra">خيارات إضافية</string>
+    <string name="title_setup_delete_account_hint">سيؤدي هذا فقط إلى إزالة الحسابات من التطبيق</string>
     <string name="title_setup_close">اغلق الإعدادات</string>
     <string name="title_setup_export">تصدير الإعدادات</string>
     <string name="title_setup_import">استيراد الإعدادات</string>
+    <string name="title_setup_export_remark">        ملف الإعدادات مشفر بكلمة مرور لأنه يحتوي على جميع الإعدادات ومعلومات الحساب.
+        كلمة المرور مطلوبة لاستيراد الإعدادات مرة أخرى، لذا يرجى عدم نسيانها!
+    </string>
+    <string name="title_setup_export_do">سيحتوي ملف التصدير على جميع الإعدادات والبيانات، ولكن لا توجد رسائل ولا صور مشار إليها في التوقيعات</string>
     <string name="title_setup_password">الكلمة السرية</string>
+    <string name="title_setup_password_chars">تحتوي كلمة المرور على أحرف تحكم أو مسافات بيضاء</string>
     <string name="title_setup_password_repeat">أعد كتابة الكلمة السرية</string>
     <string name="title_setup_password_missing">كلمة المرور مفقودة</string>
     <string name="title_setup_password_different">كلمات المرور غير متطابقة</string>
-    <string name="title_setup_password_invalid">الكلمة السرية غير صالحة</string>
+    <string name="title_setup_password_invalid">كلمة مرور غير صحيحة، أو ملف إعدادات تالف</string>
+    <string name="title_setup_import_accounts">استيراد الحسابات والهويات</string>
+    <string name="title_setup_import_delete">حذف الحسابات الحالية أولاً</string>
+    <string name="title_setup_import_rules">استيراد قواعد التصفية</string>
+    <string name="title_setup_import_contacts">استيراد جهات الاتصال المحلية</string>
+    <string name="title_setup_import_answers">استيراد قوالب الردود</string>
+    <string name="title_setup_import_searches">استيراد عمليات البحث المحفوظة</string>
+    <string name="title_setup_import_settings">خيارات الاستيراد</string>
     <string name="title_setup_exported">تم تصدير الإعدادات</string>
     <string name="title_setup_imported">تم استيراد الإعدادات</string>
+    <string name="title_setup_import_invalid">ملف إعدادات غير صالح</string>
+    <string name="title_importing_account">حساب %1$s</string>
+    <string name="title_importing_identity">هوية %1$s</string>
+    <string name="title_importing_exists">تخطى: موجود بالفعل</string>
+    <string name="title_importing_wizard">تشغيل المعالج للمصادقة مرة أخرى</string>
     <string name="title_setup_reorder_accounts">ترتيب الحسابات</string>
     <string name="title_setup_reorder_folders">ترتيب المجلدات</string>
     <string name="title_reset_order">اعادة الترتيب</string>
     <string name="title_setup_authentication">المصادقة</string>
+    <string name="title_setup_biometrics">المصادقة البيومترية</string>
     <string name="title_setup_biometrics_enable">تمكين</string>
     <string name="title_setup_biometrics_disable">تعطيل</string>
     <string name="title_setup_biometrics_unlock">فُتح القفل</string>
     <string name="title_setup_theme">اختر السمة</string>
     <string name="title_setup_theme_blue_orange">أزرق/برتقالي</string>
+    <string name="title_setup_theme_yellow_purple">أصفر/بنفسجي</string>
+    <string name="title_setup_theme_red_green">أحمر/أخضر</string>
+    <string name="title_setup_theme_grey">رمادي</string>
+    <string name="title_setup_theme_black">أسود</string>
+    <string name="title_setup_theme_white">أبيض</string>
+    <string name="title_setup_theme_black_or_white">أسود أو أبيض</string>
+    <string name="title_setup_theme_black_and_white">أسود وأبيض</string>
+    <string name="title_setup_theme_reverse">مبادلة الألوان</string>
+    <string name="title_setup_theme_light">فاتح</string>
+    <string name="title_setup_theme_dark">غامق</string>
+    <string name="title_setup_theme_system">اتبع نظام أندرويد</string>
     <string name="title_setup_theme_black_background">خلفية سوداء</string>
+    <string name="title_setup_theme_html_light">خلفية فاتحة لعرض الرسالة الأصلية</string>
+    <string name="title_setup_theme_composer_light">خلفية فاتح لمحرر الرسالة</string>
+    <string name="title_setup_theme_you_hint">يمكن تكوين ألوان Material You في إعدادات خلفية أندرويد &amp; إعدادات الشكل</string>
+    <string name="title_setup_theme_system_hint">سيتم التبديل تلقائياً إلى المظهر الفاتح/الغامق في الوضع النهاري/الليلي، إذا كان ذلك مدعوماً من نظام الأندرويد لديك</string>
+    <string name="title_setup_theme_more_colors">أريد المزيد من الألوان</string>
     <string name="title_setup_advanced">الإعدادات المتقدمة</string>
     <string name="title_setup_options">الخيارات</string>
     <string name="title_setup_defaults">استعادة الأوضاع الافتراضية</string>
+    <string name="title_setup_reset_questions">إعادة تعيين الأسئلة</string>
+    <string name="title_setup_reset_general">أسئلة عامّة</string>
+    <string name="title_setup_reset_links">تأكيد الروابط</string>
     <string name="title_setup_reset_images">إظهار الصور</string>
+    <string name="title_setup_reset_full">إظهار الرسائل الأصلية</string>
+    <string name="title_check_gmail_oauth">سوف تستمر حسابات جيميل الخاصة بك في العمل بعد 30 مايو 2022</string>
+    <string name="title_check_gmail_password">بعض حسابات الجيميل الخاصة بك قد تتوقف عن العمل بعد 30 مايو 2022</string>
+    <string name="title_check_outlook_oauth">ستستمر حسابات Outlook في العمل بعد 1 أكتوبر 2022</string>
+    <string name="title_check_outlook_password">قد تتوقف بعض حسابات Outlook الخاصة بك عن العمل بعد 1 أكتوبر 2022</string>
+    <string name="title_advanced_hint_title">خيارات أكثر تقدماً</string>
     <string name="title_advanced_hint_message">        You are navigating to the more advanced options.        All options have commonly used standard values, which you do not need to change unless you have a different preference.
     </string>
+    <string name="title_advanced_hint_remark">        يتم تصنيف الخيارات حسب علامة التبويب، مقسمة إلى أقسام، منظمة حسب المظهر أو الاستخدام، وقابلة للبحث.
+    </string>
+    <string name="title_advanced_hint_setup">يمكنك تكوين حساب بواسطة النقر على زر المعالج على شاشة التكوين الرئيسية.</string>
+    <string name="title_advanced_section_main">الرئيسية</string>
     <string name="title_advanced_section_synchronize">إستلام</string>
     <string name="title_advanced_section_send">إرسال</string>
     <string name="title_advanced_section_connection">اتصال</string>
     <string name="title_advanced_section_display">إظهار</string>
     <string name="title_advanced_section_behavior">السلوك</string>
     <string name="title_advanced_section_privacy">الخصوصية</string>
+    <string name="title_advanced_section_encryption">التشفير</string>
     <string name="title_advanced_section_notifications">الاشعارات</string>
     <string name="title_advanced_section_misc">خيارات متنوعة</string>
+    <string name="title_advanced_section_backup">النسخة الاحتياطية</string>
+    <string name="title_advanced_default">جميع الخيارات تستخدم قيم قياسية شائعة، التي لا تحتاج إلى تغييرها لاستخدام التطبيق</string>
+    <string name="title_advanced_receive">تلقي الرسائل لجميع الحسابات</string>
     <string name="title_advanced_when">متى</string>
     <string name="title_advanced_schedule">برمجة</string>
     <string name="title_advanced_advanced">الإعدادات المتقدمة</string>
     <string name="title_advanced_send_reminders">إظهار التذكيرات</string>
+    <string name="title_advanced_compose_color">لون النص الافتراضي</string>
+    <string name="title_advanced_plain_only_reply">تلقائياً نص عادي فقط عند الرد على رسالة نص عادي فقط</string>
     <string name="title_advanced_metered">استخدام اتصالات أجهزة الاستنشاق</string>
     <string name="title_advanced_caption_general">الاعدادات العامة</string>
     <string name="title_advanced_caption_list">قائمة</string>
     <string name="title_advanced_caption_conversation">المحادثة</string>
     <string name="title_advanced_caption_message">رسالة</string>
+    <string name="title_advanced_hide_toolbar">إخفاء شريط الأدوات العلوي عند تصفح الرسائل</string>
+    <string name="title_advanced_cards_shadow_border">إظهار الحدود</string>
     <string name="title_advanced_date_header">تجميع بحسب التاريخ</string>
     <string name="title_advanced_date_bold">إظهار التاريخ بخط سميك</string>
     <string name="title_advanced_threading">مؤشر ترابط المحادثة</string>
@@ -214,9 +356,11 @@
     <string name="title_advanced_preview">عرض معاينة الرسالة</string>
     <string name="title_advanced_addresses">عرض تفاصيل العناوين بشكل افتراضي</string>
     <string name="title_advanced_background_color">استخدام ألوان الخلفية</string>
+    <string name="title_advanced_actionbar_swap">تبديل سلة المهملات وزر الأرشفة</string>
     <string name="title_advanced_pull_refresh">اسحب لأسفل للتحديث</string>
     <string name="title_advanced_autoexpand">توسيع محتوى الرسائل تلقائيًا</string>
     <string name="title_advanced_autoclose">غلق المحادثات تلقائيا</string>
+    <string name="title_advanced_cancel_snooze">إلغاء الغفوة عند نقل الرسائل</string>
     <string name="title_advanced_notifications">إدارة الإشعارات</string>
     <string name="title_advanced_notify_preview">إظهار معاينة للرسائل في الإشعارات</string>
     <string name="title_advanced_notify_action_trash">سلّة المهملات</string>
@@ -228,14 +372,17 @@
     <string name="title_advanced_light">استخدم الإشعار الضوئي</string>
     <string name="title_advanced_sound">إختر نغمة التنبيه</string>
     <string name="title_advanced_generic_user_agent">استخدام اعدادات المستخدم العامة في المتصفح</string>
+    <string name="title_advanced_clear_all_hint">سيؤدي هذا إلى حذف جميع بيانات التطبيق من جهازك، بما في ذلك حسابات البريد الإلكتروني والرسائل والإعدادات التي تم تكوينها وأي بيانات تم جمعها.</string>
     <string name="title_advanced_encrypt_default">تشفير بشكل افتراضي</string>
     <string name="title_advanced_manage_keys_hint">        This will open to the Android security settings.        Keys and certificates can generally be found under Advanced - Encryption and credentials.
     </string>
     <string name="title_advanced_language_system">النظام</string>
+    <string name="title_advanced_announcements">التحقق من وجود إعلانات</string>
     <string name="title_advanced_crash_reports">إرسال تقارير الأخطاء</string>
     <string name="title_advanced_cleanup">تنظيف</string>
     <string name="title_advanced_debug">وضع التصحيح</string>
     <string name="title_advanced_browse_hint">جلب المزيد من الرسائل عند التمرير إلى أسفل</string>
+    <string name="title_create_folder_name">إسم المجلد</string>
     <string name="title_identity_name">إسمك</string>
     <string name="title_identity_email">البريد الإلكتروني</string>
     <string name="title_advanced_sender">السماح بتغيير عنوان المُرسِل</string>
@@ -252,6 +399,7 @@
     <string name="title_provider">مزود الخدمة</string>
     <string name="title_custom">مُخصّص</string>
     <string name="title_host">اسم المضيف</string>
+    <string name="title_encryption">التشفير</string>
     <string name="title_allow_insecure">السماح بالاتصالات غير الآمنة</string>
     <string name="title_port">رقم المَنفَذ</string>
     <string name="title_user">اسم المستخدم</string>
@@ -270,6 +418,7 @@
     <string name="title_identity_delete">حذف هذه الهوية نهائيا؟</string>
     <string name="title_edit_html">تعديل كـ HTML</string>
     <string name="title_last_connected">آخر ربط: %1$s</string>
+    <string name="title_service_error10">يجب مصادقة هذا الحساب مرة أخرى، الذي يمكن القيام به عبر معالج الإعداد السريع</string>
     <string name="title_advanced_browse">تصفح الرسائل على الخادم</string>
     <string name="title_synchronize_now">زامن الآن</string>
     <string name="title_synchronize_enabled">مزامنة</string>
@@ -277,6 +426,8 @@
     <string name="title_empty_trash">إفراغ سلّة المهملات</string>
     <string name="title_edit_properties">تعديل الخصائص</string>
     <string name="title_edit_rules">تعديل القواعد</string>
+    <string name="title_contact_email">البريد الإلكتروني</string>
+    <string name="title_contact_name">الإسم</string>
     <string name="title_folder_name">إسم المجلد</string>
     <string name="title_display_name">الاسم المعروض</string>
     <string name="title_show_folders">اظهار المجلدات المخفية</string>
@@ -321,6 +472,7 @@
     <string name="title_add_keyword">إضافة كلمة مفتاحية</string>
     <string name="title_download_all">تنزيل الكل</string>
     <string name="title_save_all">حفظ الكل</string>
+    <string name="title_quick_actions_normal">أهمية عادية</string>
     <string name="title_trash">سلة المهملات</string>
     <string name="title_delete">حذف</string>
     <string name="title_more">المزيد</string>
@@ -330,7 +482,6 @@
     <string name="title_archive">أرشيف</string>
     <string name="title_reply">رد</string>
     <string name="title_reply_to_all">الرد على الكل</string>
-    <string name="title_open_with">افتح باستخدام</string>
     <string name="title_no_folder">المجلد غير موجود</string>
     <string name="title_accross_remark">سوف يتم تنزيل الرسائل المنقولة بين الحسابات مرة أخرى و قد يكلف ذلك استخداما في حجم البيانات</string>
     <string name="title_attachment_saved">حفظ المرفقات</string>
@@ -359,6 +510,7 @@
     <string name="title_save">حفظ</string>
     <string name="title_send">إرسال</string>
     <string name="title_send_at">أرسِلها في &#8230;</string>
+    <string name="title_send_encryption">التشفير</string>
     <string name="title_style_bold">غليظ</string>
     <string name="title_style_italic">مائل</string>
     <string name="title_style_size">الحجم</string>
@@ -391,6 +543,9 @@
     <string name="title_search_flag_flagged">مميّزة بنجمة</string>
     <string name="title_search_device">البحث في الجهاز</string>
     <string name="title_search_server">البحث في الخادم</string>
+    <string name="title_save_search_name">الإسم</string>
+    <string name="title_save_search_order">الترتيب</string>
+    <string name="title_save_search_color">اللون</string>
     <string name="title_sort_on">الفرز حسب</string>
     <string name="title_sort_on_time">التاريخ</string>
     <string name="title_sort_on_unread">غير مقروءة</string>
@@ -398,6 +553,8 @@
     <string name="title_sort_on_sender">المُرسِل</string>
     <string name="title_sort_on_subject">الموضوع</string>
     <string name="title_sort_on_size">الحجم</string>
+    <string name="title_sort_on_name">الإسم</string>
+    <string name="title_sort_on_order">الترتيب</string>
     <string name="title_zoom">حجم النص</string>
     <string name="title_select_all">اختيار الكل</string>
     <string name="title_language_all">الكل</string>
@@ -405,17 +562,21 @@
     <string name="title_next">التالي</string>
     <string name="title_edit_signature_text">نص التوقيع</string>
     <string name="title_edit_signature_image">إرفاق صورة</string>
+    <string name="title_answer_define_name">الإسم</string>
     <string name="title_answer_reply">نموذج الرد</string>
     <string name="title_answer_name">اسم النموذج</string>
     <string name="title_answer_text">نص النموذج</string>
     <string name="title_rule_seen">علامة كـ مقروء</string>
     <string name="title_rule_unseen">وضع علامة كغير مقروء</string>
     <string name="title_rule_flag">إضافة نجمة</string>
-    <string name="title_rule_keyword">إضافة كلمة مفتاحية</string>
+    <string name="title_rule_keyword_add">إضافة</string>
+    <string name="title_rule_keyword_delete">حذف</string>
     <string name="title_rule_move">نقل</string>
     <string name="title_rule_name">الإسم</string>
     <string name="title_rule_order">الترتيب</string>
     <string name="title_rule_enabled">تم تفعيله</string>
+    <string name="title_rule_daily">تشغيل يومي (فقط)</string>
+    <string name="title_rule_age">الرسائل الأقدم من (بالأيام)</string>
     <string name="title_rule_sender">المُرسِل يحتوي على</string>
     <string name="title_rule_subject">عنوان الرسالة يحتوي على</string>
     <string name="title_rule_header">الرأسية تحتوي على</string>
@@ -522,17 +683,19 @@
     <string name="title_pro_invalid">استجابة غير صالحة</string>
     <string name="title_unexpected_error">لقد حدث خطأ غير متوقع</string>
     <string name="title_log">السجل</string>
-    <string name="title_auto_scroll">تمرير تلقائي</string>
     <string name="title_log_clear">محو</string>
     <string name="title_debug_info_remark">الرجاء أوصف المشكلة وبيّن وقت المشكلة</string>
     <string name="title_widget_account_all">الكل</string>
     <string name="title_widget_folder">المجلد</string>
     <string name="title_widget_font_size">حجم النص</string>
     <string name="title_widget_semi_transparent">خلفية شبه شفافة</string>
+    <string name="title_widget_count_top">إظهار العدد غير المقروء في الأعلى</string>
     <string name="title_widget_background">لون الخلفية</string>
-    <string name="title_accessibility_unseen">غير مقروءة</string>
     <!-- Thunderbird -->
     <string name="title_keyword_label4">للانجاز</string>
+    <string name="title_accessibility_accounts">الحسابات</string>
+    <string name="title_accessibility_folders">المجلدات</string>
+    <string name="title_accessibility_unseen">غير مقروءة</string>
     <string name="title_accessibility_flagged">مميّزة بنجمة</string>
     <string name="title_accessibility_edit">تعديل</string>
     <string name="title_accessibility_attachment">المرفق</string>
@@ -540,6 +703,7 @@
     <string-array name="pollIntervalNames">
         <item>دائماً</item>
         <item>كل 5 دقيقة</item>
+        <item>كل 10 دقيقة</item>
         <item>كل 15 دقيقة</item>
         <item>كل 30 دقيقة</item>
         <item>كل ساعة</item>
@@ -606,4 +770,17 @@
     <!-- https://www.bouncycastle.org/specifications.html -->
     <!-- https://datatracker.ietf.org/doc/html/rfc5751#page-29 -->
     <!-- https://datatracker.ietf.org/doc/html/rfc5751#section-2.7 -->
+    <string-array name="contactTypes">
+        <item>Recipient</item>
+        <item>المُرسِل</item>
+        <item>محظور</item>
+        <item>Not blocked</item>
+    </string-array>
+    <string-array name="contactGroupTypes">
+        <item>Any</item>
+        <item>Home</item>
+        <item>Work</item>
+        <item>أخرى</item>
+        <item>Mobile</item>
+    </string-array>
 </resources>

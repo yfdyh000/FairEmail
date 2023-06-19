@@ -16,13 +16,17 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.PowerManager;
+import android.text.Spanned;
+import android.view.ContextThemeWrapper;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -34,6 +38,7 @@ import androidx.lifecycle.LifecycleService;
 import androidx.lifecycle.OnLifecycleEvent;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -41,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
 
 // This simple task is simple to use, but it is also simple to cause bugs that can easily lead to crashes
 // Make sure to not access any member in any outer scope from onExecute
@@ -49,23 +55,41 @@ import java.util.concurrent.Future;
 public abstract class SimpleTask<T> implements LifecycleObserver {
     private boolean log = true;
     private boolean count = true;
+    private boolean keepawake = false;
 
+    private String id;
     private String name;
     private long started;
+    private boolean destroyed;
     private boolean reported;
     private Lifecycle.State state;
     private Future<?> future;
     private ExecutorService localExecutor;
+    private Handler handler = null;
 
     private static PowerManager.WakeLock wl = null;
-    private static ExecutorService globalExecutor = null;
+    private static int themeId = -1;
+    @SuppressLint("StaticFieldLeak")
+    private static Context themedContext = null;
     private static final List<SimpleTask> tasks = new ArrayList<>();
 
-    private static final int MAX_WAKELOCK = 30 * 60 * 1000; // milliseconds
+    private static final ExecutorService serialExecutor =
+            Helper.getBackgroundExecutor(1, "tasks/serial");
+
+    private static final ExecutorService globalExecutor =
+            Helper.getBackgroundExecutor(0, "tasks/global");
+
     private static final int REPORT_AFTER = 15 * 60 * 1000; // milliseconds
 
     static final String ACTION_TASK_COUNT = BuildConfig.APPLICATION_ID + ".ACTION_TASK_COUNT";
 
+    @NonNull
+    public SimpleTask<T> setId(String id) {
+        this.id = id;
+        return this;
+    }
+
+    @NonNull
     public SimpleTask<T> setLog(boolean log) {
         this.log = log;
         if (!log)
@@ -73,31 +97,50 @@ public abstract class SimpleTask<T> implements LifecycleObserver {
         return this;
     }
 
+    @NonNull
     public SimpleTask<T> setCount(boolean count) {
         this.count = count;
         return this;
     }
 
+    @NonNull
+    public SimpleTask<T> setKeepAwake(boolean value) {
+        this.keepawake = value;
+        return this;
+    }
+
+    @NonNull
     public SimpleTask<T> setExecutor(ExecutorService executor) {
         this.localExecutor = executor;
         return this;
     }
 
+    public SimpleTask<T> serial() {
+        return setExecutor(serialExecutor);
+    }
+
+    @NonNull
+    public SimpleTask<T> setHandler(Handler handler) {
+        this.handler = handler;
+        return this;
+    }
+
+    @NonNull
     private ExecutorService getExecutor(Context context) {
         if (wl == null) {
-            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            PowerManager pm = Helper.getSystemService(context, PowerManager.class);
             wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, BuildConfig.APPLICATION_ID + ":task");
         }
 
         if (localExecutor != null)
             return localExecutor;
 
-        if (globalExecutor == null) {
-            int processors = Runtime.getRuntime().availableProcessors();
-            globalExecutor = Helper.getBackgroundExecutor(processors, "task");
-        }
-
         return globalExecutor;
+    }
+
+    @NonNull
+    private Handler getHandler() {
+        return (handler == null ? ApplicationEx.getMainHandler() : handler);
     }
 
     public void execute(Context context, LifecycleOwner owner, @NonNull Bundle args, @NonNull String name) {
@@ -125,11 +168,21 @@ public abstract class SimpleTask<T> implements LifecycleObserver {
         this.name = name;
         this.started = new Date().getTime();
 
+        for (String key : args.keySet()) {
+            Object value = args.get(key);
+            if (value instanceof Spanned)
+                args.putCharSequence(key, new SpannableStringBuilderEx((Spanned) value));
+        }
+
         if (owner instanceof TwoStateOwner)
             Log.e(new Throwable("SimpleTask/TwoStateOwner"));
 
         // prevent garbage collection
         synchronized (tasks) {
+            if (id != null)
+                for (SimpleTask task : new ArrayList<>(tasks))
+                    if (id.equals(task.id))
+                        task.cancel(context);
             tasks.add(this);
         }
 
@@ -144,21 +197,47 @@ public abstract class SimpleTask<T> implements LifecycleObserver {
             }
         }
 
+        LifecycleObserver watcher = new LifecycleObserver() {
+            @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+            public void onDestroy() {
+                EntityLog.log(context, EntityLog.Type.Debug, "Owner gone task=" + name);
+                destroyed = true;
+                onDestroyed(args);
+                owner.getLifecycle().removeObserver(this);
+            }
+        };
+
+        Context tcontext;
+        if (context instanceof ActivityBase) {
+            int themeId = ((ActivityBase) context).getThemeId();
+            if (themeId == 0)
+                themeId = context.getApplicationInfo().theme;
+            if (SimpleTask.themedContext == null || SimpleTask.themeId != themeId) {
+                SimpleTask.themeId = themeId;
+                SimpleTask.themedContext = new ContextThemeWrapper(context.getApplicationContext(), themeId);
+            }
+            tcontext = SimpleTask.themedContext;
+        } else
+            tcontext = context.getApplicationContext();
+
         future = getExecutor(context).submit(new Runnable() {
             private Object data;
             private long elapsed;
-            private Throwable ex;
+            private Throwable error;
 
             @Override
             public void run() {
                 // Run in background thread
+                long start = new Date().getTime();
                 try {
-                    wl.acquire(MAX_WAKELOCK);
+                    if (keepawake)
+                        wl.acquire();
+                    else
+                        wl.acquire(Helper.WAKELOCK_MAX);
 
                     if (log)
                         Log.i("Executing task=" + name);
-                    long start = new Date().getTime();
-                    data = onExecute(context, args);
+                    data = onExecute(tcontext, args);
                     elapsed = new Date().getTime() - start;
                     if (log)
                         Log.i("Executed task=" + name + " elapsed=" + elapsed + " ms");
@@ -167,10 +246,14 @@ public abstract class SimpleTask<T> implements LifecycleObserver {
                         Log.i(ex);
                     else
                         Log.e(ex);
-                    this.ex = ex;
+                    error = ex;
                 } finally {
                     if (wl.isHeld())
                         wl.release();
+                    else if (!keepawake &&
+                            !BuildConfig.PLAY_STORE_RELEASE &&
+                            !Boolean.FALSE.equals(Helper.isIgnoringOptimizations(tcontext)))
+                        Log.e(name + " released elapse=" + (new Date().getTime() - start));
                 }
 
                 // Run on UI thread
@@ -181,34 +264,58 @@ public abstract class SimpleTask<T> implements LifecycleObserver {
                         if (state.equals(Lifecycle.State.DESTROYED)) {
                             // No delivery
                             cleanup(context);
-                        } else if (state.isAtLeast(Lifecycle.State.RESUMED)) {
-                            // Inline delivery
-                            Log.i("Deliver task " + name + " state=" + state + " elapse=" + elapsed + " ms");
-                            deliver();
-                            cleanup(context);
                         } else {
-                            Log.i("Deferring task " + name + " state=" + state);
-                            owner.getLifecycle().addObserver(new LifecycleObserver() {
-                                @OnLifecycleEvent(Lifecycle.Event.ON_ANY)
-                                public void onAny() {
-                                    state = owner.getLifecycle().getCurrentState();
-                                    if (state.equals(Lifecycle.State.DESTROYED)) {
-                                        Log.i("Destroyed task " + name);
-                                        owner.getLifecycle().removeObserver(this);
-                                        cleanup(context);
-                                    } else if (state.isAtLeast(Lifecycle.State.RESUMED)) {
-                                        Log.i("Deferred delivery task " + name);
-                                        owner.getLifecycle().removeObserver(this);
-                                        deliver();
-                                        cleanup(context);
-                                    } else
-                                        Log.i("Deferring task " + name + " state=" + state);
-                                }
-                            });
+                            owner.getLifecycle().removeObserver(watcher);
+
+                            if (state.isAtLeast(Lifecycle.State.RESUMED)) {
+                                // Inline delivery
+                                Log.i("Deliver task " + name + " state=" + state + " elapse=" + elapsed + " ms");
+                                deliver();
+                                cleanup(context);
+                            } else {
+                                Log.i("Deferring task " + name + " state=" + state);
+                                owner.getLifecycle().addObserver(new LifecycleObserver() {
+                                    @OnLifecycleEvent(Lifecycle.Event.ON_ANY)
+                                    public void onAny() {
+                                        state = owner.getLifecycle().getCurrentState();
+                                        if (state.equals(Lifecycle.State.DESTROYED)) {
+                                            Log.i("Destroyed task " + name);
+                                            onDestroyed(args);
+                                            owner.getLifecycle().removeObserver(this);
+                                            cleanup(context);
+                                        } else if (state.isAtLeast(Lifecycle.State.RESUMED)) {
+                                            Log.i("Deferred delivery task " + name);
+                                            owner.getLifecycle().removeObserver(this);
+                                            deliver();
+                                            cleanup(context);
+                                        } else
+                                            Log.i("Deferring task " + name + " state=" + state);
+                                    }
+                                });
+                            }
                         }
                     }
 
                     private void deliver() {
+                        if ("androidx.fragment.app.FragmentViewLifecycleOwner".equals(owner.getClass().getName()))
+                            try {
+                                Field mFragment = owner.getClass().getDeclaredField("mFragment");
+                                mFragment.setAccessible(true);
+                                Fragment fragment = (Fragment) mFragment.get(owner);
+                                if (fragment != null &&
+                                        (fragment.getContext() == null || fragment.getActivity() == null)) {
+                                    // Since deliver is executed for resumed fragments only, this should never happen
+                                    Log.e("Fragment without activity" +
+                                            " task=" + name +
+                                            " context=" + (fragment.getContext() != null) +
+                                            " activity=" + (fragment.getActivity() != null) +
+                                            " fragment=" + fragment.getClass().getName() +
+                                            " lifecycle=" + owner.getLifecycle().getCurrentState());
+                                    return;
+                                }
+                            } catch (Throwable ex) {
+                                Log.w(ex);
+                            }
                         try {
                             onPostExecute(args);
                         } catch (Throwable ex) {
@@ -220,7 +327,7 @@ public abstract class SimpleTask<T> implements LifecycleObserver {
                             }
                         } finally {
                             try {
-                                if (ex == null) {
+                                if (error == null) {
                                     if (log && BuildConfig.BETA_RELEASE) {
                                         Log.i("Crumb " + name);
                                         Map<String, String> crumb = new HashMap<>();
@@ -231,7 +338,7 @@ public abstract class SimpleTask<T> implements LifecycleObserver {
                                     onExecuted(args, (T) data);
                                 } else
                                     try {
-                                        onException(args, ex);
+                                        onException(args, error);
                                     } catch (Throwable exex) {
                                         Log.e(exex);
                                     }
@@ -249,15 +356,30 @@ public abstract class SimpleTask<T> implements LifecycleObserver {
             }
         });
 
+        owner.getLifecycle().addObserver(watcher);
+
         updateTaskCount(context);
     }
 
+    public boolean isAlive() {
+        return !this.destroyed;
+    }
+
     void cancel(Context context) {
-        if (future != null)
-            if (future.cancel(false)) {
-                Log.i("Cancelled task=" + name);
-                cleanup(context);
+        try {
+            ExecutorService executor = getExecutor(context);
+            if (executor instanceof ThreadPoolExecutor && future instanceof Runnable) {
+                boolean removed = ((ThreadPoolExecutor) executor).remove((Runnable) future);
+                Log.i("Remove task=" + name + " removed=" + removed);
             }
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
+
+        if (future != null && future.cancel(false)) {
+            Log.i("Cancelled task=" + name);
+            cleanup(context);
+        }
     }
 
     private void cleanup(Context context) {
@@ -288,8 +410,12 @@ public abstract class SimpleTask<T> implements LifecycleObserver {
 
         int executing = getCount();
         Log.i("Remaining tasks=" + executing + "/" + tasks.size());
-        LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(context);
-        lbm.sendBroadcast(new Intent(ACTION_TASK_COUNT).putExtra("count", executing));
+        if (context == null)
+            Log.e("Context is null");
+        else {
+            LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(context);
+            lbm.sendBroadcast(new Intent(ACTION_TASK_COUNT).putExtra("count", executing));
+        }
     }
 
     protected void onPreExecute(Bundle args) {
@@ -302,11 +428,12 @@ public abstract class SimpleTask<T> implements LifecycleObserver {
     }
 
     protected void postProgress(CharSequence status, Bundle data) {
-        ApplicationEx.getMainHandler().post(new Runnable() {
+        getHandler().post(new Runnable() {
             @Override
             public void run() {
                 try {
-                    onProgress(status, data);
+                    if (!destroyed)
+                        onProgress(status, data);
                 } catch (Throwable ex) {
                     Log.e(ex);
                 }
@@ -323,6 +450,9 @@ public abstract class SimpleTask<T> implements LifecycleObserver {
     protected abstract void onException(Bundle args, Throwable ex);
 
     protected void onPostExecute(Bundle args) {
+    }
+
+    protected void onDestroyed(Bundle args) {
     }
 
     @Override

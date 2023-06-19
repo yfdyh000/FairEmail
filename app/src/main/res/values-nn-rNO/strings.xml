@@ -1,90 +1,128 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_search">FairEmail søk</string>
-    <string name="app_changelog">Endringer</string>
-    <string name="app_welcome">FairEmail er en åpen kildekode e-postprogram som er fokusert på personvern og sikkerhet. Av denne grunn kan noen funksjoner virke annerledes enn det du er vant til.</string>
-    <string name="app_exit">Gå \'tilbake\' igjen for å avslutte</string>
-    <string name="app_cake">Ikke nok lagringsplass igjen</string>
-    <string name="channel_service">Tak imot</string>
+    <string name="app_changelog">Brigdelogg</string>
+    <string name="app_welcome">FairEmail er ein e-postapp med open kjeldekode og merksemd på personvern og tryggleik. Nokre funksjonar kan difor verke annleis enn det du er vant til.</string>
+    <string name="app_limitations">Til døme so vert meldingar omformaterte for å ta bort utrygge element og gjera dei meir leselege, og for trygdas skuld må opning av lenkjer verta stadfeste. Du kan slå desse av om du vil.</string>
+    <string name="app_unsupported">Bugs i Android-versjonen av denne spesifikke enheten forårsaker krasj</string>
+    <string name="app_data_loss">All data kan bli tapt</string>
+    <string name="app_continue">Held fram for det</string>
+    <string name="app_exit">Gå \'attende\' igjen for å lata att</string>
+    <string name="app_cake">For lite gøymerom att</string>
+    <string name="app_cake_remaining">Mengd unytta gøymerom på eininga: %1$s</string>
+    <string name="app_cake_required">Minimum lagringsplass krevd %1$s</string>
+    <string name="app_updated">Sist oppdatert %1$s</string>
+    <string name="app_download">Henta ifrå: %1$s</string>
+    <string name="channel_service">Monitor</string>
     <string name="channel_send">Send</string>
     <string name="channel_notification">E-post</string>
-    <string name="channel_update">Oppdateringer</string>
-    <string name="channel_warning">Advarsler</string>
+    <string name="channel_progress">Framgang</string>
+    <string name="channel_update">Oppdateringar</string>
+    <string name="channel_announcements">Kunngjeringar</string>
+    <string name="channel_warning">Åtvaringar</string>
     <string name="channel_error">Feil</string>
-    <string name="channel_alert">Servervarsler</string>
-    <string name="channel_group_contacts">Kontakter</string>
-    <string name="channel_service_description">Synkronisering og overvåking av kontoer</string>
+    <string name="channel_alert">Tenarvarsel</string>
+    <string name="channel_group_contacts">Kontaktar</string>
+    <string name="channel_service_description">Kontosynkronisering og -tilsyn</string>
     <string name="channel_send_description">Sending av meldingar</string>
-    <string name="channel_notification_description">Varsler om nye meldinger</string>
+    <string name="channel_notification_description">Varsel om nye meldingar</string>
+    <string name="channel_progress_description">Meddelelser om fremgang av lengre pågående aktiviteter</string>
     <plurals name="page_conversation">
         <item quantity="one">Samtale</item>
         <item quantity="other">Samtaler</item>
     </plurals>
     <plurals name="page_message">
         <item quantity="one">Melding</item>
-        <item quantity="other">Meldinger</item>
+        <item quantity="other">Meldingar</item>
     </plurals>
     <string name="page_folders">Mapper</string>
     <string name="page_compose">Skriv</string>
     <string name="tile_synchronize">Synkroniser</string>
-    <string name="tile_unseen">Nye meldinger</string>
+    <string name="tile_unseen">Nye meldingar</string>
     <string name="shortcut_refresh">Oppdater</string>
     <string name="shortcut_compose">Skriv</string>
-    <string name="shortcut_setup">Innstillinger</string>
+    <string name="shortcut_setup">Innstillingar</string>
     <plurals name="title_notification_synchronizing">
-        <item quantity="one">Overvåker %1$d konto</item>
-        <item quantity="other">Overvåker %1$d kontoer</item>
+        <item quantity="one">Har tilsyn med %1$d konto</item>
+        <item quantity="other">Har tilsyn med %1$d kontoar</item>
     </plurals>
     <plurals name="title_notification_operations">
-        <item quantity="one">%1$d ventende aktivitet</item>
-        <item quantity="other">%1$d ventende aktiviteter</item>
+        <item quantity="one">%1$d ventande gjerd</item>
+        <item quantity="other">%1$d ventande gjerder</item>
     </plurals>
     <plurals name="title_notification_unseen">
         <item quantity="one">%1$d ny melding</item>
-        <item quantity="other">%1$d nye meldinger</item>
+        <item quantity="other">%1$d nye meldingar</item>
     </plurals>
     <plurals name="title_notification_unsent">
-        <item quantity="one">%1$d melding som skal sendes</item>
-        <item quantity="other">%1$d meldinger som skal sendes</item>
+        <item quantity="one">Skal senda %1$d melding</item>
+        <item quantity="other">Skal senda %1$d meldingar</item>
     </plurals>
     <plurals name="title_tile_unseen">
         <item quantity="one">%1$d ny</item>
-        <item quantity="other">%1$d ny</item>
+        <item quantity="other">%1$d nye</item>
     </plurals>
     <plurals name="title_moving_messages">
         <item quantity="one">Flyt %1$d melding?</item>
         <item quantity="other">Flyt %1$d meldingar?</item>
     </plurals>
     <plurals name="title_deleting_messages">
-        <item quantity="one">Slette %1$d melding permanent?</item>
-        <item quantity="other">Slette %1$d meldinger permanent?</item>
+        <item quantity="one">Slett %1$d melding?</item>
+        <item quantity="other">Slett %1$d meldingar?</item>
     </plurals>
     <plurals name="title_ask_spam">
-        <item quantity="one">Behandle %1$d meldingen som spam?</item>
-        <item quantity="other">Behandle %1$d meldingene som spam?</item>
+        <item quantity="one">Handsam %1$d melding som søppelpost?</item>
+        <item quantity="other">Handsam %1$d meldingar som søppelpost?</item>
     </plurals>
-    <string name="title_ask_spam_who">Behandle melding fra %1$s som spam?</string>
-    <string name="title_junk_hint">Din e-postleverandør er ansvarlig for filtrering av nettsøppel. En e-postapp har ikke alle dataene som trengs for å gjøre dette pålitelig.</string>
-    <string name="title_block">Blokkere %1$s</string>
-    <string name="title_block_sender">Blokker avsender</string>
+    <string name="title_ask_spam_who">Handsam melding ifrå %1$s som søppelpost?</string>
+    <string name="title_junk_hint">Din e-postleverandør er ansvarleg for filtrering av søppelpost. Ein e-postapp har ikkje alle dataa han tarv for å påliteleg gjera dette.</string>
+    <string name="title_junk_pop_hint">        Meldingar ifrå hindra sendarar vert ikkje henta.
+        Om «Lat meldingar vera att på tenar» ikkje er påslegen, vil desse meldingane gå tapt.
+    </string>
+    <string name="title_block">Hindre %1$s</string>
+    <string name="title_block_sender">Hindre sendar</string>
+    <string name="title_block_sender_domain">Hindre domene «%1$s»</string>
+    <string name="title_block_sender_hint">Blokkerer en sender er en gratis egenskap.
+        Blokkering av en senderdomene bruker filterregler, som er en pro-egenskap.
+    </string>
+    <string name="title_blocked_senders">Hindra sendarar</string>
+    <plurals name="title_ask_block_sender">
+        <item quantity="one">Hindre sendar av %1$s melding?</item>
+        <item quantity="other">Hindre sendar av %1$s meldingar?</item>
+    </plurals>
+    <plurals name="title_hours">
+        <item quantity="one">%1$s time</item>
+        <item quantity="other">%1$s timar</item>
+    </plurals>
+    <plurals name="title_days">
+        <item quantity="one">%1$s dag</item>
+        <item quantity="other">%1$s dagar</item>
+    </plurals>
+    <string name="title_junk_filter">Bruk lokalt spamfilter</string>
+    <string name="title_junk_filter_hint">Dette kan auke batteribruk og med eit mistak merke meldingar som søppelpost</string>
+    <string name="title_junk_blocklist">Bruk lister for spamblokkering</string>
     <string name="title_junk_clear">Tøm</string>
-    <string name="title_notification_sending">Sender melding</string>
-    <string name="title_notification_waiting">Venter på passende tilkobling</string>
+    <string name="title_junk_clear_hint">Dette vil slette alle regler for blokkering av sendere</string>
+    <string name="title_notification_sending">Sender meldingar</string>
+    <string name="title_notification_waiting">Ventar på høv tilkopling</string>
     <string name="title_notification_idle">Inaktiv</string>
-    <string name="title_notification_failed">\'%1$s\' mislyktes</string>
-    <string name="title_notification_sending_left">Forsøk igjen: %1$d</string>
-    <string name="title_notification_sending_failed">Sending til %1$s mislyktes</string>
+    <string name="title_notification_failed">«%1$s» gjekk ikkje</string>
+    <string name="title_notification_alert">Tenarvarsel: «%1$s»</string>
+    <string name="title_notification_sending_left">Røyne att: %1$d</string>
+    <string name="title_notification_sending_retry">Prøver igjen å sende når internettilkoblingen endres eller ved å trekke ned i utboksen</string>
+    <string name="title_notification_sending_failed">Kunne ikkje senda til %1$s</string>
     <string name="title_notification_redacted">Redigert: biometrisk eller PIN-autentisering aktivert</string>
-    <string name="title_factor_minutes">%1$d minutter</string>
-    <string name="menu_answers">Maler</string>
-    <string name="menu_operations">Aktiviteter</string>
-    <string name="menu_contacts">Lokale kontakter</string>
-    <string name="menu_setup">Innstillinger</string>
-    <string name="menu_legend">Forklaring</string>
+    <string name="title_factor_minutes">%1$d minutt</string>
+    <string name="menu_answers">Malar</string>
+    <string name="menu_rules">Føresegner</string>
+    <string name="menu_operations">Gjerder</string>
+    <string name="menu_contacts">Kontaktar på eininga</string>
+    <string name="menu_setup">Innstillingar</string>
+    <string name="menu_legend">Utgreiing</string>
     <string name="menu_test">Testprogram</string>
-    <string name="menu_faq">Støtte</string>
-    <string name="menu_translate">Hjelp med oversetting</string>
-    <string name="menu_issue">Rapporter en feil</string>
+    <string name="menu_faq">Hjelp</string>
+    <string name="menu_translate">Omset</string>
+    <string name="menu_issue">Varsle om eit mistak</string>
     <string name="menu_attribution">Attributter</string>
     <string name="menu_privacy">Personvern</string>
     <string name="menu_about">Om</string>
@@ -92,69 +130,109 @@
     <string name="menu_rate">Anmeld denne appen</string>
     <string name="title_welcome">Velkommen</string>
     <string name="title_eula">Lisensavtale for sluttbruker</string>
+    <string name="title_license">Åpen kildekode-lisens</string>
     <string name="title_contributors">Bidragsytere</string>
     <string name="title_agree">Enig</string>
     <string name="title_disagree">Uenig</string>
     <string name="title_version">Versjon %1$s</string>
+    <string name="title_privacy_policy">Persovernerklæring</string>
     <string name="title_list_accounts">Kontoer</string>
     <string name="title_list_identities">Identiteter</string>
     <string name="title_edit_account">Rediger konto</string>
     <string name="title_edit_identity">Rediger identitet</string>
     <string name="title_edit_folder">Rediger mappe</string>
+    <string name="title_disable_gmail">Deaktiver Gmail-app</string>
     <string name="title_setup">Innstillinger</string>
     <string name="title_setup_help">Hjelp</string>
     <string name="title_setup_quick">Hurtig oppsett</string>
+    <string name="title_setup_intro">Oppsett av konto er bare tre trinn og deretter kan du sende og motta e-post</string>
+    <string name="title_setup_simple">Det er ikke nødvendig å endre noen andre valg</string>
+    <string name="title_setup_quick_accounts">Legg til eller endre kontoer</string>
     <string name="title_setup_quick_support">Noen leverandører gjør det vanskelig å legge til en konto. Vennligst ikke klandre FairEmail for dette, men be om support i stedet.</string>
-    <string name="title_setup_quick_hint">Hurtig oppsettet henter konfigurasjons informasjon fra autoconfig.thunderbird.net</string>
+    <string name="title_setup_quick_patience">Vennligst vær tålmodig &#8230;</string>
     <string name="title_setup_quick_imap">IMAP-serveren til å motta meldinger</string>
     <string name="title_setup_quick_smtp">SMTP-server for å sende meldinger</string>
+    <string name="title_setup_quick_certificates">Tjenersertifikat</string>
     <string name="title_setup_wizard">Veiviser</string>
+    <string name="title_setup_wizard_tutorials">Veiledninger</string>
+    <string name="title_setup_wizard_multiple">Veiviseren kan brukes flere ganger for å sette opp flere kontoer</string>
     <string name="title_setup_wizard_new">Jeg trenger en ny e-postadresse</string>
+    <string name="title_setup_manual">Manuelle oppsett og kontoalternativer</string>
+    <string name="title_setup_classic">Klassisk konfigurasjon</string>
+    <string name="title_setup_documentation">Se dokumentasjon på e-postleverandøren din for riktig konfigurasjon til e-post-tjenesten</string>
+    <string name="title_setup_account_remark">Motta e-post</string>
+    <string name="title_setup_identity_remark">Send e-post</string>
     <string name="title_setup_accounts">Kontoer</string>
     <string name="title_setup_identities">Identiteter</string>
+    <string name="title_setup_google_sign_in">Logg inn med Google</string>
     <string name="title_setup_other">Annen leverandør</string>
+    <string name="title_setup_inbound">Kun ingående e-post (e-post kan ikke sendes!)</string>
     <string name="title_setup_pop3">POP3-konto</string>
+    <string name="title_setup_oauth_permission">E-postleverandøren har bare godkjent OAuth for Play Store og GitHub versjonen</string>
+    <string name="title_setup_gmail_support">Autorisering av Google-kontoer fungerer bare i Play Store og GitHub versjonen fordi Android sjekker den digitale appens signatur</string>
     <string name="title_setup_gmail_rationale">Gi tillatelser til å velge en konto og lese navnet ditt</string>
     <string name="title_setup_gmail_permissions">Google vil be om tillatelser til å lese, komponere, sende og slette all e-postmeldingen din permanent. FairEmail vil aldri slette meldingene dine uten ditt eksplisitte samtykke.</string>
-    <string name="title_setup_gmail_drafts">Hvis utkast mappen ikke er tilgjengelig med IMAP, kan du fikse dette i Gmail-etikettinnstillingene</string>
-    <string name="title_setup_gmail_password">Jeg ønsker å godkjenne en konto med et passord</string>
+    <string name="title_setup_gmail_on_device">Hvorfor må jeg velge en bruker på enheten?</string>
     <string name="title_setup_office_auth">Feilen \'AUTHENTICATE failed\' kan skyldes at IMAP/SMTP er deaktivert av systemadministratoren</string>
+    <string name="title_setup_office_auth_5_7_3">Prøv \'Annen leverandør\' hurtigoppsettsveiviseren.</string>
     <string name="title_setup_oauth_rationale">Autoriser tilgang til din %1$s konto</string>
-    <string name="title_setup_oauth_update">Autoriser eksisterende konto på nytt</string>
+    <string name="title_setup_oauth_update">Autoriser en eksisterende konto igjen (hvis du ellers oppretter en ny konto)</string>
     <string name="title_setup_oauth_updated">Konto autorisasjon ble oppdatert</string>
     <string name="title_setup_oauth_authorize">Godkjenne</string>
     <string name="title_setup_select_account">Velg konto</string>
     <string name="title_setup_instructions">Oppsett instruksjoner</string>
     <string name="title_setup_no_settings">Ingen innstillinger funnet for domene \'%1$s\'</string>
+    <string name="title_setup_no_settings_hint">Prøv å sette opp en konto manuelt med innstillingene gitt fra e-postleverandøren din</string>
     <string name="title_setup_no_auth_hint">Kontroller e-postadressen og passordet ditt, og sørg for at ekstern tilgang (IMAP/SMTP) er aktivert for kontoen din</string>
     <string name="title_setup_app_password_hint">Denne leverandøren krever et app-passord i stedet for kontopassordet, vennligst sjekk instruksjonene til leverandøren din</string>
     <string name="title_setup_no_inbox">Finner ikke innboks</string>
     <string name="title_setup_advanced_protection">Når du er registrert i det avanserte beskyttelsesprogrammet, er det ikke mulig å bruke en tredjeparts e-postapp. Dette er en begrensning pålagt av Google.</string>
+    <string name="title_setup_quick_success">En konto ble lagt til</string>
+    <string name="title_setup_quick_no_sent">Ingen mappe for sendte meldinger er valgt. Sendte meldinger vil kanskje ikke bli lagret.</string>
+    <string name="title_setup_quick_configure">For å redigere navnet, farge, sveiphandlinger, osv.</string>
     <string name="title_setup_manage">Behandle</string>
     <string name="title_setup_grant">Tillat</string>
     <string name="title_setup_grant_again">Gi nødvendige tillatelser</string>
+    <string name="title_setup_exchange_support">Støttes Microsoft Exchange?</string>
     <string name="title_setup_identity_what">Hva er en identitet?</string>
+    <string name="title_setup_free">Er denne appen gratis å bruke?</string>
     <string name="title_setup_permissions">Gi tillatelser</string>
     <string name="title_setup_permissions_remark">Få tilgang til kontaktinformasjon (valgfritt)</string>
+    <string name="title_setup_permissions_calendar">Lagre invitasjoner (valgfritt)</string>
+    <string name="title_setup_permission_import_contacts">Hvordan kan jeg importere kontakter?</string>
+    <string name="title_setup_doze">Deaktiver batterioptimaliseringer</string>
+    <string name="title_setup_doze_why">Hvorfor skal batterioptimaliseringer bli deaktivert?</string>
     <string name="title_setup_doze_battery">Høy batteriforbruk?</string>
     <string name="title_setup_doze_stopped">Synkroniseringen stoppet?</string>
+    <string name="title_setup_inexact">Alarmer &amp; påminnelser er deaktivert</string>
+    <string name="title_setup_background">Bakgrunnsrestriksjoner er aktivert</string>
     <string name="title_setup_data">Datasparing er aktivert</string>
+    <string name="title_setup_always">Umiddelbare nye meldingsvarsler</string>
     <string name="title_setup_advanced_options">Vis avanserte innstillinger</string>
+    <string name="title_setup_inbox">Gå til innboks</string>
     <string name="title_setup_go">Utfør</string>
     <string name="title_setup_to_do">Gjøremål</string>
     <string name="title_setup_done">Utført</string>
     <string name="title_setup_still">Fortsatt å gjøre</string>
     <string name="title_setup_error">Feil</string>
+    <string name="title_setup_pop">Bruk POP3 (anbefales ikke)</string>
+    <string name="title_setup_recent">Bruk \'nylig\' for flere e-postklienter</string>
     <string name="title_setup_configuring">Konfigurerer konto &#8230;</string>
+    <string name="title_setup_app_password">Det kan hende du må bruke et app-passord</string>
+    <string name="title_setup_extra">Ekstra</string>
+    <string name="title_setup_close">Lukk innstillinger</string>
     <string name="title_setup_export">Eksporter innstillingene</string>
     <string name="title_setup_import">Importer innstillinger</string>
-    <string name="title_setup_import_do">Importerte kontoer vil bli lagt til uten å overskrive eksisterende</string>
+    <string name="title_setup_backup">Hvordan sikkerhetskopiere meldinger?</string>
     <string name="title_setup_password">Passord</string>
     <string name="title_setup_password_chars">Passord inneholder kontroll eller mellomromstegn</string>
     <string name="title_setup_password_repeat">Gjenta passord</string>
     <string name="title_setup_password_missing">Passord mangler</string>
     <string name="title_setup_password_different">Passordene er ikke like</string>
-    <string name="title_setup_password_invalid">Ugyldig passord</string>
+    <string name="title_setup_password_invalid">Feil passord eller ødelagte innstillingsfiler</string>
+    <string name="title_setup_import_accounts">Importer kontoer og identiteter</string>
+    <string name="title_setup_import_delete">Slett eksisterende kontoer først</string>
+    <string name="title_setup_import_rules">Importer filterregler</string>
     <string name="title_setup_exported">Innstillinger eksportert</string>
     <string name="title_setup_imported">Innstillinger importert</string>
     <string name="title_setup_import_invalid">Ugyldig innstillingsfil</string>
@@ -197,6 +275,7 @@
     <string name="title_advanced_section_encryption">Kryptering</string>
     <string name="title_advanced_section_notifications">Varslinger</string>
     <string name="title_advanced_section_misc">Diverse</string>
+    <string name="title_advanced_section_backup">Sikkerhetskopier</string>
     <string name="title_advanced_receive">Motta meldinger for alle kontoer</string>
     <string name="title_advanced_when">Når</string>
     <string name="title_advanced_optimize">Automatisk optimalisering</string>
@@ -326,18 +405,16 @@
     <string name="title_advanced_quick_filter">Vis ikke-påtrengende hurtigfilterikoner</string>
     <string name="title_advanced_quick_scroll">Vis ikke-påtrengende hurtigrulling opp/ned-ikoner</string>
     <string name="title_advanced_autoread">Merk automatisk meldinger som leste ved flytting</string>
-    <string name="title_advanced_star_snoozed">Legg automatisk til stjerne på slumrende meldinger</string>
     <string name="title_advanced_autounstar">Fjern stjernen automatisk fra meldinger som blir flyttet</string>
-    <string name="title_advanced_auto_important">Gjør stjernemerkede meldinger automatisk viktige</string>
     <string name="title_advanced_reset_importance">Tilbakestill viktigheten for å flytte meldinger</string>
+    <string name="title_advanced_star_snoozed">Legg automatisk til stjerne på slumrende meldinger</string>
+    <string name="title_advanced_auto_important">Gjør stjernemerkede meldinger automatisk viktige</string>
     <string name="title_advanced_notifications">Administrer varsler</string>
     <string name="title_advanced_notifications_default">Standard kanal</string>
-    <string name="title_advanced_notifications_service">Motta kanal</string>
     <string name="title_advanced_notifications_newest_first">Vis de nyeste varslene først</string>
-    <string name="title_advanced_notifications_background">Bruk bakgrunnstjeneste for å synkronisere meldinger</string>
-    <string name="title_advanced_notifications_background_hint">En bakgrunnstjeneste kan stanses av Android når som helst, men krever ikke en statuslinje varsel</string>
     <string name="title_advanced_badge">Vis epost ikonet med antall nye meldinger</string>
     <string name="title_advanced_unseen_ignored">La antallet nye meldinger samsvare med antall varsler</string>
+    <string name="title_advanced_notify_grouping">Gruppevarsler</string>
     <string name="title_advanced_notify_background">Vis varsler kun i bakgrunnen</string>
     <string name="title_advanced_notify_known">Vis kun varsler fra kontakter</string>
     <string name="title_advanced_notify_summary">Vis bare sammendragsvarsel</string>
@@ -363,8 +440,9 @@
     <string name="title_advanced_biometrics_notify">Vis varselinnhold når du bruker biometrisk godkjenning</string>
     <string name="title_advanced_light">Bruk meldingslys</string>
     <string name="title_advanced_sound">Velg varslingslyd</string>
+    <string name="title_advanced_notifications_background">Bruk bakgrunnstjeneste for å synkronisere meldinger</string>
+    <string name="title_advanced_notifications_background_hint">En bakgrunnstjeneste kan stanses av Android når som helst, men krever ikke en statuslinje varsel</string>
     <string name="title_advanced_confirm_links">Bekreft åpningen av lenker</string>
-    <string name="title_advanced_browse_links">Deleger lenker til Android</string>
     <string name="title_advanced_ask_images">Bekreft visningen av bilder</string>
     <string name="title_advanced_confirm_html">Vis standardformaterte meldinger</string>
     <string name="title_advanced_tracking">Forsøk på å gjenkjenne og deaktivere sporingsbilder</string>
@@ -426,7 +504,6 @@
     <string name="title_advanced_metered_hint">Målte tilkoblinger er vanligvis mobile tilkoblinger eller betalte Wi-Fi-hotspots</string>
     <string name="title_advanced_metered_warning">Deaktivering av dette alternativet deaktiverer mottak og sending av meldinger på mobile internettforbindelser</string>
     <string name="title_advanced_rlah_hint">Forutsatt ingen roaming i EU</string>
-    <string name="title_advanced_tcp_keep_alive_hint">Aktivering av dette kan forårsake tilkoblingsproblemer på noen enheter</string>
     <string name="title_advanced_timeout_hint">Tidsavbrudd for lese/skriving blir satt til den doble av tilkoblings avbruddstiden. Høyere verdier vil føre til mer batteribruk.</string>
     <string name="title_advanced_ssl_harden_hint">Aktivering av dette vil deaktivere svake SSL-protokoller og chiffer, noe som kan føre til tilkoblingsproblemer</string>
     <string name="title_advanced_roaming_hint">Meldingsoverskrifter vil alltid bli hentet når du roamer. Du kan bruke enhetens roaming-innstilling for å deaktivere Internett mens du roamer.</string>
@@ -437,14 +514,13 @@
     <string name="title_advanced_navbar_colorize_hint">Om dette fungerer avhenger av Android-versjonen og varianten</string>
     <string name="title_advanced_threading_hint">Gruppemeldinger knyttet til hverandre</string>
     <string name="title_advanced_highlight_hint">Farge på temaet vil bli brukt for å framheve</string>
-    <string name="title_advanced_gravatars_hint">Det kan være en personvernrisiko</string>
+    <string name="title_advanced_privacy_risk">Det kan være en personvernrisiko</string>
     <string name="title_advanced_preview_hint">Kun tilgjengelig når meldingstekst ble lastet ned</string>
     <string name="title_advanced_preview_issue">Rullingen kan gå tregt på grunn av en feil i noen Android-versjoner når antall linjer er mer enn én</string>
     <string name="title_advanced_overview_mode_hint">Dette kan resultere i veldig liten skrift</string>
     <string name="title_advanced_placeholders_hint">Dette gjelder kun reformaterte meldinger</string>
     <string name="title_advanced_inline_hint">Innebygde bilder er bilder som er inkludert i meldingen</string>
     <string name="title_advanced_parse_classes_hint">Dette vil mer nøyaktig vise meldinger, men muligens med en forsinkelse</string>
-    <string name="title_advanced_language_detection_hint">Støtte for oppdagelse av språk avhenger av produsenten av enheten</string>
     <string name="title_advanced_autoexpand_hint">Åpne automatisk melding når det bare er én melding eller bare en ulest melding i en samtale</string>
     <string name="title_advanced_autoclose_hint">Lukk samtaler automatisk når alle meldinger arkiveres, sendes eller kastet</string>
     <string name="title_advanced_sender_hint">De fleste leverandører tillater ikke endret avsender adresser</string>
@@ -473,6 +549,7 @@
     <string name="title_advanced_cleanup_hint">Dette vil slette alle midlertidige filer</string>
     <string name="title_advanced_never_favorite">Aldri favoritt</string>
     <string name="title_advanced_edit_name">Rediger navn</string>
+    <string name="title_create_folder_name">Mappenavn</string>
     <string name="title_advanced_swipe_actions">Velg sveipealternativer</string>
     <string name="title_advanced_swipe_actions_hint">Velg handling for sveiping til høyre og venstre for alle IMAP-kontoer</string>
     <string name="title_select">Velg &#8230;</string>
@@ -494,6 +571,7 @@
     <string name="title_account_interval_hint">Frekvens for å forfriske forbindelsen for push meldinger eller hyppigheten av å sjekke nye meldinger</string>
     <string name="title_account_partial_fetch_hint">Deaktiver kun dette ved tomme meldinger eller korrupte vedlegg</string>
     <string name="title_color">Farge</string>
+    <string name="title_calendar">Kalender</string>
     <string name="title_account_ondemand">Synkroniser manuelt</string>
     <string name="title_account_notify">Separate meldinger</string>
     <string name="title_account_left">Sveip mot venstre</string>
@@ -507,7 +585,6 @@
     <string name="title_custom">Tilpasset</string>
     <string name="title_host">Vertsnavn</string>
     <string name="title_encryption">Kryptering</string>
-    <string name="title_encryption_none">Ingen</string>
     <string name="title_allow_insecure">Tillat usikre forbindelser</string>
     <string name="title_insecure_remark">Usikre tilkoblinger bør bare være tillatt i pålitelige nettverk og aldri i offentlige nettverk</string>
     <string name="title_port">Portnummer</string>
@@ -559,7 +636,6 @@
     <string name="title_last_connected">Sist tilkoblet: %1$s</string>
     <string name="title_backoff_until">Ventetid etter feilmelding: %1$s</string>
     <string name="title_storage_quota">Bruk av serverlagring: %1$s/%2$s</string>
-    <string name="title_pop_support">POP3-protokollen støtter bare nedlasting og sletting av meldinger fra innboksen. POP3 kan ikke merke meldinger som er lest, flytte meldinger, etc. POP3 vil bruke mer batteristrøm og data enn IMAP. Så vurder å bruke IMAP-protokollen når det er mulig.</string>
     <string name="title_oauth_support">OAuth støttes ikke</string>
     <string name="title_review">Anmeldelse</string>
     <string name="title_hint_alias">Trykk lenge for å velge alternativer, for eksempel kopiere for å opprette aliasidentiteter</string>
@@ -585,6 +661,8 @@
     <string name="title_delete_channel">Slett varselkanal</string>
     <string name="title_insert_contact">Legg til kontakt</string>
     <string name="title_edit_contact">Rediger kontakt</string>
+    <string name="title_contact_email">E-post</string>
+    <string name="title_contact_name">Navn</string>
     <string name="title_create_sub_folder">Lag undermappe</string>
     <string name="title_empty_trash_ask">Slette alle forkastede meldinger permanent?</string>
     <string name="title_empty_spam_ask">Slette alle spammeldinger permanent?</string>
@@ -598,7 +676,6 @@
     <string name="title_delete_operation_flag">Flagg operasjoner</string>
     <string name="title_delete_operation_delete">Slett operasjoner</string>
     <string name="title_delete_operation_deleted">%1$d operasjoner er slettet</string>
-    <string name="title_delete_contacts">Slette alle lokale kontakter?</string>
     <string name="title_no_operations">Ingen ventende operasjoner</string>
     <string name="title_hint_operations">Slette operasjoner kan føre til at meldinger og synkroniseringsproblemer forsvinner</string>
     <string name="title_folder_name">Mappenavn</string>
@@ -686,6 +763,8 @@
     <string name="title_download_all">Last ned alt</string>
     <string name="title_save_all">Lagre alt</string>
     <string name="title_save_eml">Lagre rå meldingsfil</string>
+    <string name="title_button_search_similar">Søk lignende meldinger</string>
+    <string name="title_quick_actions_snooze">Utsett</string>
     <string name="title_trash">Søppel</string>
     <string name="title_copy">Kopiere &#8230;</string>
     <string name="title_copy_to">Kopier til &#8230;</string>
@@ -713,7 +792,6 @@
     <string name="title_reply_receipt">Send lesekvittering</string>
     <string name="title_reply_template">Svar med mal</string>
     <string name="title_move_undo">Flytter til %1$s (%2$d)</string>
-    <string name="title_open_with">Åpne med</string>
     <string name="title_authentication_failed">%1$s godkjenning mislyktes</string>
     <string name="title_receipt_subject">Lesebekreftelse: %1$s</string>
     <string name="title_receipt_text">Denne lesekvitteringen bekrefter bare at meldingen ble vist. Det er ingen garanti for at mottakeren har lest meldings innholdet.</string>
@@ -721,7 +799,6 @@
     <string name="title_no_recorder">Ingen passende lydopptaker app tilgjengelig</string>
     <string name="title_no_camera">Ingen passende kamera app tilgjengelig</string>
     <string name="title_no_saf">Storage access framework ikke tilgjengelig</string>
-    <string name="title_no_stream">En utdatert app sendte en filbane i stedet for en filstrøm</string>
     <string name="title_no_internet">Ingen eller ingen egnet internettforbindelse</string>
     <string name="title_no_connection">Koble til en eller flere kontoer &#8230;</string>
     <string name="title_no_folder">Mappe eksisterer ikke</string>
@@ -794,6 +871,7 @@
     <string name="title_style_size_small">Liten</string>
     <string name="title_style_size_medium">Middels</string>
     <string name="title_style_size_large">Stor</string>
+    <string name="title_style_size_xlarge">Ekstra stor</string>
     <string name="title_style_align">Justering</string>
     <string name="title_style_align_start">Start</string>
     <string name="title_style_align_center">Midtstilt</string>
@@ -823,6 +901,7 @@
     <string name="title_save_drafts">Lagre utkast på tjeneren</string>
     <string name="title_send_dialog">Vis sendingsalternativer</string>
     <string name="title_image_dialog">Vis alternativer for bilder</string>
+    <string name="title_style_toolbar">Stil verktøylinjen</string>
     <string name="title_media_toolbar">Media verktøylinje</string>
     <string name="title_insert_contact_group">Sett inn kontaktgruppe</string>
     <string name="title_insert_template">Sett inn mal</string>
@@ -913,6 +992,10 @@
     <string name="title_search_device">Søk på enheten</string>
     <string name="title_search_server">Søk på server</string>
     <string name="title_search_in">Søk i</string>
+    <string name="title_search_sender">Søk etter avsender</string>
+    <string name="title_save_search_name">Navn</string>
+    <string name="title_save_search_order">Rekkefølge</string>
+    <string name="title_save_search_color">Farge</string>
     <string name="title_sort_on">Sorter på</string>
     <string name="title_sort_on_time">Tid</string>
     <string name="title_sort_on_unread">Ulest</string>
@@ -924,6 +1007,8 @@
     <string name="title_sort_on_attachments">Tillegg</string>
     <string name="title_sort_on_hidden">Skjult</string>
     <string name="title_sort_ascending">Eldst først</string>
+    <string name="title_sort_on_name">Navn</string>
+    <string name="title_sort_on_order">Rekkefølge</string>
     <string name="title_filter">Filtrere ut</string>
     <string name="title_filter_seen">Les</string>
     <string name="title_filter_unflagged">Ikke med stjerne</string>
@@ -945,6 +1030,7 @@
     <string name="title_edit_signature">Rediger signatur</string>
     <string name="title_edit_signature_text">Signaturtekst</string>
     <string name="title_edit_signature_image">Sett inn bilde</string>
+    <string name="title_answer_define_name">Navn</string>
     <string name="title_answer_caption">Rediger mal</string>
     <string name="title_answer_reply">Svarmal</string>
     <string name="title_answer_name">Navn på mal</string>
@@ -961,7 +1047,8 @@
     <string name="title_rule_snooze">Utsett</string>
     <string name="title_rule_flag">Legg til stjerne</string>
     <string name="title_rule_importance">Sett viktighet</string>
-    <string name="title_rule_keyword">Legg til nøkkelord</string>
+    <string name="title_rule_keyword_add">Legg til</string>
+    <string name="title_rule_keyword_delete">Slett</string>
     <string name="title_rule_move">Flytt</string>
     <string name="title_rule_copy">Kopier (etikett)</string>
     <string name="title_rule_answer">Svar/videresend</string>
@@ -980,6 +1067,7 @@
     <string name="title_rule_subject">Emne inneholder</string>
     <string name="title_rule_attachments">Har vedlegg</string>
     <string name="title_rule_header">Overskriften inneholder</string>
+    <string name="title_rule_time_every_day">Hver dag</string>
     <string name="title_rule_regex">Regex</string>
     <string name="title_rule_and">OG</string>
     <string name="title_rule_action">Handling</string>
@@ -1177,7 +1265,6 @@
     <string name="title_via">Via: %1$s</string>
     <string name="title_1hour">1 time</string>
     <string name="title_1day">1 dag</string>
-    <string name="title_1week">1 uke</string>
     <string name="title_now">Nå</string>
     <string name="title_after">Etter %1$s</string>
     <string name="title_reset">Tilbakestill</string>
@@ -1212,7 +1299,6 @@
     <string name="title_boundary_retry">Prøv igjen</string>
     <string name="title_unexpected_error">Uventet feil</string>
     <string name="title_log">Logg</string>
-    <string name="title_auto_scroll">Automatisk rulling</string>
     <string name="title_log_clear">Tøm</string>
     <string name="title_rules_search_hint">Søkenavn eller betingelse</string>
     <string name="title_rules_export">Eksporter regler</string>
@@ -1236,20 +1322,22 @@
     <string name="title_widget_padding">Polstring</string>
     <string name="title_widget_semi_transparent">Halvt gjennomsiktig bakgrunn</string>
     <string name="title_widget_background">Bakgrunnsfarge</string>
-    <string name="title_accessibility_collapsed">Skjul</string>
-    <string name="title_accessibility_expanded">Utvidet</string>
-    <string name="title_accessibility_seen">Les</string>
-    <string name="title_accessibility_unseen">Ulest</string>
-    <plurals name="title_accessibility_messages">
-        <item quantity="one">%1$d melding</item>
-        <item quantity="other">%1$d meldinger</item>
-    </plurals>
     <!-- Thunderbird -->
     <string name="title_keyword_label1">Viktig</string>
     <string name="title_keyword_label2">Arbeid</string>
     <string name="title_keyword_label3">Personlig</string>
     <string name="title_keyword_label4">Gjøremål</string>
     <string name="title_keyword_label5">Senere</string>
+    <plurals name="title_accessibility_messages">
+        <item quantity="one">%1$d melding</item>
+        <item quantity="other">%1$d meldinger</item>
+    </plurals>
+    <string name="title_accessibility_accounts">Kontoer</string>
+    <string name="title_accessibility_folders">Mapper</string>
+    <string name="title_accessibility_collapsed">Skjul</string>
+    <string name="title_accessibility_expanded">Utvidet</string>
+    <string name="title_accessibility_seen">Les</string>
+    <string name="title_accessibility_unseen">Ulest</string>
     <string name="title_accessibility_flagged">Stjernemerkede</string>
     <string name="title_accessibility_unflagged">Ikke med stjerne</string>
     <string name="title_accessibility_collapse">Skjul</string>
@@ -1274,6 +1362,7 @@
     <string-array name="pollIntervalNames">
         <item>Alltid</item>
         <item>Hvert 5. minutt</item>
+        <item>Hvert 10. minutt</item>
         <item>Hvert 15. minutt</item>
         <item>Hvert 30. minutt</item>
         <item>Hver time</item>
@@ -1317,6 +1406,7 @@
         <item>Gå til neste samtale</item>
     </string-array>
     <string-array name="resizeNames">
+        <item>Tiny</item>
         <item>Extra small</item>
         <item>Liten</item>
         <item>Middels</item>
@@ -1380,6 +1470,7 @@
     <string-array name="encryptNames">
         <item>Ingen</item>
         <item>Bare PGP-signering</item>
+        <item>PGP encrypt-only</item>
         <item>PGP signer+krypter</item>
         <item>Kun S/MIME signering</item>
         <item>S/MIME signer+krypter</item>
@@ -1419,5 +1510,18 @@
         <item>Middels</item>
         <item>Stor</item>
         <item>Ekstra stor</item>
+    </string-array>
+    <string-array name="contactTypes">
+        <item>Mottaker</item>
+        <item>Avsender</item>
+        <item>Blokkert</item>
+        <item>Not blocked</item>
+    </string-array>
+    <string-array name="contactGroupTypes">
+        <item>Noen</item>
+        <item>Home</item>
+        <item>Arbeid</item>
+        <item>Andre</item>
+        <item>Mobile</item>
     </string-array>
 </resources>

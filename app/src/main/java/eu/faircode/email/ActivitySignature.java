@@ -16,10 +16,9 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
-import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -35,27 +34,33 @@ import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.style.ImageSpan;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.preference.PreferenceManager;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.android.material.snackbar.Snackbar;
 
+import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.parser.ParseError;
+import org.jsoup.parser.ParseErrorList;
+import org.jsoup.parser.Parser;
 
+import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.util.Objects;
 
 public class ActivitySignature extends ActivityBase {
@@ -63,13 +68,16 @@ public class ActivitySignature extends ActivityBase {
     private TextView tvHtmlRemark;
     private EditTextCompose etText;
     private ImageButton ibFull;
-    private BottomNavigationView style_bar;
+    private HorizontalScrollView style_bar;
     private BottomNavigationView bottom_navigation;
 
     private boolean loaded = false;
     private boolean dirty = false;
+    private String saved = null;
 
     private static final int REQUEST_IMAGE = 1;
+    private static final int REQUEST_FILE = 2;
+    private static final int REQUEST_LINK = 3;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -100,6 +108,8 @@ public class ActivitySignature extends ActivityBase {
             }
         });
 
+        etText.addTextChangedListener(StyleHelper.getTextWatcher(etText));
+
         etText.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -108,8 +118,11 @@ public class ActivitySignature extends ActivityBase {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (loaded)
+                if (loaded &&
+                        !(start == 0 && before == s.length() && count == s.length())) {
                     dirty = true;
+                    saved = null;
+                }
             }
 
             @Override
@@ -117,6 +130,8 @@ public class ActivitySignature extends ActivityBase {
                 // Do nothing
             }
         });
+
+        StyleHelper.wire(this, view, etText);
 
         ibFull.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -133,19 +148,15 @@ public class ActivitySignature extends ActivityBase {
             }
         });
 
-        style_bar.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
-            @Override
-            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-                return onActionStyle(item.getItemId());
-            }
-        });
-
         bottom_navigation.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
             @Override
             public boolean onNavigationItemSelected(@NonNull MenuItem item) {
                 int itemId = item.getItemId();
                 if (itemId == R.id.action_insert_image) {
                     insertImage();
+                    return true;
+                } else if (itemId == R.id.action_insert_link) {
+                    insertLink();
                     return true;
                 } else if (itemId == R.id.action_delete) {
                     delete();
@@ -158,14 +169,14 @@ public class ActivitySignature extends ActivityBase {
             }
         });
 
-        addKeyPressedListener(new IKeyPressedListener() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
-            public boolean onKeyPressed(KeyEvent event) {
-                return false;
-            }
+            public void handleOnBackPressed() {
+                if (Helper.isKeyboardVisible(view)) {
+                    Helper.hideKeyboard(view);
+                    return;
+                }
 
-            @Override
-            public boolean onBackPressed() {
                 String prev = getIntent().getStringExtra("html");
                 String current = getHtml();
                 boolean dirty = !Objects.equals(prev, current) &&
@@ -179,7 +190,7 @@ public class ActivitySignature extends ActivityBase {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
                                     save();
-                                    finish();
+                                    performBack();
                                 }
                             })
                             .setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
@@ -190,11 +201,9 @@ public class ActivitySignature extends ActivityBase {
                             })
                             .show();
                 else
-                    finish();
-
-                return true;
+                    performBack();
             }
-        }, this);
+        });
 
         // Initialize
         FragmentDialogTheme.setBackground(this, view, true);
@@ -206,8 +215,10 @@ public class ActivitySignature extends ActivityBase {
         if (savedInstanceState == null) {
             load(getIntent().getStringExtra("html"));
             dirty = false;
-        } else
+        } else {
             dirty = savedInstanceState.getBoolean("fair:dirty");
+            saved = savedInstanceState.getString("fair:saved");
+        }
     }
 
     @Override
@@ -220,8 +231,15 @@ public class ActivitySignature extends ActivityBase {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        etText.setTypeface(etText.isRaw() ? Typeface.MONOSPACE : Typeface.DEFAULT);
+    }
+
+    @Override
     protected void onSaveInstanceState(Bundle outState) {
         outState.putBoolean("fair:dirty", dirty);
+        outState.putString("fair:saved", saved);
         super.onSaveInstanceState(outState);
     }
 
@@ -230,6 +248,13 @@ public class ActivitySignature extends ActivityBase {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menu_signature, menu);
         return true;
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        menu.findItem(R.id.menu_edit_html).setChecked(etText.isRaw());
+        menu.findItem(R.id.menu_check_html).setVisible(etText.isRaw());
+        return super.onPrepareOptionsMenu(menu);
     }
 
     @Override
@@ -242,12 +267,50 @@ public class ActivitySignature extends ActivityBase {
             item.setChecked(!item.isChecked());
             html(item.isChecked());
             return true;
+        } else if (itemId == R.id.menu_check_html) {
+            onMenuCheckHtml();
+            return true;
+        } else if (itemId == R.id.menu_import_file) {
+            onMenuSelectFile();
+            return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
     private void onMenuHelp() {
         Helper.viewFAQ(this, 57);
+    }
+
+    private void onMenuCheckHtml() {
+        Parser parser = Parser.htmlParser().setTrackErrors(20);
+        Jsoup.parse(etText.getText().toString(), "", parser);
+        ParseErrorList errors = parser.getErrors();
+        SpannableStringBuilderEx ssb = new SpannableStringBuilderEx();
+        ssb.append("Errors: ")
+                .append(Integer.toString(errors.size()))
+                .append("\n\n");
+        for (ParseError error : errors)
+            ssb.append("At ")
+                    .append(error.getCursorPos())
+                    .append(' ')
+                    .append(error.getErrorMessage())
+                    .append("\n\n");
+
+        new AlertDialog.Builder(this)
+                .setIcon(R.drawable.twotone_bug_report_24)
+                .setTitle(R.string.title_check_html)
+                .setMessage(ssb)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
+
+    private void onMenuSelectFile() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.setType("text/*");
+        Helper.openAdvanced(ActivitySignature.this, intent);
+        startActivityForResult(intent, REQUEST_FILE);
     }
 
     @Override
@@ -259,6 +322,14 @@ public class ActivitySignature extends ActivityBase {
                 case REQUEST_IMAGE:
                     if (resultCode == RESULT_OK && data != null)
                         onImageSelected(data.getData());
+                    break;
+                case REQUEST_FILE:
+                    if (resultCode == RESULT_OK && data != null)
+                        onFileSelected(data.getData());
+                    break;
+                case REQUEST_LINK:
+                    if (resultCode == RESULT_OK && data != null)
+                        onLinkSelected(data.getBundleExtra("args"));
                     break;
             }
         } catch (Throwable ex) {
@@ -272,27 +343,37 @@ public class ActivitySignature extends ActivityBase {
             etText.setText(null);
         else if (etText.isRaw())
             etText.setText(html);
-        else
-            etText.setText(HtmlHelper.fromHtml(html, new Html.ImageGetter() {
+        else {
+            Document d = HtmlHelper.sanitizeCompose(this, html, true);
+            Spanned signature = HtmlHelper.fromDocument(this, d, new HtmlHelper.ImageGetterEx() {
                 @Override
-                public Drawable getDrawable(String source) {
-                    if (source != null && source.startsWith("cid:"))
-                        source = null;
-                    return ImageHelper.decodeImage(ActivitySignature.this, -1, source, true, 0, 1.0f, etText);
+                public Drawable getDrawable(Element element) {
+                    String source = element.attr("src");
+                    if (source.startsWith("cid:"))
+                        element.attr("src", "cid:");
+                    return ImageHelper.decodeImage(ActivitySignature.this,
+                            -1, element, true, 0, 1.0f, etText);
                 }
-            }, null, this));
+            }, null);
+            etText.setText(signature);
+        }
+        saved = html;
         loaded = true;
     }
 
     private void delete() {
-        Intent result = new Intent();
+        Intent result = getIntent();
+        if (result == null)
+            result = new Intent();
         result.putExtra("html", (String) null);
         setResult(RESULT_OK, result);
         finish();
     }
 
     private void save() {
-        Intent result = new Intent();
+        Intent result = getIntent();
+        if (result == null)
+            result = new Intent();
         result.putExtra("html", getHtml());
         setResult(RESULT_OK, result);
         finish();
@@ -302,6 +383,7 @@ public class ActivitySignature extends ActivityBase {
         String html = (dirty
                 ? getHtml()
                 : getIntent().getStringExtra("html"));
+
         tvHtmlRemark.setVisibility(raw ? View.VISIBLE : View.GONE);
         etText.setRaw(raw);
         etText.setTypeface(raw ? Typeface.MONOSPACE : Typeface.DEFAULT);
@@ -314,9 +396,12 @@ public class ActivitySignature extends ActivityBase {
     private String getHtml() {
         etText.clearComposingText();
 
-        if (etText.isRaw())
-            return etText.getText().toString();
-        else {
+        if (etText.isRaw()) {
+            saved = etText.getText().toString();
+            return saved;
+        } else {
+            if (saved != null)
+                return saved;
             String html = HtmlHelper.toHtml(etText.getText(), this);
             Document d = JsoupEx.parse(html);
             return d.body().html();
@@ -329,67 +414,37 @@ public class ActivitySignature extends ActivityBase {
         intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         intent.setType("image/*");
-        Helper.openAdvanced(intent);
+        Helper.openAdvanced(ActivitySignature.this, intent);
         startActivityForResult(intent, REQUEST_IMAGE);
     }
 
-    private boolean onActionStyle(int action) {
-        Log.i("Style action=" + action);
-
-        if (action == R.id.menu_link) {
-            Uri uri = null;
-            final int start = etText.getSelectionStart();
-            final int end = etText.getSelectionEnd();
-
-            ClipboardManager cbm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-            if (cbm != null && cbm.hasPrimaryClip()) {
-                String link = cbm.getPrimaryClip().getItemAt(0).coerceToText(this).toString();
-                uri = Uri.parse(link);
-                if (uri.getScheme() == null)
-                    uri = null;
-            }
-
-            View view = LayoutInflater.from(this).inflate(R.layout.dialog_insert_link, null);
-            EditText etLink = view.findViewById(R.id.etLink);
-            TextView tvInsecure = view.findViewById(R.id.tvInsecure);
-
-            etLink.setText(uri == null ? "https://" : uri.toString());
-            tvInsecure.setVisibility(View.GONE);
-
-            new AlertDialog.Builder(this)
-                    .setView(view)
-                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            String link = etLink.getText().toString();
-                            etText.setSelection(start, end);
-                            StyleHelper.apply(R.id.menu_link, ActivitySignature.this, null, etText, link);
-                        }
-                    })
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .show();
-
-            return true;
-        } else
-            return StyleHelper.apply(action, ActivitySignature.this, findViewById(action), etText);
+    private void insertLink() {
+        FragmentDialogInsertLink fragment = new FragmentDialogInsertLink();
+        fragment.setArguments(FragmentDialogInsertLink.getArguments(etText));
+        fragment.setTargetActivity(this, REQUEST_LINK);
+        fragment.show(getSupportFragmentManager(), "signature:link");
     }
 
     private void onImageSelected(Uri uri) {
         try {
+            NoStreamException.check(uri, this);
+
             getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            if (!Helper.isPersisted(this, uri, true, false))
+                throw new IllegalStateException("No permission granted to access selected image " + uri);
 
             int start = etText.getSelectionStart();
             if (etText.isRaw())
                 etText.getText().insert(start, "<img src=\"" + Html.escapeHtml(uri.toString()) + "\" />");
             else {
                 SpannableStringBuilder ssb = new SpannableStringBuilderEx(etText.getText());
-                ssb.insert(start, " \uFFFC"); // Object replacement character
+                ssb.insert(start, "\n\uFFFC\n"); // Object replacement character
                 String source = uri.toString();
                 Drawable d = ImageHelper.decodeImage(this, -1, source, true, 0, 1.0f, etText);
                 ImageSpan is = new ImageSpan(d, source);
                 ssb.setSpan(is, start + 1, start + 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                 etText.setText(ssb);
-                etText.setSelection(start + 2);
+                etText.setSelection(start + 3);
 
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
                 boolean signature_images_hint = prefs.getBoolean("signature_images_hint", false);
@@ -406,18 +461,52 @@ public class ActivitySignature extends ActivityBase {
                             })
                             .show();
             }
-        } catch (SecurityException ex) {
-            Snackbar sb = Snackbar.make(view, R.string.title_no_stream, Snackbar.LENGTH_INDEFINITE)
-                    .setGestureInsetBottomIgnored(true);
-            sb.setAction(R.string.title_info, new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Helper.viewFAQ(ActivitySignature.this, 49);
-                }
-            });
-            sb.show();
+        } catch (NoStreamException ex) {
+            ex.report(this);
         } catch (Throwable ex) {
             Log.unexpectedError(getSupportFragmentManager(), ex);
         }
+    }
+
+    private void onFileSelected(Uri uri) {
+        Bundle args = new Bundle();
+        args.putParcelable("uri", uri);
+
+        new SimpleTask<String>() {
+            @Override
+            protected String onExecute(Context context, Bundle args) throws Throwable {
+                try (InputStream is = getContentResolver().openInputStream(uri)) {
+                    if (is == null)
+                        throw new FileNotFoundException(uri.toString());
+                    return Helper.readStream(is);
+                }
+            }
+
+            @Override
+            protected void onExecuted(Bundle args, String text) {
+                int start = etText.getSelectionStart();
+                if (start < 0)
+                    start = 0;
+                etText.getText().insert(start, text);
+            }
+
+            @Override
+            protected void onException(Bundle args, Throwable ex) {
+                if (ex instanceof NoStreamException)
+                    ((NoStreamException) ex).report(ActivitySignature.this);
+                else
+                    Log.unexpectedError(getSupportFragmentManager(), ex);
+            }
+        }.execute(this, args, "signature:file");
+    }
+
+    private void onLinkSelected(Bundle args) {
+        String link = args.getString("link");
+        boolean image = args.getBoolean("image");
+        int start = args.getInt("start");
+        int end = args.getInt("end");
+        String title = args.getString("title");
+        etText.setSelection(start, end);
+        StyleHelper.apply(R.id.menu_link, this, null, etText, -1L, 0, link, image, title);
     }
 }

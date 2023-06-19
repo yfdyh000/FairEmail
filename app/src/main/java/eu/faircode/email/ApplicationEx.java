@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.app.Activity;
@@ -40,6 +40,8 @@ import android.webkit.CookieManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.os.LocaleListCompat;
 import androidx.emoji2.text.DefaultEmojiCompatConfig;
 import androidx.emoji2.text.EmojiCompat;
 import androidx.emoji2.text.FontRequestEmojiCompatConfig;
@@ -56,12 +58,17 @@ public class ApplicationEx extends Application
         implements androidx.work.Configuration.Provider, SharedPreferences.OnSharedPreferenceChangeListener {
     private Thread.UncaughtExceptionHandler prev = null;
 
+    private static final Object lock = new Object();
+
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(getLocalizedContext(base));
     }
 
     static Context getLocalizedContext(Context context) {
+        if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && false)
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList());
+
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
 
         if (prefs.contains("english")) {
@@ -113,6 +120,11 @@ public class ApplicationEx extends Application
                 " process=" + android.os.Process.myPid());
         Log.logMemory(this, "App");
 
+        if (BuildConfig.DEBUG)
+            UriHelper.test(this);
+
+        CoalMine.install(this);
+
         registerActivityLifecycleCallbacks(lifecycleCallbacks);
 
         getMainLooper().setMessageLogging(new Printer() {
@@ -140,12 +152,15 @@ public class ApplicationEx extends Application
                             StackTraceElement[] stack = v.getStackTrace();
                             for (StackTraceElement ste : stack) {
                                 String clazz = ste.getClassName();
+                                if (clazz == null)
+                                    continue;
+                                if (clazz.startsWith("leakcanary."))
+                                    return;
                                 if ("com.sun.mail.util.WriteTimeoutSocket".equals(clazz))
                                     return;
-                                if (clazz != null &&
-                                        (clazz.startsWith("org.chromium") ||
-                                                clazz.startsWith("com.android.webview.chromium") ||
-                                                clazz.startsWith("androidx.appcompat.widget")))
+                                if (clazz.startsWith("org.chromium") ||
+                                        clazz.startsWith("com.android.webview.chromium") ||
+                                        clazz.startsWith("androidx.appcompat.widget"))
                                     return;
                             }
 
@@ -158,7 +173,8 @@ public class ApplicationEx extends Application
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         final boolean crash_reports = prefs.getBoolean("crash_reports", false);
-        final boolean load_emoji = prefs.getBoolean("load_emoji", BuildConfig.PLAY_STORE_RELEASE);
+        final boolean leak_canary = prefs.getBoolean("leak_canary", false);
+        final boolean load_emoji = prefs.getBoolean("load_emoji", false);
 
         prev = Thread.getDefaultUncaughtExceptionHandler();
 
@@ -182,6 +198,7 @@ public class ApplicationEx extends Application
         });
 
         Log.setup(this);
+        CoalMine.setup(leak_canary);
 
         upgrade(this);
 
@@ -202,6 +219,7 @@ public class ApplicationEx extends Application
         if (Helper.hasWebView(this))
             CookieManager.getInstance().setAcceptCookie(false);
 
+        // https://issuetracker.google.com/issues/233525229
         Log.i("Load emoji=" + load_emoji);
         if (!load_emoji)
             try {
@@ -214,6 +232,7 @@ public class ApplicationEx extends Application
                 Log.e(ex);
             }
 
+        EmailProvider.init(this);
         EncryptionHelper.init(this);
         MessageHelper.setSystemProperties(this);
 
@@ -226,20 +245,20 @@ public class ApplicationEx extends Application
             ServiceSend.watchdog(this);
         }
 
-        ServiceSynchronize.scheduleWatchdog(this);
-
         boolean work_manager = prefs.getBoolean("work_manager", true);
         Log.i("Work manager=" + work_manager);
         if (work_manager) {
             // Legacy
             try {
                 WorkManager.getInstance(this).cancelUniqueWork("WorkerWatchdog");
+
+                WorkerAutoUpdate.init(this);
+                WorkerCleanup.init(this);
+                WorkerDailyRules.init(this);
+                WorkerSync.init(this);
             } catch (IllegalStateException ex) {
                 Log.e(ex);
             }
-
-            WorkerAutoUpdate.init(this);
-            WorkerCleanup.init(this);
         }
 
         registerReceiver(onScreenOff, new IntentFilter(Intent.ACTION_SCREEN_OFF));
@@ -250,49 +269,57 @@ public class ApplicationEx extends Application
 
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-        switch (key) {
-            case "enabled":
-                ServiceSynchronize.reschedule(this);
-                WorkerCleanup.init(this);
-                ServiceSynchronize.scheduleWatchdog(this);
-                WidgetSync.update(this);
-                break;
-            case "poll_interval":
-            case "schedule":
-            case "schedule_start":
-            case "schedule_end":
-            case "schedule_day0":
-            case "schedule_day1":
-            case "schedule_day2":
-            case "schedule_day3":
-            case "schedule_day4":
-            case "schedule_day5":
-            case "schedule_day6":
-                ServiceSynchronize.reschedule(this);
-                break;
-            case "check_blocklist":
-            case "use_blocklist":
-                DnsBlockList.clearCache();
-                break;
-            case "watchdog":
-                ServiceSynchronize.scheduleWatchdog(this);
-                break;
-            case "secure": // privacy
-            case "load_emoji": // privacy
-            case "shortcuts": // misc
-            case "language": // misc
-            case "wal": // misc
-                // Should be excluded for import
-                restart(this);
-                break;
-            case "debug":
-            case "log_level":
-                Log.setLevel(this);
-                break;
+        try {
+            switch (key) {
+                case "enabled":
+                    ServiceSynchronize.reschedule(this);
+                    WorkerCleanup.init(this);
+                    ServiceSynchronize.scheduleWatchdog(this);
+                    WidgetSync.update(this);
+                    break;
+                case "poll_interval":
+                case "schedule":
+                case "schedule_start":
+                case "schedule_end":
+                case "schedule_start_weekend":
+                case "schedule_end_weekend":
+                case "weekend":
+                case "schedule_day0":
+                case "schedule_day1":
+                case "schedule_day2":
+                case "schedule_day3":
+                case "schedule_day4":
+                case "schedule_day5":
+                case "schedule_day6":
+                    ServiceSynchronize.reschedule(this);
+                    break;
+                case "check_blocklist":
+                case "use_blocklist":
+                    DnsBlockList.clearCache();
+                    break;
+                case "watchdog":
+                    ServiceSynchronize.scheduleWatchdog(this);
+                    break;
+                case "secure": // privacy
+                case "load_emoji": // privacy
+                case "shortcuts": // misc
+                case "language": // misc
+                case "wal": // misc
+                    // Should be excluded for import
+                    restart(this, key);
+                    break;
+                case "debug":
+                case "log_level":
+                    Log.setLevel(this);
+                    break;
+            }
+        } catch (Throwable ex) {
+            Log.e(ex);
         }
     }
 
-    static void restart(Context context) {
+    static void restart(Context context, String reason) {
+        Log.i("Restart because " + reason);
         Intent intent = new Intent(context, ActivityMain.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         context.startActivity(intent);
@@ -301,24 +328,40 @@ public class ApplicationEx extends Application
 
     @Override
     public void onTrimMemory(int level) {
-        Log.logMemory(this, "Trim memory level=" + level);
-        Map<String, String> crumb = new HashMap<>();
-        crumb.put("level", Integer.toString(level));
-        crumb.put("free", Integer.toString(Log.getFreeMemMb()));
-        Log.breadcrumb("trim", crumb);
-        super.onTrimMemory(level);
+        try {
+            /*
+                java.lang.NoClassDefFoundError: Not a primitive type: '\u0000'
+                    at androidx.core.content.ContextCompat$Api23Impl.getSystemService(Unknown Source:0)
+                    at androidx.core.content.ContextCompat.getSystemService(SourceFile:7)
+                    at eu.faircode.email.Helper.getSystemService(Unknown Source:4)
+                    at eu.faircode.email.Log.logMemory(SourceFile:8)
+                    at eu.faircode.email.ApplicationEx.onTrimMemory(SourceFile:18)
+                    at android.app.ActivityThread.handleTrimMemory(ActivityThread.java:5453)
+             */
+            Log.logMemory(this, "Trim memory level=" + level);
+            Map<String, String> crumb = new HashMap<>();
+            crumb.put("level", Integer.toString(level));
+            Log.breadcrumb("trim", crumb);
+            super.onTrimMemory(level);
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
     }
 
     @Override
     public void onLowMemory() {
-        Log.logMemory(this, "Low memory");
-        Map<String, String> crumb = new HashMap<>();
-        crumb.put("free", Integer.toString(Log.getFreeMemMb()));
-        Log.breadcrumb("low", crumb);
+        try {
+            Log.logMemory(this, "Low memory");
+            Map<String, String> crumb = new HashMap<>();
+            crumb.put("free", Integer.toString(Log.getFreeMemMb()));
+            Log.breadcrumb("low", crumb);
 
-        ContactInfo.clearCache(this, false);
+            ContactInfo.clearCache(this, false);
 
-        super.onLowMemory();
+            super.onLowMemory();
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
     }
 
     static void upgrade(Context context) {
@@ -597,6 +640,86 @@ public class ApplicationEx extends Application
         } else if (version < 1847) {
             if (Helper.isAccessibilityEnabled(context))
                 editor.putBoolean("send_chips", false);
+        } else if (version < 1855) {
+            if (!prefs.contains("preview_lines"))
+                editor.putInt("preview_lines", 2);
+        } else if (version < 1874) {
+            boolean cards = prefs.getBoolean("cards", true);
+            if (!cards)
+                editor.remove("view_padding");
+        } else if (version < 1888) {
+            int class_min_difference = prefs.getInt("class_min_difference", 50);
+            if (class_min_difference == 0)
+                editor.putBoolean("classification", false);
+        } else if (version < 1918) {
+            if (prefs.contains("browse_links")) {
+                boolean browse_links = prefs.getBoolean("browse_links", false);
+                editor.remove("browse_links")
+                        .putBoolean("open_with_tabs", !browse_links);
+            }
+        } else if (version < 1927) {
+            if (!prefs.contains("auto_identity"))
+                editor.putBoolean("auto_identity", true);
+        } else if (version < 1931)
+            editor.remove("button_force_light").remove("fake_dark");
+        else if (version < 1933) {
+            editor.putBoolean("lt_enabled", false);
+            if (prefs.contains("disable_top")) {
+                editor.putBoolean("use_top", !prefs.getBoolean("disable_top", false));
+                editor.remove("disable_top");
+            }
+        } else if (version < 1947)
+            editor.putBoolean("accept_unsupported", true);
+        else if (version < 1951) {
+            if (prefs.contains("open_unsafe"))
+                editor.putBoolean("open_safe", !prefs.getBoolean("open_unsafe", true));
+        } else if (version < 1955) {
+            if (!prefs.contains("doubletap"))
+                editor.putBoolean("doubletap", true);
+        } else if (version < 1960)
+            editor.remove("sqlite_auto_vacuum");
+        else if (version < 1961) {
+            if (!prefs.contains("photo_picker"))
+                editor.putBoolean("photo_picker", true);
+        } else if (version < 1966)
+            editor.remove("hide_timezone");
+        else if (version < 1994) {
+            // 2022-10-28 Spamcop blocks Google's addresses
+            editor.putBoolean("blocklist.Spamcop", false);
+        } else if (version < 2013) {
+            if (prefs.contains("compose_block")) {
+                if (prefs.getBoolean("experiments", false))
+                    editor.putBoolean("compose_style", prefs.getBoolean("compose_block", false));
+                editor.remove("compose_block");
+            }
+        } else if (version < 2016) {
+            if (!prefs.contains("reset_snooze"))
+                editor.putBoolean("reset_snooze", false);
+        } else if (version < 2029) {
+            if (!prefs.contains("plain_only_reply"))
+                editor.putBoolean("plain_only_reply", true);
+        } else if (version < 2046)
+            editor.remove("message_junk");
+        else if (version < 2069) {
+            if (prefs.contains("swipe_sensitivity") && !prefs.contains("swipe_sensitivity_updated")) {
+                int swipe_sensitivity = prefs.getInt("swipe_sensitivity", FragmentOptionsBehavior.DEFAULT_SWIPE_SENSITIVITY);
+                if (swipe_sensitivity > 0) {
+                    swipe_sensitivity--;
+                    if (swipe_sensitivity == FragmentOptionsBehavior.DEFAULT_SWIPE_SENSITIVITY)
+                        editor.remove("swipe_sensitivity");
+                    else
+                        editor.putInt("swipe_sensitivity", swipe_sensitivity - 1)
+                                .putBoolean("swipe_sensitivity_updated", true);
+                }
+            }
+        } else if (version < 2075) {
+            for (String name : new String[]{"seen", "unflagged", "unknown", "snoozed", "deleted"})
+                if (prefs.contains("filter_" + name))
+                    for (String _type : new String[]{EntityFolder.ARCHIVE, EntityFolder.TRASH, EntityFolder.JUNK}) {
+                        String type = _type.toLowerCase(Locale.ROOT);
+                        if (!prefs.contains("filter_" + type + "_" + name))
+                            editor.putBoolean("filter_" + type + "_" + name, prefs.getBoolean("filter_" + name, false));
+                    }
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !BuildConfig.DEBUG)
@@ -699,11 +822,17 @@ public class ApplicationEx extends Application
         @Override
         public void onActivityPostResumed(@NonNull Activity activity) {
             log(activity, "onActivityPostResumed");
+            if (activity instanceof ActivityView ||
+                    (BuildConfig.DEBUG && activity instanceof ActivityCompose))
+                ServiceSynchronize.state(activity, true);
         }
 
         @Override
         public void onActivityPrePaused(@NonNull Activity activity) {
             log(activity, "onActivityPrePaused");
+            if (activity instanceof ActivityView ||
+                    (BuildConfig.DEBUG && activity instanceof ActivityCompose))
+                ServiceSynchronize.state(activity, false);
         }
 
         @Override
@@ -754,6 +883,7 @@ public class ApplicationEx extends Application
         @Override
         public void onActivityDestroyed(@NonNull Activity activity) {
             log(activity, "onActivityDestroyed");
+            Helper.clearViews(activity);
         }
 
         @Override
@@ -785,7 +915,9 @@ public class ApplicationEx extends Application
 
     synchronized static Handler getMainHandler() {
         if (handler == null)
-            handler = new Handler(Looper.getMainLooper());
+            synchronized (lock) {
+                handler = new Handler(Looper.getMainLooper());
+            }
         return handler;
     }
 }

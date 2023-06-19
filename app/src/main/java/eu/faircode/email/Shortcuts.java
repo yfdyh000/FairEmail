@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.Manifest;
@@ -41,6 +41,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.Person;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.pm.ShortcutInfoCompat;
 import androidx.core.content.pm.ShortcutManagerCompat;
 import androidx.core.graphics.drawable.IconCompat;
@@ -75,7 +76,7 @@ class Shortcuts {
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
                 boolean enabled = prefs.getBoolean("shortcuts", true);
 
-                ShortcutManager sm = (ShortcutManager) context.getSystemService(Context.SHORTCUT_SERVICE);
+                ShortcutManager sm = Helper.getSystemService(context, ShortcutManager.class);
                 int app = sm.getMaxShortcutCountPerActivity();
                 int manifest = sm.getManifestShortcuts().size();
                 int count = Math.min(app - manifest, MAX_SHORTCUTS);
@@ -119,9 +120,9 @@ class Shortcuts {
                 List<String> remove = new ArrayList<>();
 
                 if (BuildConfig.DEBUG && false)
-                    ShortcutManagerCompat.removeAllDynamicShortcuts(context);
+                    ShortcutManagerCompat.removeAllDynamicShortcuts(context.getApplicationContext());
 
-                List<ShortcutInfoCompat> existing = ShortcutManagerCompat.getDynamicShortcuts(context);
+                List<ShortcutInfoCompat> existing = ShortcutManagerCompat.getDynamicShortcuts(context.getApplicationContext());
 
                 for (ShortcutInfoCompat shortcut : shortcuts) {
                     boolean exists = false;
@@ -153,11 +154,11 @@ class Shortcuts {
                         " remove=" + remove.size());
 
                 if (remove.size() > 0)
-                    ShortcutManagerCompat.removeDynamicShortcuts(context, remove);
+                    ShortcutManagerCompat.removeDynamicShortcuts(context.getApplicationContext(), remove);
 
                 for (ShortcutInfoCompat shortcut : add) {
                     Log.i("Push shortcut id=" + shortcut.getId());
-                    ShortcutManagerCompat.pushDynamicShortcut(context, shortcut);
+                    ShortcutManagerCompat.pushDynamicShortcut(context.getApplicationContext(), shortcut);
                 }
             }
 
@@ -277,10 +278,10 @@ class Shortcuts {
     }
 
     @NonNull
-    static ShortcutInfoCompat.Builder getShortcut(Context context, EntityMessage message, ContactInfo[] contactInfo) {
+    static ShortcutInfoCompat.Builder getShortcut(Context context, EntityMessage message, String label, ContactInfo[] contactInfo) {
         Intent thread = new Intent(context, ActivityView.class);
         thread.setAction("thread:" + message.id);
-        thread.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        thread.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         thread.putExtra("account", message.account);
         thread.putExtra("folder", message.folder);
         thread.putExtra("thread", message.thread);
@@ -293,20 +294,12 @@ class Shortcuts {
             bm = contactInfo[0].getPhotoBitmap();
         else {
             int resid = R.drawable.baseline_mail_24;
-            Drawable d = context.getDrawable(resid);
+            Drawable d = ContextCompat.getDrawable(context, resid);
             bm = Bitmap.createBitmap(
                     d.getIntrinsicWidth(),
                     d.getIntrinsicHeight(),
                     Bitmap.Config.ARGB_8888);
         }
-
-        String label;
-        if (!TextUtils.isEmpty(message.notes))
-            label = message.notes;
-        else if (!TextUtils.isEmpty(message.subject))
-            label = message.subject;
-        else
-            label = context.getString(R.string.app_name);
 
         IconCompat icon = IconCompat.createWithBitmap(bm);
         String id = "message:" + message.id;
@@ -323,10 +316,10 @@ class Shortcuts {
         view.setAction("folder:" + folder.id);
         view.putExtra("account", folder.account);
         view.putExtra("type", folder.type);
-        view.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 
         int resid = EntityFolder.getIcon(folder.type);
-        Drawable d = context.getDrawable(resid);
+        Drawable d = ContextCompat.getDrawable(context, resid);
         Bitmap bm = Bitmap.createBitmap(
                 d.getIntrinsicWidth(),
                 d.getIntrinsicHeight(),
@@ -346,6 +339,30 @@ class Shortcuts {
     }
 
     static boolean can(Context context) {
-        return ShortcutManagerCompat.isRequestPinShortcutSupported(context);
+        return ShortcutManagerCompat.isRequestPinShortcutSupported(context.getApplicationContext());
+    }
+
+    static void requestPinShortcut(Context context, ShortcutInfoCompat info) {
+        ShortcutManagerCompat.requestPinShortcut(context.getApplicationContext(), info, null);
+    }
+
+    static void cleanup(Context context) {
+        if (!BuildConfig.DEBUG)
+            return;
+
+        DB db = DB.getInstance(context);
+        List<ShortcutInfoCompat> pinned =
+                ShortcutManagerCompat.getShortcuts(context, ShortcutManagerCompat.FLAG_MATCH_PINNED);
+        for (ShortcutInfoCompat shortcut : pinned) {
+            String[] id = shortcut.getId().split(":");
+            if (id.length == 2 && "message".equals(id[0])) {
+                Intent intent = shortcut.getIntent();
+                long account = intent.getLongExtra("account", -1L);
+                String thread = intent.getStringExtra("thread");
+                List<EntityMessage> messages = db.message().getMessagesByThread(account, thread, null, null);
+                if (messages != null && messages.size() == 0)
+                    ; // Delete the shortcut, if only this was possible ...
+            }
+        }
     }
 }

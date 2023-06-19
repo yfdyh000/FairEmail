@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import androidx.lifecycle.LiveData;
@@ -103,16 +103,28 @@ public interface DaoAttachment {
     void setError(long id, String error);
 
     @Query("UPDATE attachment" +
+            " SET error = :error" +
+            " WHERE id = :id" +
+            " AND NOT (error IS :error)")
+    void setWarning(long id, String error);
+
+    @Query("UPDATE attachment" +
+            " SET name = :name, type = :type, size= :size" +
+            " WHERE id = :id" +
+            " AND NOT (name IS name AND type IS :type AND size IS :size)")
+    void setName(long id, String name, String type, Long size);
+
+    @Query("UPDATE attachment" +
             " SET type = :type" +
             " WHERE id = :id" +
             " AND NOT (type IS :type)")
     void setType(long id, String type);
 
     @Query("UPDATE attachment" +
-            " SET disposition = :disposition" +
+            " SET disposition = :disposition, cid = :cid" +
             " WHERE id = :id" +
-            " AND NOT (disposition IS :disposition)")
-    void setDisposition(long id, String disposition);
+            " AND NOT (disposition IS :disposition AND cid IS :cid)")
+    void setDisposition(long id, String disposition, String cid);
 
     @Query("UPDATE attachment" +
             " SET cid = :cid" +
@@ -120,6 +132,12 @@ public interface DaoAttachment {
             " AND NOT (cid IS :cid)" +
             " AND NOT (related IS :related)")
     void setCid(long id, String cid, Boolean related);
+
+    @Query("UPDATE attachment" +
+            " SET encryption = :encryption" +
+            " WHERE id = :id" +
+            " AND NOT (encryption IS :encryption)")
+    void setEncryption(long id, Integer encryption);
 
     @Query("UPDATE attachment" +
             " SET media_uri = :media_uri" +
@@ -150,6 +168,10 @@ public interface DaoAttachment {
     @Query("DELETE FROM attachment" +
             " WHERE id = :id")
     int deleteAttachment(long id);
+
+    @Query("DELETE FROM attachment" +
+            " WHERE message = :message")
+    int deleteAttachments(long message);
 
     @Query("DELETE FROM attachment" +
             " WHERE message = :message" +

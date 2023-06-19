@@ -16,16 +16,18 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.app.Activity.RESULT_OK;
+import static androidx.recyclerview.widget.RecyclerView.NO_POSITION;
 
-import android.Manifest;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Canvas;
+import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -35,6 +37,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -47,6 +50,7 @@ import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.OnLifecycleEvent;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -67,6 +71,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 public class FragmentRules extends FragmentBase {
     private long account;
@@ -75,7 +80,9 @@ public class FragmentRules extends FragmentBase {
     private String type;
 
     private boolean cards;
+    private boolean dividers;
 
+    private View view;
     private RecyclerView rvRule;
     private ContentLoadingProgressBar pbWait;
     private Group grpReady;
@@ -86,8 +93,11 @@ public class FragmentRules extends FragmentBase {
 
     private static final int REQUEST_EXPORT = 1;
     private static final int REQUEST_IMPORT = 2;
-    static final int REQUEST_MOVE = 3;
-    private static final int REQUEST_CLEAR = 4;
+    static final int REQUEST_GROUP = 3;
+    static final int REQUEST_MOVE = 4;
+    static final int REQUEST_RULE_COPY_ACCOUNT = 5;
+    static final int REQUEST_RULE_COPY_FOLDER = 6;
+    private static final int REQUEST_CLEAR = 7;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -102,6 +112,7 @@ public class FragmentRules extends FragmentBase {
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
         cards = prefs.getBoolean("cards", true);
+        dividers = prefs.getBoolean("dividers", true);
     }
 
     @Override
@@ -110,7 +121,7 @@ public class FragmentRules extends FragmentBase {
         setSubtitle(R.string.title_edit_rules);
         setHasOptionsMenu(true);
 
-        View view = inflater.inflate(R.layout.fragment_rules, container, false);
+        view = inflater.inflate(R.layout.fragment_rules, container, false);
 
         // Get controls
         rvRule = view.findViewById(R.id.rvRule);
@@ -123,6 +134,77 @@ public class FragmentRules extends FragmentBase {
         rvRule.setHasFixedSize(true);
         LinearLayoutManager llm = new LinearLayoutManager(getContext());
         rvRule.setLayoutManager(llm);
+
+        DividerItemDecoration groupDecorator = new DividerItemDecoration(getContext(), llm.getOrientation()) {
+            @Override
+            public void onDraw(@NonNull Canvas canvas, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
+                int count = parent.getChildCount();
+                for (int i = 0; i < count; i++) {
+                    View view = parent.getChildAt(i);
+                    int pos = parent.getChildAdapterPosition(view);
+
+                    View header = getView(view, parent, pos);
+                    if (header != null) {
+                        canvas.save();
+                        canvas.translate(0, parent.getChildAt(i).getTop() - header.getMeasuredHeight());
+                        header.draw(canvas);
+                        canvas.restore();
+                    }
+                }
+            }
+
+            @Override
+            public void getItemOffsets(Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
+                int pos = parent.getChildAdapterPosition(view);
+                View header = getView(view, parent, pos);
+                if (header == null)
+                    outRect.setEmpty();
+                else
+                    outRect.top = header.getMeasuredHeight();
+            }
+
+            private View getView(View view, RecyclerView parent, int pos) {
+                if (pos == NO_POSITION)
+                    return null;
+
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return null;
+
+                EntityRule prev = adapter.getItemAtPosition(pos - 1);
+                EntityRule rule = adapter.getItemAtPosition(pos);
+                if (pos > 0 && prev == null)
+                    return null;
+                if (rule == null)
+                    return null;
+
+                if (pos > 0) {
+                    if (Objects.equals(prev.group, rule.group))
+                        return null;
+                } else {
+                    if (rule.group == null)
+                        return null;
+                }
+
+                View header = inflater.inflate(R.layout.item_group, parent, false);
+                TextView tvCategory = header.findViewById(R.id.tvCategory);
+                TextView tvDate = header.findViewById(R.id.tvDate);
+
+                if (cards || !dividers) {
+                    View vSeparator = header.findViewById(R.id.vSeparator);
+                    vSeparator.setVisibility(View.GONE);
+                }
+
+                tvCategory.setText(rule.group);
+                tvDate.setVisibility(View.GONE);
+
+                header.measure(View.MeasureSpec.makeMeasureSpec(parent.getWidth(), View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+                header.layout(0, 0, header.getMeasuredWidth(), header.getMeasuredHeight());
+
+                return header;
+            }
+        };
+        rvRule.addItemDecoration(groupDecorator);
 
         adapter = new AdapterRule(this);
         rvRule.setAdapter(adapter);
@@ -173,14 +255,19 @@ public class FragmentRules extends FragmentBase {
             searching = savedInstanceState.getString("fair:searching");
         adapter.search(searching);
 
-        DB db = DB.getInstance(getContext());
+        final Context context = getContext();
+        DB db = DB.getInstance(context);
         db.rule().liveRules(folder).observe(getViewLifecycleOwner(), new Observer<List<TupleRuleEx>>() {
             @Override
             public void onChanged(List<TupleRuleEx> rules) {
                 if (rules == null)
                     rules = new ArrayList<>();
 
-                adapter.set(protocol, rules);
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                String sort = prefs.getString("rule_sort", "order");
+
+                adapter.set(protocol, sort, rules);
+                rvRule.invalidateItemDecorations();
 
                 pbWait.setVisibility(View.GONE);
                 grpReady.setVisibility(View.VISIBLE);
@@ -202,9 +289,21 @@ public class FragmentRules extends FragmentBase {
                     if (resultCode == RESULT_OK && data != null)
                         onImport(data);
                     break;
+                case REQUEST_GROUP:
+                    if (resultCode == RESULT_OK && data != null)
+                        onGroup(data.getBundleExtra("args"));
+                    break;
                 case REQUEST_MOVE:
                     if (resultCode == RESULT_OK && data != null)
                         onMove(data.getBundleExtra("args"));
+                    break;
+                case REQUEST_RULE_COPY_ACCOUNT:
+                    if (resultCode == RESULT_OK && data != null)
+                        onRuleCopyAccount(data.getBundleExtra("args"));
+                    break;
+                case REQUEST_RULE_COPY_FOLDER:
+                    if (resultCode == RESULT_OK && data != null)
+                        onRuleCopyFolder(data.getBundleExtra("args"));
                     break;
                 case REQUEST_CLEAR:
                     if (resultCode == RESULT_OK && data != null)
@@ -224,10 +323,21 @@ public class FragmentRules extends FragmentBase {
         SearchView searchView = (SearchView) menuSearch.getActionView();
         searchView.setQueryHint(getString(R.string.title_rules_search_hint));
 
-        if (!TextUtils.isEmpty(searching)) {
-            menuSearch.expandActionView();
-            searchView.setQuery(searching, true);
-        }
+        final String search = searching;
+        view.post(new RunnableEx("rules:search") {
+            @Override
+            public void delegate() {
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return;
+
+                if (TextUtils.isEmpty(search))
+                    menuSearch.collapseActionView();
+                else {
+                    menuSearch.expandActionView();
+                    searchView.setQuery(search, true);
+                }
+            }
+        });
 
         getViewLifecycleOwner().getLifecycle().addObserver(new LifecycleObserver() {
             @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
@@ -240,7 +350,7 @@ public class FragmentRules extends FragmentBase {
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextChange(String newText) {
-                if (getView() != null) {
+                if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
                     searching = newText;
                     adapter.search(newText);
                 }
@@ -249,13 +359,25 @@ public class FragmentRules extends FragmentBase {
 
             @Override
             public boolean onQueryTextSubmit(String query) {
-                searching = query;
-                adapter.search(query);
+                if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
+                    searching = query;
+                    adapter.search(query);
+                }
                 return true;
             }
         });
 
         MenuCompat.setGroupDividerEnabled(menu, true);
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+        String sort = prefs.getString("rule_sort", "order");
+
+        if ("last_applied".equals(sort))
+            menu.findItem(R.id.menu_sort_on_last_applied).setChecked(true);
+        else if ("applied".equals(sort))
+            menu.findItem(R.id.menu_sort_on_applied).setChecked(true);
+        else
+            menu.findItem(R.id.menu_sort_on_order).setChecked(true);
 
         super.onCreateOptionsMenu(menu, inflater);
     }
@@ -263,7 +385,19 @@ public class FragmentRules extends FragmentBase {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int itemId = item.getItemId();
-        if (itemId == R.id.menu_export) {
+        if (itemId == R.id.menu_sort_on_order) {
+            item.setChecked(true);
+            onMenuSort("order");
+            return true;
+        } else if (itemId == R.id.menu_sort_on_applied) {
+            item.setChecked(true);
+            onMenuSort("applied");
+            return true;
+        } else if (itemId == R.id.menu_sort_on_last_applied) {
+            item.setChecked(true);
+            onMenuSort("last_applied");
+            return true;
+        } else if (itemId == R.id.menu_export) {
             onMenuExport();
             return true;
         } else if (itemId == R.id.menu_import) {
@@ -276,24 +410,34 @@ public class FragmentRules extends FragmentBase {
         return super.onOptionsItemSelected(item);
     }
 
+    private void onMenuSort(String sort) {
+        final Context context = getContext();
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        prefs.edit().putString("rule_sort", sort).apply();
+        adapter.setSort(sort);
+    }
+
     private void onMenuExport() {
-        if (!ActivityBilling.isPro(getContext())) {
-            startActivity(new Intent(getContext(), ActivityBilling.class));
+        final Context context = getContext();
+        if (!ActivityBilling.isPro(context)) {
+            startActivity(new Intent(context, ActivityBilling.class));
             return;
         }
 
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
         intent.setType("*/*");
         intent.putExtra(Intent.EXTRA_TITLE, "fairemail_" +
                 new SimpleDateFormat("yyyyMMdd").format(new Date().getTime()) + ".rules");
-        Helper.openAdvanced(intent);
+        Helper.openAdvanced(context, intent);
         startActivityForResult(intent, REQUEST_EXPORT);
     }
 
     private void onMenuImport() {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         intent.setType("*/*");
         startActivityForResult(intent, REQUEST_IMPORT);
     }
@@ -315,9 +459,18 @@ public class FragmentRules extends FragmentBase {
         args.putParcelable("uri", data.getData());
 
         new SimpleTask<Void>() {
+            private Toast toast = null;
+
             @Override
             protected void onPreExecute(Bundle args) {
-                ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG).show();
+                toast = ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG);
+                toast.show();
+            }
+
+            @Override
+            protected void onPostExecute(Bundle args) {
+                if (toast != null)
+                    toast.cancel();
             }
 
             @Override
@@ -339,11 +492,29 @@ public class FragmentRules extends FragmentBase {
                     JSONObject jaction = new JSONObject(rule.action);
 
                     int type = jaction.getInt("type");
-                    if (type == EntityRule.TYPE_MOVE || type == EntityRule.TYPE_COPY) {
-                        long target = jaction.optLong("target", -1);
-                        EntityFolder f = db.folder().getFolder(target);
-                        if (f != null)
-                            jaction.put("folderType", f.type);
+                    switch (type) {
+                        case EntityRule.TYPE_MOVE:
+                        case EntityRule.TYPE_COPY:
+                            long target = jaction.optLong("target", -1);
+                            EntityFolder f = db.folder().getFolder(target);
+                            EntityAccount a = (f == null ? null : db.account().getAccount(f.account));
+                            if (a != null)
+                                jaction.put("targetAccountUuid", a.uuid);
+                            if (f != null) {
+                                jaction.put("targetFolderType", f.type);
+                                jaction.put("targetFolderName", f.name);
+                            }
+                            break;
+                        case EntityRule.TYPE_ANSWER:
+                            long identity = jaction.getLong("identity");
+                            long answer = jaction.getLong("answer");
+                            EntityIdentity i = db.identity().getIdentity(identity);
+                            EntityAnswer t = db.answer().getAnswer(answer);
+                            if (i != null)
+                                jaction.put("identityUuid", i.uuid);
+                            if (t != null)
+                                jaction.put("answerUuid", t.uuid);
+                            break;
                     }
 
                     rule.action = jaction.toString();
@@ -354,6 +525,8 @@ public class FragmentRules extends FragmentBase {
                 ContentResolver resolver = context.getContentResolver();
                 try (OutputStream os = resolver.openOutputStream(uri)) {
                     Log.i("Writing URI=" + uri);
+                    if (os == null)
+                        throw new FileNotFoundException(uri.toString());
                     os.write(jrules.toString(2).getBytes());
                 }
 
@@ -382,9 +555,18 @@ public class FragmentRules extends FragmentBase {
         args.putParcelable("uri", data.getData());
 
         new SimpleTask<Void>() {
+            private Toast toast = null;
+
             @Override
             protected void onPreExecute(Bundle args) {
-                ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG).show();
+                toast = ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG);
+                toast.show();
+            }
+
+            @Override
+            protected void onPostExecute(Bundle args) {
+                if (toast != null)
+                    toast.cancel();
             }
 
             @Override
@@ -392,20 +574,15 @@ public class FragmentRules extends FragmentBase {
                 long fid = args.getLong("folder");
                 Uri uri = args.getParcelable("uri");
 
-                if (uri == null)
-                    throw new FileNotFoundException();
-
-                if (!"content".equals(uri.getScheme()) &&
-                        !Helper.hasPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE)) {
-                    Log.w("Import uri=" + uri);
-                    throw new IllegalArgumentException(context.getString(R.string.title_no_stream));
-                }
+                NoStreamException.check(uri, context);
 
                 StringBuilder data = new StringBuilder();
 
                 Log.i("Reading URI=" + uri);
                 ContentResolver resolver = context.getContentResolver();
                 try (InputStream is = resolver.openInputStream(uri)) {
+                    if (is == null)
+                        throw new FileNotFoundException(uri.toString());
                     BufferedReader reader = new BufferedReader(new InputStreamReader(is));
                     String line;
                     while ((line = reader.readLine()) != null)
@@ -422,21 +599,52 @@ public class FragmentRules extends FragmentBase {
                     if (folder == null)
                         return null;
 
-                    for (int i = 0; i < jrules.length(); i++) {
-                        JSONObject jrule = jrules.getJSONObject(i);
+                    for (int r = 0; r < jrules.length(); r++) {
+                        JSONObject jrule = jrules.getJSONObject(r);
                         EntityRule rule = EntityRule.fromJSON(jrule);
 
                         JSONObject jaction = new JSONObject(rule.action);
 
                         int type = jaction.getInt("type");
-                        if (type == EntityRule.TYPE_MOVE || type == EntityRule.TYPE_COPY) {
-                            String folderType = jaction.optString("folderType");
-                            if (!EntityFolder.SYSTEM.equals(folderType) &&
-                                    !EntityFolder.USER.equals(folderType)) {
-                                EntityFolder f = db.folder().getFolderByType(folder.account, folderType);
-                                if (f != null)
-                                    jaction.put("target", f.id);
-                            }
+                        switch (type) {
+                            case EntityRule.TYPE_MOVE:
+                            case EntityRule.TYPE_COPY:
+                                String targetAccountUuid = jaction.optString("targetAccountUuid");
+                                String targetFolderName = jaction.optString("targetFolderName");
+                                if (!TextUtils.isEmpty(targetAccountUuid) && !TextUtils.isEmpty(targetFolderName)) {
+                                    EntityAccount a = db.account().getAccountByUUID(targetAccountUuid);
+                                    if (a != null) {
+                                        EntityFolder f = db.folder().getFolderByName(a.id, targetFolderName);
+                                        if (f != null) {
+                                            jaction.put("target", f.id);
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                String folderType = jaction.optString("targetFolderType");
+                                if (TextUtils.isEmpty(folderType))
+                                    folderType = jaction.optString("folderType"); // legacy
+                                if (!EntityFolder.SYSTEM.equals(folderType) &&
+                                        !EntityFolder.USER.equals(folderType)) {
+                                    EntityFolder f = db.folder().getFolderByType(folder.account, folderType);
+                                    if (f != null)
+                                        jaction.put("target", f.id);
+                                }
+                                break;
+
+                            case EntityRule.TYPE_ANSWER:
+                                String identityUuid = jaction.optString("identityUuid");
+                                String answerUuid = jaction.optString("answerUuid");
+                                if (!TextUtils.isEmpty(identityUuid) && !TextUtils.isEmpty(answerUuid)) {
+                                    EntityIdentity i = db.identity().getIdentityByUUID(identityUuid);
+                                    EntityAnswer a = db.answer().getAnswerByUUID(answerUuid);
+                                    if (i != null && a != null) {
+                                        jaction.put("identity", i.id);
+                                        jaction.put("answer", a.id);
+                                        break;
+                                    }
+                                }
                         }
 
                         rule.action = jaction.toString();
@@ -462,14 +670,34 @@ public class FragmentRules extends FragmentBase {
 
             @Override
             protected void onException(Bundle args, Throwable ex) {
-                if (ex instanceof IllegalArgumentException ||
-                        ex instanceof FileNotFoundException ||
+                if (ex instanceof NoStreamException)
+                    ((NoStreamException) ex).report(getActivity());
+                else if (ex instanceof FileNotFoundException ||
                         ex instanceof JSONException)
                     ToastEx.makeText(getContext(), ex.getMessage(), Toast.LENGTH_LONG).show();
                 else
                     Log.unexpectedError(getParentFragmentManager(), ex);
             }
         }.execute(this, args, "rules:import");
+    }
+
+    private void onGroup(Bundle args) {
+        new SimpleTask<Void>() {
+            @Override
+            protected Void onExecute(Context context, Bundle args) {
+                long id = args.getLong("rule");
+                String name = args.getString("name");
+
+                DB db = DB.getInstance(context);
+                db.rule().setRuleGroup(id, name);
+                return null;
+            }
+
+            @Override
+            protected void onException(Bundle args, Throwable ex) {
+                Log.unexpectedError(getParentFragmentManager(), ex);
+            }
+        }.execute(this, args, "rule:group");
     }
 
     private void onMove(Bundle args) {
@@ -489,6 +717,28 @@ public class FragmentRules extends FragmentBase {
                 Log.unexpectedError(getParentFragmentManager(), ex);
             }
         }.execute(this, args, "rule:move");
+    }
+
+    private void onRuleCopyAccount(Bundle args) {
+        args.putString("title", getString(R.string.title_copy_to));
+        args.putLongArray("disabled", new long[0]);
+        args.putBoolean("cancopy", false);
+
+        FragmentDialogSelectFolder fragment = new FragmentDialogSelectFolder();
+        fragment.setArguments(args);
+        fragment.setTargetFragment(this, REQUEST_RULE_COPY_FOLDER);
+        fragment.show(getParentFragmentManager(), "rule:copy:folder");
+    }
+
+    private void onRuleCopyFolder(Bundle args) {
+        LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(getContext());
+        lbm.sendBroadcast(
+                new Intent(ActivityView.ACTION_EDIT_RULE)
+                        .putExtra("id", args.getLong("rule"))
+                        .putExtra("account", args.getLong("account"))
+                        .putExtra("folder", args.getLong("folder"))
+                        .putExtra("protocol", args.getInt("protocol"))
+                        .putExtra("copy", true));
     }
 
     private void onClear(Bundle args) {

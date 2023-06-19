@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static androidx.recyclerview.widget.RecyclerView.NO_POSITION;
@@ -48,6 +48,7 @@ import androidx.core.view.MenuCompat;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.Observer;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -81,8 +82,6 @@ public class FragmentAccounts extends FragmentBase {
     private ObjectAnimator animator;
 
     private AdapterAccount adapter;
-
-    private static final int REQUEST_IMPORT_OAUTH = 1;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -132,7 +131,7 @@ public class FragmentAccounts extends FragmentBase {
             @Override
             public void onClick(View v) {
                 try {
-                    requestPermissions(Helper.getOAuthPermissions(), REQUEST_IMPORT_OAUTH);
+                    requestPermissions(Helper.getOAuthPermissions(), REQUEST_PERMISSIONS);
                 } catch (Throwable ex) {
                     Log.unexpectedError(getParentFragmentManager(), ex);
                 }
@@ -281,7 +280,7 @@ public class FragmentAccounts extends FragmentBase {
             }
         });
 
-        animator = Helper.getFabAnimator(fab, this);
+        animator = Helper.getFabAnimator(fab, getViewLifecycleOwner());
 
         // Initialize
         FragmentDialogTheme.setBackground(getContext(), view, false);
@@ -332,11 +331,11 @@ public class FragmentAccounts extends FragmentBase {
 
                         if (accounts.size() == 0) {
                             fab.setCustomSize(Helper.dp2pixels(context, 2 * 56));
-                            if (!animator.isStarted())
+                            if (animator != null && !animator.isStarted())
                                 animator.start();
                         } else {
                             fab.clearCustomSize();
-                            if (animator.isStarted())
+                            if (animator != null && animator.isStarted())
                                 animator.end();
                         }
                     }
@@ -354,6 +353,7 @@ public class FragmentAccounts extends FragmentBase {
     public void onPrepareOptionsMenu(Menu menu) {
         menu.findItem(R.id.menu_search).setVisible(!settings);
         menu.findItem(R.id.menu_unified).setVisible(!settings);
+        menu.findItem(R.id.menu_outbox).setVisible(!settings);
         menu.findItem(R.id.menu_compact).setChecked(compact);
         menu.findItem(R.id.menu_compact).setVisible(!settings);
         menu.findItem(R.id.menu_theme).setVisible(!settings);
@@ -371,6 +371,9 @@ public class FragmentAccounts extends FragmentBase {
         } else if (itemId == R.id.menu_unified) {
             onMenuUnified();
             return true;
+        } else if (itemId == R.id.menu_outbox) {
+            onMenuOutbox();
+            return true;
         } else if (itemId == R.id.menu_compact) {
             onMenuCompact();
             return true;
@@ -385,6 +388,9 @@ public class FragmentAccounts extends FragmentBase {
     }
 
     private void onMenuSearch() {
+        if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+            return;
+
         Bundle args = new Bundle();
 
         FragmentDialogSearch fragment = new FragmentDialogSearch();
@@ -393,12 +399,15 @@ public class FragmentAccounts extends FragmentBase {
     }
 
     private void onMenuUnified() {
-        FragmentMessages fragment = new FragmentMessages();
-        fragment.setArguments(new Bundle());
+        LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(getContext());
+        lbm.sendBroadcast(
+                new Intent(ActivityView.ACTION_VIEW_MESSAGES)
+                        .putExtra("unified", true));
+    }
 
-        FragmentTransaction fragmentTransaction = getParentFragmentManager().beginTransaction();
-        fragmentTransaction.replace(R.id.content_frame, fragment).addToBackStack("messages");
-        fragmentTransaction.commit();
+    private void onMenuOutbox() {
+        LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(getContext());
+        lbm.sendBroadcast(new Intent(ActivityView.ACTION_VIEW_OUTBOX));
     }
 
     private void onMenuCompact() {
@@ -432,13 +441,10 @@ public class FragmentAccounts extends FragmentBase {
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
-        if (requestCode == REQUEST_IMPORT_OAUTH)
-            if (Helper.hasPermissions(getContext(), permissions)) {
-                btnGrant.setVisibility(View.GONE);
-                ServiceSynchronize.reload(getContext(), null, false, "Permissions regranted");
-            }
+        if (Helper.hasPermissions(getContext(), permissions)) {
+            btnGrant.setVisibility(View.GONE);
+            ServiceSynchronize.reload(getContext(), null, false, "Permissions regranted");
+        }
     }
 
     private void onSwipeRefresh() {

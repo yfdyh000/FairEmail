@@ -16,9 +16,10 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_OAUTH;
 import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
 
 import android.content.Context;
@@ -68,6 +69,9 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
     private LayoutInflater inflater;
 
     private int colorStripeWidth;
+    private int colorWarning;
+    private int textColorTertiary;
+    private boolean debug;
 
     private List<TupleIdentityEx> items = new ArrayList<>();
 
@@ -129,17 +133,25 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
 
         private void bindTo(TupleIdentityEx identity) {
             view.setAlpha(identity.synchronize && identity.accountSynchronize ? 1.0f : Helper.LOW_LIGHT);
-            vwColor.setBackgroundColor(identity.color == null ? Color.TRANSPARENT : identity.color);
+            Integer color = (identity.color == null ? identity.accountColor : identity.color);
+            vwColor.setBackgroundColor(color == null ? Color.TRANSPARENT : color);
             vwColor.setVisibility(ActivityBilling.isPro(context) ? View.VISIBLE : View.INVISIBLE);
 
             ivSync.setImageResource(identity.synchronize ? R.drawable.twotone_sync_24 : R.drawable.twotone_sync_disabled_24);
             ivSync.setContentDescription(context.getString(identity.synchronize ? R.string.title_legend_synchronize_on : R.string.title_legend_synchronize_off));
 
             ivOAuth.setVisibility(identity.auth_type == AUTH_TYPE_PASSWORD ? View.GONE : View.VISIBLE);
+            ivOAuth.setImageResource(identity.auth_type == AUTH_TYPE_OAUTH
+                    ? R.drawable.twotone_security_24
+                    : R.drawable.twotone_show_chart_24);
             ivPrimary.setVisibility(identity.primary ? View.VISIBLE : View.GONE);
             ivGroup.setVisibility(identity.self ? View.GONE : View.VISIBLE);
             tvName.setText(identity.getDisplayName());
-            tvUser.setText(identity.email);
+
+            StringBuilder user = new StringBuilder(identity.email);
+            if (identity.provider != null && (BuildConfig.DEBUG || debug))
+                user.append(" (").append(identity.provider).append(')');
+            tvUser.setText(user);
 
             if ("connected".equals(identity.state)) {
                 ivState.setImageResource(R.drawable.twotone_cloud_done_24);
@@ -153,7 +165,11 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
             }
             ivState.setVisibility(identity.synchronize ? View.VISIBLE : View.INVISIBLE);
 
-            tvHost.setText(String.format("%s:%d", identity.host, identity.port));
+            tvHost.setText(String.format("%s:%d/%s",
+                    identity.host,
+                    identity.port,
+                    EmailService.getEncryptionName(identity.encryption)));
+            tvHost.setTextColor(identity.insecure ? colorWarning : textColorTertiary);
             tvAccount.setText(identity.accountName);
 
             StringBuilder sb = new StringBuilder();
@@ -174,7 +190,9 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
             tvSignKeyId.setVisibility(sb.length() > 0 ? View.VISIBLE : View.GONE);
 
             tvLast.setText(context.getString(R.string.title_last_connected,
-                    (identity.last_connected == null ? "-" : DTF.format(identity.last_connected))));
+                    (identity.last_connected == null ? "-" : DTF.format(identity.last_connected))) +
+                    (BuildConfig.DEBUG ?
+                            "/" + (identity.last_modified == null ? "-" : DTF.format(identity.last_modified)) : ""));
 
             tvMaxSize.setText(identity.max_size == null ? null : Helper.humanReadableByteCount(identity.max_size));
             tvMaxSize.setVisibility(identity.max_size == null ? View.GONE : View.VISIBLE);
@@ -223,6 +241,9 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
             if (identity.sign_key != null || identity.sign_key_alias != null)
                 popupMenu.getMenu().add(Menu.NONE, R.string.title_reset_sign_key, order++, R.string.title_reset_sign_key);
 
+            popupMenu.getMenu().add(Menu.NONE, R.string.title_advanced_create_alias, order++, R.string.title_advanced_create_alias);
+            popupMenu.getMenu().add(Menu.NONE, R.string.title_edit_properties, order++, R.string.title_edit_properties);
+
             popupMenu.getMenu().add(Menu.NONE, R.string.title_copy, order++, R.string.title_copy);
             popupMenu.getMenu().add(Menu.NONE, R.string.title_delete, order++, R.string.title_delete);
 
@@ -238,6 +259,12 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
                         return true;
                     } else if (itemId == R.string.title_reset_sign_key) {
                         onActionClearSignKey();
+                        return true;
+                    } else if (itemId == R.string.title_advanced_create_alias) {
+                        onActionAlias();
+                        return true;
+                    } else if (itemId == R.string.title_edit_properties) {
+                        onClick(view);
                         return true;
                     } else if (itemId == R.string.title_copy) {
                         onActionCopy();
@@ -328,6 +355,7 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
 
                                 db.identity().setIdentitySignKey(id, null);
                                 db.identity().setIdentitySignKeyAlias(id, null);
+                                db.identity().setIdentityEncrypt(id, 0);
 
                                 db.setTransactionSuccessful();
                             } finally {
@@ -342,6 +370,17 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
                             Log.unexpectedError(parentFragment.getParentFragmentManager(), ex);
                         }
                     }.execute(context, owner, args, "identitty:clear_sign_key");
+                }
+
+                private void onActionAlias() {
+                    Bundle args = new Bundle();
+                    args.putLong("id", identity.id);
+                    args.putString("name", identity.name);
+                    args.putString("email", identity.email);
+
+                    FragmentDialogAlias fragment = new FragmentDialogAlias();
+                    fragment.setArguments(args);
+                    fragment.show(parentFragment.getParentFragmentManager(), "alias:create");
                 }
 
                 private void onActionCopy() {
@@ -412,6 +451,9 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean color_stripe_wide = prefs.getBoolean("color_stripe_wide", false);
         this.colorStripeWidth = Helper.dp2pixels(context, color_stripe_wide ? 12 : 6);
+        this.colorWarning = Helper.resolveColor(context, R.attr.colorWarning);
+        this.textColorTertiary = Helper.resolveColor(context, android.R.attr.textColorTertiary);
+        this.debug = prefs.getBoolean("debug", false);
 
         this.DTF = Helper.getDateTimeInstance(context, DateFormat.SHORT, DateFormat.SHORT);
 
@@ -476,7 +518,12 @@ public class AdapterIdentity extends RecyclerView.Adapter<AdapterIdentity.ViewHo
                 Log.d("Changed @" + position + " #" + count);
             }
         });
-        diff.dispatchUpdatesTo(this);
+
+        try {
+            diff.dispatchUpdatesTo(this);
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
     }
 
     private static class DiffCallback extends DiffUtil.Callback {

@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static androidx.room.ForeignKey.CASCADE;
@@ -77,6 +77,8 @@ public class EntityFolder extends EntityOrder implements Serializable {
     public String name;
     @NonNull
     public String type;
+    public String inherited_type;
+    public String subtype;
     @NonNull
     public Integer level = 0; // obsolete
     @NonNull
@@ -91,6 +93,8 @@ public class EntityFolder extends EntityOrder implements Serializable {
     public Integer poll_count = 0;
     @NonNull
     public Boolean download = true;
+    @NonNull
+    public Boolean auto_classify = false; // Obsolete
     @NonNull
     public Boolean auto_classify_source = false;
     @NonNull
@@ -108,16 +112,21 @@ public class EntityFolder extends EntityOrder implements Serializable {
     @NonNull
     public Boolean hide = false;
     @NonNull
+    public Boolean hide_seen = false;
+    @NonNull
     public Boolean collapsed = false;
     @NonNull
     public Boolean unified = false;
     @NonNull
     public Boolean navigation = false;
     @NonNull
+    public Boolean count_unread = true;
+    @NonNull
     public Boolean notify = false;
 
     public Integer total; // messages on server
-    public String[] keywords;
+    public String[] flags; // system flags
+    public String[] keywords; // user flags
 
     @NonNull
     public Long selected_last = 0L;
@@ -134,9 +143,9 @@ public class EntityFolder extends EntityOrder implements Serializable {
     @NonNull
     public Boolean read_only = false;
     @NonNull
-    public Boolean selectable = true; // Cannot contain messages
+    public Boolean selectable = true; // Can contain messages
     @NonNull
-    public Boolean inferiors = true; // Cannot have child folders
+    public Boolean inferiors = true; // Can have child folders
     public String error;
     public Long last_sync;
     public Long last_sync_foreground;
@@ -151,6 +160,8 @@ public class EntityFolder extends EntityOrder implements Serializable {
     static final String SENT = "Sent";
     static final String SYSTEM = "System";
     static final String USER = "User";
+
+    static final String FLAGGED = "flagged";
 
     // https://tools.ietf.org/html/rfc6154
     // https://www.iana.org/assignments/imap-mailbox-name-attributes/imap-mailbox-name-attributes.xhtml
@@ -196,6 +207,7 @@ public class EntityFolder extends EntityOrder implements Serializable {
         put("archief", new TypeScore(EntityFolder.ARCHIVE, 100)); // Dutch
         put("Архив", new TypeScore(EntityFolder.ARCHIVE, 100));
         put("Wszystkie", new TypeScore(EntityFolder.ARCHIVE, 100)); // Polish
+        put("Arkiv", new TypeScore(EntityFolder.ARCHIVE, 100)); // Norwegian
 
         put("draft", new TypeScore(EntityFolder.DRAFTS, 100));
         put("concept", new TypeScore(EntityFolder.DRAFTS, 100));
@@ -204,6 +216,7 @@ public class EntityFolder extends EntityOrder implements Serializable {
         put("Черновики", new TypeScore(EntityFolder.DRAFTS, 100));
         put("Bozze", new TypeScore(EntityFolder.DRAFTS, 100));
         put("Szkice lokalne", new TypeScore(EntityFolder.DRAFTS, 100)); // Polish
+        put("Wersje robocze", new TypeScore(EntityFolder.DRAFTS, 100)); // Polish
 
         put("trash", new TypeScore(EntityFolder.TRASH, 100));
         put("Deleted", new TypeScore(EntityFolder.TRASH, 100));
@@ -225,12 +238,14 @@ public class EntityFolder extends EntityOrder implements Serializable {
         put("Cestino", new TypeScore(EntityFolder.JUNK, 100));
         put("Indesiderata", new TypeScore(EntityFolder.JUNK, 100));
         put("indésirable", new TypeScore(EntityFolder.JUNK, 100));
+        put("Wiadomości-śmieci", new TypeScore(EntityFolder.JUNK, 100)); // Polish
 
         put("sent", new TypeScore(EntityFolder.SENT, 100));
         put("Gesendet", new TypeScore(EntityFolder.SENT, 100));
         put("envoyé", new TypeScore(EntityFolder.SENT, 100));
         put("Отправленные", new TypeScore(EntityFolder.SENT, 100));
         put("Inviata", new TypeScore(EntityFolder.SENT, 100));
+        put("wysłane", new TypeScore(EntityFolder.SENT, 100)); // Polish
     }};
 
     static final int DEFAULT_SYNC = 7; // days
@@ -256,8 +271,8 @@ public class EntityFolder extends EntityOrder implements Serializable {
     private static final List<Boolean> SYSTEM_FOLDER_DOWNLOAD = Collections.unmodifiableList(Arrays.asList(
             true, // inbox
             true, // drafts
-            false, // sent
-            false, // archive
+            true, // sent
+            true, // archive
             false, // trash
             false // junk
     )); // MUST match SYSTEM_FOLDER_SYNC
@@ -296,13 +311,88 @@ public class EntityFolder extends EntityOrder implements Serializable {
     }
 
     void setSpecials(EntityAccount account) {
-        if ("imap.web.de".equals(account.host) && "Unbekannt".equals(name))
+        if ("imap.web.de".equals(account.host) && "Unbekannt".equals(name)) {
+            // In den Ordner Unbekannt werden E-Mails einsortiert,
+            // die nicht als Spam erkannt werden
+            // und deren Absender nicht in Ihrem Adressbuch oder auf Ihrer Erwünschtliste stehen.
             synchronize = true;
+            unified = true;
+            notify = true;
+        }
+    }
+
+    void inheritFrom(EntityFolder parent) {
+        if (parent == null)
+            return;
+        if (!EntityFolder.USER.equals(type))
+            return;
+
+        this.synchronize = parent.synchronize;
+        this.poll = parent.poll;
+        this.poll_factor = parent.poll_factor;
+        this.download = parent.download;
+        //this.auto_classify_source = parent.auto_classify_source;
+        //this.auto_classify_target = parent.auto_classify_target;
+        this.sync_days = parent.sync_days;
+        this.keep_days = parent.keep_days;
+        //this.unified = parent.unified;
+        //this.navigation = parent.navigation;
+        this.notify = parent.notify;
     }
 
     static boolean shouldPoll(String type) {
         int sync = EntityFolder.SYSTEM_FOLDER_SYNC.indexOf(type);
         return (sync < 0 || EntityFolder.SYSTEM_FOLDER_POLL.get(sync));
+    }
+
+    static List<EntityFolder> getPopFolders(Context context) {
+        List<EntityFolder> result = new ArrayList<>();
+
+        EntityFolder inbox = new EntityFolder();
+        inbox.name = "INBOX";
+        inbox.type = EntityFolder.INBOX;
+        inbox.synchronize = true;
+        inbox.unified = true;
+        inbox.notify = true;
+        inbox.sync_days = Integer.MAX_VALUE;
+        inbox.keep_days = Integer.MAX_VALUE;
+        inbox.initialize = 0;
+        result.add(inbox);
+
+        EntityFolder drafts = new EntityFolder();
+        drafts.name = context.getString(R.string.title_folder_drafts);
+        drafts.type = EntityFolder.DRAFTS;
+        drafts.synchronize = false;
+        drafts.unified = false;
+        drafts.notify = false;
+        drafts.sync_days = Integer.MAX_VALUE;
+        drafts.keep_days = Integer.MAX_VALUE;
+        drafts.initialize = 0;
+        result.add(drafts);
+
+        EntityFolder sent = new EntityFolder();
+        sent.name = context.getString(R.string.title_folder_sent);
+        sent.type = EntityFolder.SENT;
+        sent.synchronize = false;
+        sent.unified = false;
+        sent.notify = false;
+        sent.sync_days = Integer.MAX_VALUE;
+        sent.keep_days = Integer.MAX_VALUE;
+        sent.initialize = 0;
+        result.add(sent);
+
+        EntityFolder trash = new EntityFolder();
+        trash.name = context.getString(R.string.title_folder_trash);
+        trash.type = EntityFolder.TRASH;
+        trash.synchronize = false;
+        trash.unified = false;
+        trash.notify = false;
+        trash.sync_days = Integer.MAX_VALUE;
+        trash.keep_days = Integer.MAX_VALUE;
+        trash.initialize = 0;
+        result.add(trash);
+
+        return result;
     }
 
     static EntityFolder getOutbox() {
@@ -381,7 +471,9 @@ public class EntityFolder extends EntityOrder implements Serializable {
 
     String getDisplayName(Context context, EntityFolder parent) {
         String n = name;
-        if (parent != null && name.startsWith(parent.name))
+        if (parent != null &&
+                n.startsWith(parent.name) &&
+                n.length() > parent.name.length() + 1)
             n = n.substring(parent.name.length() + 1);
         return (display == null ? localizeName(context, n) : display);
     }
@@ -422,6 +514,13 @@ public class EntityFolder extends EntityOrder implements Serializable {
         }
 
         return USER;
+    }
+
+    static String getSubtype(String[] attrs, String fullname) {
+        for (String attr : attrs)
+            if ("\\Flagged".equals(attr)) // Gmail
+                return FLAGGED;
+        return null;
     }
 
     private static class TypeScore {
@@ -555,6 +654,7 @@ public class EntityFolder extends EntityOrder implements Serializable {
                     Objects.equals(this.color, other.color) &&
                     Objects.equals(this.order, other.order) &&
                     this.hide == other.hide &&
+                    this.hide_seen == other.hide_seen &&
                     this.collapsed == other.collapsed &&
                     this.unified == other.unified &&
                     this.navigation == other.navigation &&
@@ -602,6 +702,7 @@ public class EntityFolder extends EntityOrder implements Serializable {
         json.put("display", display);
         json.put("color", color);
         json.put("hide", hide);
+        json.put("hide_seen", hide_seen);
         json.put("collapsed", collapsed);
         json.put("unified", unified);
         json.put("navigation", navigation);
@@ -665,6 +766,9 @@ public class EntityFolder extends EntityOrder implements Serializable {
 
         if (json.has("hide"))
             folder.hide = json.getBoolean("hide");
+
+        if (json.has("hide_seen"))
+            folder.hide_seen = json.getBoolean("hide_seen");
 
         if (json.has("collapsed"))
             folder.collapsed = json.getBoolean("collapsed");

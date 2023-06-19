@@ -16,14 +16,12 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
-
-import static androidx.webkit.WebSettingsCompat.FORCE_DARK_OFF;
-import static androidx.webkit.WebSettingsCompat.FORCE_DARK_ON;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -42,14 +40,18 @@ import android.webkit.WebViewClient;
 import androidx.annotation.NonNull;
 import androidx.preference.PreferenceManager;
 import androidx.webkit.WebSettingsCompat;
+import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
+
+import java.util.Objects;
 
 public class WebViewEx extends WebView implements DownloadListener, View.OnLongClickListener {
     private int height;
     private int maxHeight;
-    private boolean legacy;
     private IWebView intf;
     private Runnable onPageLoaded;
+    private String hash;
+    private Boolean images;
 
     private static String userAgent = null;
 
@@ -80,15 +82,16 @@ public class WebViewEx extends WebView implements DownloadListener, View.OnLongC
         settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING);
 
         settings.setAllowFileAccess(false);
+        settings.setAllowContentAccess(true); // default
         settings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
-        if (WebViewEx.isFeatureSupported(WebViewFeature.SAFE_BROWSING_ENABLE))
+        if (WebViewEx.isFeatureSupported(context, WebViewFeature.SAFE_BROWSING_ENABLE))
             WebSettingsCompat.setSafeBrowsingEnabled(settings, safe_browsing);
     }
 
     void init(int height, int maxHeight, float size, Pair<Integer, Integer> position, boolean force_light, IWebView intf) {
-        Log.i("Init height=" + height + "/" + maxHeight + " size=" + size);
+        Log.i("Init height=" + height + "/" + maxHeight + " size=" + size + " accelerated=" + isHardwareAccelerated());
 
         if (maxHeight == 0) {
             Log.e("WebView max height zero");
@@ -109,19 +112,23 @@ public class WebViewEx extends WebView implements DownloadListener, View.OnLongC
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean compact = prefs.getBoolean("compact", false);
         int zoom = prefs.getInt("view_zoom", compact ? 0 : 1);
+        boolean browser_zoom = (prefs.getBoolean("browser_zoom", false) && BuildConfig.DEBUG);
         int message_zoom = prefs.getInt("message_zoom", 100);
         boolean monospaced = prefs.getBoolean("monospaced", false);
-        legacy = prefs.getBoolean("webview_legacy", false);
 
         WebSettings settings = getSettings();
 
         boolean dark = Helper.isDarkTheme(context);
-        boolean canForce = WebViewEx.isFeatureSupported(WebViewFeature.FORCE_DARK);
-        if (canForce)
-            WebSettingsCompat.setForceDark(settings, dark && !force_light ? FORCE_DARK_ON : FORCE_DARK_OFF);
-        setBackgroundColor(canForce && force_light ? Color.WHITE : Color.TRANSPARENT);
 
-        float fontSize = 16f /* Default */ * message_zoom / 100f;
+        // https://developer.android.com/reference/android/webkit/WebSettings#setAlgorithmicDarkeningAllowed(boolean)
+        // https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme
+        boolean canDarken = WebViewEx.isFeatureSupported(context, WebViewFeature.ALGORITHMIC_DARKENING);
+        if (canDarken)
+            WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, dark && !force_light);
+        setBackgroundColor(canDarken && dark && !force_light ? Color.TRANSPARENT : Color.WHITE);
+
+        float fontSize = 16f /* Default */ *
+                (browser_zoom ? 1f : message_zoom / 100f);
         if (zoom == 0 /* small */)
             fontSize *= HtmlHelper.FONT_SMALL;
         else if (zoom == 2 /* large */)
@@ -182,7 +189,7 @@ public class WebViewEx extends WebView implements DownloadListener, View.OnLongC
                 @Override
                 public void onScrollChange(View v, int scrollX, int scrollY, int oldScrollX, int oldScrollY) {
                     Log.i("Scroll (x,y)=" + scrollX + "," + scrollY);
-                    intf.onScrollChange(scrollX, scrollY);
+                    intf.onScrollChange(scrollX - oldScrollX, scrollY - oldScrollY, scrollX, scrollY);
                 }
             });
     }
@@ -215,20 +222,38 @@ public class WebViewEx extends WebView implements DownloadListener, View.OnLongC
     }
 
     @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        if (legacy) {
-            if (height > getMinimumHeight())
-                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(height, MeasureSpec.AT_MOST));
-            else
-                super.onMeasure(widthMeasureSpec, heightMeasureSpec); // Unspecified
-        } else {
-            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+    public void loadDataWithBaseURL(String baseUrl, String data, String mimeType, String encoding, String historyUrl) {
+        try {
+            // Prevent flickering
+            boolean i = getSettings().getLoadsImagesAutomatically();
+            if (Objects.equals(this.images, i)) {
+                String h = (data == null ? null : Helper.md5(data.getBytes()));
+                if (Objects.equals(this.hash, h))
+                    return;
+                this.hash = h;
+            } else
+                this.images = i;
+        } catch (Throwable ex) {
+            Log.w(ex);
         }
+
+        super.loadDataWithBaseURL(baseUrl, data, mimeType, encoding, historyUrl);
+    }
+
+    @Override
+    public void setMinimumHeight(int minHeight) {
+        super.setMinimumHeight(minHeight);
+        Log.i("Set min height=" + minHeight);
+    }
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        // Unable to create layer for WebViewEx, size 1088x16384 max size 16383 color type 4 has context 1)
+        int limitHeight = MeasureSpec.makeMeasureSpec(16000, MeasureSpec.AT_MOST);
+        super.onMeasure(widthMeasureSpec, limitHeight);
 
         int mh = getMeasuredHeight();
         Log.i("Measured height=" + mh + " last=" + height + "/" + maxHeight + " ch=" + getContentHeight());
-        if (mh == 0 && legacy)
-            setMeasuredDimension(getMeasuredWidth(), height);
     }
 
     @Override
@@ -236,58 +261,6 @@ public class WebViewEx extends WebView implements DownloadListener, View.OnLongC
         super.onSizeChanged(w, h, ow, oh);
         Log.i("Size changed height=" + h);
         this.intf.onSizeChanged(w, h, ow, oh);
-    }
-
-    @Override
-    protected boolean overScrollBy(int deltaX, int deltaY, int scrollX, int scrollY, int scrollRangeX, int scrollRangeY, int maxOverScrollX, int maxOverScrollY, boolean isTouchEvent) {
-        final int overScrollMode = getOverScrollMode();
-        final boolean canScrollHorizontal =
-                computeHorizontalScrollRange() > computeHorizontalScrollExtent();
-        final boolean canScrollVertical =
-                computeVerticalScrollRange() > computeVerticalScrollExtent();
-        final boolean overScrollHorizontal = overScrollMode == OVER_SCROLL_ALWAYS ||
-                (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && canScrollHorizontal);
-        final boolean overScrollVertical = overScrollMode == OVER_SCROLL_ALWAYS ||
-                (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && canScrollVertical);
-
-        int newScrollX = scrollX + deltaX;
-        if (!overScrollHorizontal) {
-            maxOverScrollX = 0;
-        }
-
-        int newScrollY = scrollY + deltaY;
-        if (!overScrollVertical) {
-            maxOverScrollY = 0;
-        }
-
-        // Clamp values if at the limits and record
-        final int left = -maxOverScrollX;
-        final int right = maxOverScrollX + scrollRangeX;
-        final int top = -maxOverScrollY;
-        final int bottom = maxOverScrollY + scrollRangeY;
-
-        boolean clampedX = false;
-        if (newScrollX > right) {
-            newScrollX = right;
-            clampedX = true;
-        } else if (newScrollX < left) {
-            newScrollX = left;
-            clampedX = true;
-        }
-
-        boolean clampedY = false;
-        if (newScrollY > bottom) {
-            newScrollY = bottom;
-            clampedY = true;
-        } else if (newScrollY < top) {
-            newScrollY = top;
-            clampedY = true;
-        }
-
-        Log.i("onOverScrolled clamped=" + clampedY + " new=" + newScrollY + " dy=" + deltaY);
-        intf.onOverScrolled(scrollX, scrollY, deltaX, deltaY, clampedX, clampedY);
-
-        return super.overScrollBy(deltaX, deltaY, scrollX, scrollY, scrollRangeX, scrollRangeY, maxOverScrollX, maxOverScrollY, isTouchEvent);
     }
 
     @Override
@@ -328,22 +301,69 @@ public class WebViewEx extends WebView implements DownloadListener, View.OnLongC
         return super.onGenericMotionEvent(event);
     }
 
-    public boolean isZoomedY() {
-/*
-        DisplayMetrics dm = getResources().getDisplayMetrics();
-        int ch = Math.round(getContentHeight() * dm.density);
-        int dp6 = Math.round(6 * dm.density);
-        return (ch - dp6 > getHeight());
-*/
-        int ytend = computeVerticalScrollExtent();
-        if (ytend == 0)
-            return false;
+    private float lastX;
+    private float lastY;
+    private int lastXoff;
 
-        float yscale = computeVerticalScrollRange() / (float) ytend;
-        return (yscale > 1.01);
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        boolean intercept = false;
+        if (event.getAction() == MotionEvent.ACTION_DOWN)
+            intercept = true; // Prevent ACTION_CANCEL on fling
+        else if (event.getAction() == MotionEvent.ACTION_MOVE) {
+            int yrange = computeVerticalScrollRange();
+            int yextend = computeVerticalScrollExtent();
+            boolean canScrollVertical = (yrange > yextend);
+            if (canScrollVertical) {
+                int bottom = yrange - yextend;
+                int yoff = computeVerticalScrollOffset();
+                float dy = lastY - event.getY();
+                intercept = (yoff > 0 || dy >= 0) && (yoff < bottom || dy <= 0);
+            }
+
+            if (!intercept) {
+                int xrange = computeHorizontalScrollRange();
+                int xextend = computeHorizontalScrollExtent();
+                boolean canScrollHorizontal = (xrange > xextend);
+                if (canScrollHorizontal) {
+                    int right = xrange - xextend;
+                    int xoff = computeHorizontalScrollOffset();
+                    int ldx = xoff - lastXoff;
+                    float dx = lastX - event.getX();
+                    intercept = (xoff > 0 || dx >= 0) &&
+                            (xoff < right || dx <= 0) &&
+                            (Math.signum(dx) == Math.signum(ldx));
+                    lastXoff = xoff;
+                }
+            }
+        }
+        getParent().requestDisallowInterceptTouchEvent(intercept || event.getPointerCount() > 1);
+
+        lastX = event.getX();
+        lastY = event.getY();
+        return super.onTouchEvent(event);
     }
 
-    public static boolean isFeatureSupported(String feature) {
+    public static boolean isFeatureSupported(Context context, String feature) {
+        if (WebViewFeature.ALGORITHMIC_DARKENING.equals(feature)) {
+            if (BuildConfig.DEBUG) {
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                boolean fake_dark = prefs.getBoolean("fake_dark", false);
+                if (fake_dark)
+                    return false;
+            }
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
+                return false;
+
+            try {
+                PackageInfo pkg = WebViewCompat.getCurrentWebViewPackage(context);
+                if (pkg != null && pkg.versionCode / 100000 < 5005) // Version 102.*
+                    return false;
+            } catch (Throwable ex) {
+                Log.e(ex);
+            }
+        }
+
         try {
             return WebViewFeature.isFeatureSupported(feature);
         } catch (Throwable ex) {
@@ -397,9 +417,7 @@ public class WebViewEx extends WebView implements DownloadListener, View.OnLongC
 
         void onScaleChanged(float newScale);
 
-        void onScrollChange(int scrollX, int scrollY);
-
-        void onOverScrolled(int scrollX, int scrollY, int dx, int dy, boolean clampedX, boolean clampedY);
+        void onScrollChange(int dx, int dy, int scrollX, int scrollY);
 
         boolean onOpenLink(String url);
     }

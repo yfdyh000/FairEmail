@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -25,7 +25,6 @@ import android.os.Build;
 import android.text.TextUtils;
 import android.util.JsonReader;
 import android.util.JsonWriter;
-import android.util.MalformedJsonException;
 
 import androidx.annotation.NonNull;
 import androidx.preference.PreferenceManager;
@@ -42,6 +41,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -53,11 +53,13 @@ public class MessageClassifier {
     private static boolean dirty = false;
     private static final Map<Long, List<String>> accountMsgIds = new HashMap<>();
     private static final Map<Long, Map<String, Integer>> classMessages = new HashMap<>();
-    private static final Map<Long, Map<String, Map<String, Frequency>>> wordClassFrequency = new HashMap<>();
+    private static final Map<Long, Map<Integer, Map<String, Frequency>>> wordClassFrequency = new HashMap<>();
+    private static final Map<String, Integer> wordIndex = new LinkedHashMap<>();
 
+    private static final int VERSION = 4;
     private static final int MAX_WORDS = 1000;
 
-    static synchronized void classify(EntityMessage message, EntityFolder folder, EntityFolder target, Context context) {
+    static synchronized void classify(EntityMessage message, EntityFolder folder, boolean added, Context context) {
         try {
             if (!isEnabled(context))
                 return;
@@ -65,7 +67,7 @@ public class MessageClassifier {
             if (!folder.auto_classify_source)
                 return;
 
-            if (target != null && !target.auto_classify_source)
+            if (message.ui_hide)
                 return;
 
             long start = new Date().getTime();
@@ -87,13 +89,16 @@ public class MessageClassifier {
                 wordClassFrequency.put(folder.account, new HashMap<>());
 
             // Classify texts
-            String classified = classify(message, folder.name, texts, target == null, context);
+            String classified = classify(message, folder.name, texts, added, context);
 
             long elapsed = new Date().getTime() - start;
             EntityLog.log(context, EntityLog.Type.Classification, message,
                     "Classifier" +
-                            " folder=" + folder.name +
-                            " message=" + message.id +
+                            " folder=" + folder.account + ":" + folder.name + ":" + folder.type +
+                            " added=" + added +
+                            " message=" + message.id + "/" + !TextUtils.isEmpty(message.msgid) +
+                            " keyword=" + message.hasKeyword(MessageHelper.FLAG_CLASSIFIED) +
+                            " filtered=" + message.hasKeyword(MessageHelper.FLAG_FILTERED) +
                             "@" + new Date(message.received) +
                             ":" + message.subject +
                             " class=" + classified +
@@ -105,7 +110,7 @@ public class MessageClassifier {
                     !classified.equals(folder.name) &&
                     !TextUtils.isEmpty(message.msgid) &&
                     !message.hasKeyword(MessageHelper.FLAG_CLASSIFIED) &&
-                    !message.hasKeyword(MessageHelper.FLAG_FILTERED) &&
+                    (!message.hasKeyword(MessageHelper.FLAG_FILTERED) || BuildConfig.DEBUG) &&
                     !accountMsgIds.get(folder.account).contains(message.msgid) &&
                     !EntityFolder.JUNK.equals(folder.type)) {
                 boolean pro = ActivityBilling.isPro(context);
@@ -116,7 +121,8 @@ public class MessageClassifier {
 
                     EntityFolder dest = db.folder().getFolderByName(folder.account, classified);
                     if (dest != null && dest.auto_classify_target &&
-                            (pro || EntityFolder.JUNK.equals(dest.type))) {
+                            (pro || EntityFolder.JUNK.equals(dest.type)) &&
+                            (!EntityFolder.JUNK.equals(dest.type) || !message.isNotJunk(context))) {
                         EntityOperation.queue(context, message, EntityOperation.KEYWORD, MessageHelper.FLAG_CLASSIFIED, true);
                         EntityOperation.queue(context, message, EntityOperation.MOVE, dest.id, false, true);
                         message.ui_hide = true;
@@ -127,8 +133,8 @@ public class MessageClassifier {
                     db.endTransaction();
                 }
 
-                if (message.ui_hide)
-                    accountMsgIds.get(folder.account).add(message.msgid);
+                //if (message.ui_hide)
+                //    accountMsgIds.get(folder.account).add(message.msgid);
             }
 
             dirty = true;
@@ -172,7 +178,8 @@ public class MessageClassifier {
             texts.add(message.subject);
 
         String text = HtmlHelper.getFullText(file);
-        texts.add(text);
+        if (text != null)
+            texts.add(text);
 
         return texts;
     }
@@ -184,11 +191,13 @@ public class MessageClassifier {
         DB db = DB.getInstance(context);
         for (String clazz : new ArrayList<>(classMessages.get(message.account).keySet())) {
             EntityFolder folder = db.folder().getFolderByName(message.account, clazz);
-            if (folder == null) {
+            if (folder == null || !folder.auto_classify_source) {
                 EntityLog.log(context, EntityLog.Type.Classification, message,
-                        "Classifier deleting folder class=" + message.account + ":" + clazz);
+                        "Classifier deleting folder" +
+                                " class=" + message.account + ":" + clazz +
+                                " exists=" + (folder != null));
                 classMessages.get(message.account).remove(clazz);
-                for (String word : wordClassFrequency.get(message.account).keySet())
+                for (int word : wordClassFrequency.get(message.account).keySet())
                     wordClassFrequency.get(message.account).get(word).remove(clazz);
             }
         }
@@ -261,11 +270,15 @@ public class MessageClassifier {
                             " text=" + TextUtils.join(", ", stat.words));
         }
 
-        if (BuildConfig.DEBUG)
-            Log.i("Classifier words=" + state.words.size() + " " + TextUtils.join(", ", state.words));
-
-        if (chances.size() <= 1)
-            return null;
+        if (BuildConfig.DEBUG) {
+            StringBuilder sb = new StringBuilder();
+            for (Integer word : state.words) {
+                if (sb.length() > 0)
+                    sb.append(", ");
+                sb.append(getWord(word));
+            }
+            Log.i("Classifier words=" + state.words.size() + " " + sb);
+        }
 
         // Sort classes by chance
         Collections.sort(chances, new Comparator<Chance>() {
@@ -278,6 +291,22 @@ public class MessageClassifier {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         double class_min_chance = prefs.getInt("class_min_probability", 15) / 100.0;
         double class_min_difference = prefs.getInt("class_min_difference", 50) / 100.0;
+
+        // Special case: pick first best target class
+        if (class_min_difference == 0) {
+            for (Chance chance : chances)
+                if (chance.chance > class_min_chance) {
+                    EntityFolder target = db.folder().getFolderByName(message.account, chance.clazz);
+                    if (target != null && target.auto_classify_target) {
+                        Log.i("Classifier current=" + currentClass + " classified=" + chance.clazz);
+                        return chance.clazz;
+                    }
+                }
+            return null;
+        }
+
+        if (chances.size() <= 1)
+            return null;
 
         // Select best class
         String classification = null;
@@ -303,6 +332,11 @@ public class MessageClassifier {
                 return;
         }
 
+        _processWord(account, added, word == null ? null : getWordIndex(word), state);
+    }
+
+    private static void _processWord(long account, boolean added, Integer word, State state) {
+
         if (word != null ||
                 state.words.size() == 0 ||
                 state.words.get(state.words.size() - 1) != null)
@@ -314,9 +348,9 @@ public class MessageClassifier {
         if (state.words.size() < 3)
             return;
 
-        String before = state.words.get(state.words.size() - 3);
-        String current = state.words.get(state.words.size() - 2);
-        String after = state.words.get(state.words.size() - 1);
+        Integer before = state.words.get(state.words.size() - 3);
+        Integer current = state.words.get(state.words.size() - 2);
+        Integer after = state.words.get(state.words.size() - 1);
 
         if (current == null)
             return;
@@ -356,6 +390,23 @@ public class MessageClassifier {
         }
     }
 
+    private static int getWordIndex(String word) {
+        Integer index = wordIndex.get(word);
+        if (index == null) {
+            index = wordIndex.size();
+            wordIndex.put(word, index);
+        }
+        return index;
+    }
+
+    private static String getWord(Integer index) {
+        if (index == null)
+            return "<null>";
+        if (index < 0 || index >= wordIndex.size())
+            return "<" + index + ">";
+        return new ArrayList<>(wordIndex.keySet()).get(index);
+    }
+
     private static void updateFrequencies(long account, @NonNull String currentClass, boolean added, @NonNull State state) {
         Integer m = classMessages.get(account).get(currentClass);
         m = (m == null ? 0 : m) + (added ? 1 : -1);
@@ -366,9 +417,9 @@ public class MessageClassifier {
         Log.i("Classifier " + currentClass + "=" + m + " msgs");
 
         for (int i = 1; i < state.words.size() - 1; i++) {
-            String before = state.words.get(i - 1);
-            String current = state.words.get(i);
-            String after = state.words.get(i + 1);
+            Integer before = state.words.get(i - 1);
+            Integer current = state.words.get(i);
+            Integer after = state.words.get(i + 1);
 
             if (current == null)
                 continue;
@@ -399,22 +450,20 @@ public class MessageClassifier {
 
         long start = new Date().getTime();
 
-        File file = getFile(context);
+        reduce();
+
+        File file = getFile(context, false);
+        File backup = getFile(context, true);
+        backup.delete();
         if (file.exists())
-            try {
-                File backup = getBackupFile(context);
-                Log.i("Classifier backup " + backup);
-                backup.delete();
-                file.renameTo(backup);
-            } catch (Throwable ex) {
-                Log.w(ex);
-            }
+            file.renameTo(backup);
 
         Log.i("Classifier save " + file);
         try (JsonWriter writer = new JsonWriter(new BufferedWriter(new FileWriter(file)))) {
             writer.beginObject();
 
-            writer.name("version").value(2);
+            Log.i("Classifier write version=" + VERSION);
+            writer.name("version").value(VERSION);
 
             writer.name("messages");
             writer.beginArray();
@@ -431,7 +480,7 @@ public class MessageClassifier {
             writer.name("words");
             writer.beginArray();
             for (Long account : wordClassFrequency.keySet())
-                for (String word : wordClassFrequency.get(account).keySet()) {
+                for (int word : wordClassFrequency.get(account).keySet()) {
                     Map<String, Frequency> classFrequency = wordClassFrequency.get(account).get(word);
                     for (String clazz : classFrequency.keySet()) {
                         Frequency f = classFrequency.get(clazz);
@@ -445,19 +494,25 @@ public class MessageClassifier {
 
                         writer.name("before");
                         writer.beginObject();
-                        for (String key : f.before.keySet())
-                            writer.name(key).value(f.before.get(key));
+                        for (int key : f.before.keySet())
+                            writer.name(Integer.toString(key)).value(f.before.get(key));
                         writer.endObject();
 
                         writer.name("after");
                         writer.beginObject();
-                        for (String key : f.after.keySet())
-                            writer.name(key).value(f.after.get(key));
+                        for (int key : f.after.keySet())
+                            writer.name(Integer.toString(key)).value(f.after.get(key));
                         writer.endObject();
 
                         writer.endObject();
                     }
                 }
+            writer.endArray();
+
+            writer.name("list");
+            writer.beginArray();
+            for (String word : wordIndex.keySet())
+                writer.value(word);
             writer.endArray();
 
             writer.name("classified");
@@ -477,10 +532,12 @@ public class MessageClassifier {
             writer.endObject();
         }
 
+        backup.delete();
+
         dirty = false;
 
         long elapsed = new Date().getTime() - start;
-        Log.i("Classifier data saved elapsed=" + elapsed);
+        Log.i("Classifier data saved elapsed=" + elapsed + " size=" + file.length());
     }
 
     private static synchronized void load(@NonNull Context context) {
@@ -488,21 +545,12 @@ public class MessageClassifier {
             return;
 
         clear(context);
-        File file = getFile(context);
+        File file = getFile(context, false);
+        File backup = getFile(context, true);
+        if (backup.exists())
+            file = backup;
         try {
             _load(file);
-        } catch (MalformedJsonException ex) {
-            Log.w(ex);
-            clear(context);
-            File backup = getBackupFile(context);
-            if (backup.exists())
-                try {
-                    _load(backup);
-                } catch (Throwable ex1) {
-                    Log.e(ex1);
-                    backup.delete();
-                    clear(context);
-                }
         } catch (Throwable ex) {
             Log.e(ex);
             file.delete();
@@ -513,13 +561,15 @@ public class MessageClassifier {
     private static synchronized void _load(File file) throws IOException {
         Log.i("Classifier read " + file);
         long start = new Date().getTime();
+        int version = 0;
         if (file.exists())
             try (JsonReader reader = new JsonReader(new BufferedReader(new FileReader(file)))) {
                 reader.beginObject();
                 while (reader.hasNext())
                     switch (reader.nextName()) {
                         case "version":
-                            reader.nextInt();
+                            version = reader.nextInt();
+                            Log.i("Classifier read version=" + version);
                             break;
 
                         case "messages":
@@ -558,7 +608,7 @@ public class MessageClassifier {
                             reader.beginArray();
                             while (reader.hasNext()) {
                                 Long account = null;
-                                String word = null;
+                                Integer word = null;
                                 String clazz = null;
                                 Frequency f = new Frequency();
 
@@ -569,7 +619,10 @@ public class MessageClassifier {
                                             account = reader.nextLong();
                                             break;
                                         case "word":
-                                            word = reader.nextString();
+                                            if (version > 3)
+                                                word = Integer.parseInt(reader.nextString());
+                                            else
+                                                word = getWordIndex(reader.nextString());
                                             break;
                                         case "class":
                                             clazz = reader.nextString();
@@ -582,14 +635,22 @@ public class MessageClassifier {
                                             break;
                                         case "before":
                                             reader.beginObject();
-                                            while (reader.hasNext())
-                                                f.before.put(reader.nextName(), reader.nextInt());
+                                            while (reader.hasNext()) {
+                                                int b = (version > 3
+                                                        ? Integer.parseInt(reader.nextName())
+                                                        : getWordIndex(reader.nextName()));
+                                                f.before.put(b, reader.nextInt());
+                                            }
                                             reader.endObject();
                                             break;
                                         case "after":
                                             reader.beginObject();
-                                            while (reader.hasNext())
-                                                f.after.put(reader.nextName(), reader.nextInt());
+                                            while (reader.hasNext()) {
+                                                int a = (version > 3
+                                                        ? Integer.parseInt(reader.nextName())
+                                                        : getWordIndex(reader.nextName()));
+                                                f.after.put(a, reader.nextInt());
+                                            }
                                             reader.endObject();
                                             break;
                                     }
@@ -609,6 +670,13 @@ public class MessageClassifier {
 
                                 classFrequency.put(clazz, f);
                             }
+                            reader.endArray();
+                            break;
+
+                        case "list":
+                            reader.beginArray();
+                            while (reader.hasNext())
+                                wordIndex.put(reader.nextString(), wordIndex.size());
                             reader.endArray();
                             break;
 
@@ -644,11 +712,82 @@ public class MessageClassifier {
                 reader.endObject();
             }
 
+        reduce();
+
         loaded = true;
         dirty = false;
 
         long elapsed = new Date().getTime() - start;
-        Log.i("Classifier data loaded elapsed=" + elapsed);
+        Log.i("Classifier data loaded elapsed=" + elapsed + " words=" + wordIndex.size());
+    }
+
+    private static void reduce() {
+        Log.i("Classifier reduce");
+        for (long account : wordClassFrequency.keySet()) {
+            Map<String, Integer> max = new HashMap<>();
+            Map<String, Long> total = new HashMap<>();
+            Map<String, Integer> count = new HashMap<>();
+
+            for (int word : wordClassFrequency.get(account).keySet())
+                for (String clazz : wordClassFrequency.get(account).get(word).keySet()) {
+                    int f = wordClassFrequency.get(account).get(word).get(clazz).count;
+
+                    Integer m = max.get(clazz);
+                    if (m == null || f > m)
+                        max.put(clazz, f);
+
+                    if (!total.containsKey(clazz))
+                        total.put(clazz, 0L);
+                    total.put(clazz, total.get(clazz) + f);
+
+                    if (!count.containsKey(clazz))
+                        count.put(clazz, 0);
+                    count.put(clazz, count.get(clazz) + 1);
+                }
+
+            for (String clazz : max.keySet())
+                Log.i("Classifier max " + account + ":" + clazz + "=" + max.get(clazz));
+
+            int dropped = 0;
+            for (int word : wordClassFrequency.get(account).keySet())
+                for (String clazz : new ArrayList<>(wordClassFrequency.get(account).get(word).keySet())) {
+                    long m = max.get(clazz);
+                    long avg = total.get(clazz) / count.get(clazz);
+                    Frequency freq = wordClassFrequency.get(account).get(word).get(clazz);
+                    if (freq.count < m / 5000) {
+                        dropped++;
+                        wordClassFrequency.get(account).get(word).remove(clazz);
+                    } else if (freq.count < avg / 2 && false) {
+                        dropped++;
+                        Log.i("Classifier dropping account=" + account +
+                                " word=" + word + " class=" + clazz + " freq=" + freq.count + " avg=" + avg);
+                    }
+                }
+            Log.i("Classifier dropped words=" + dropped);
+
+            // Source 47 MB
+
+            // max/10 = 3 MB
+            // max/20 = 4.4 MB
+            // max/50 = 6.5 MB
+            // max/100 = 6.5 MB
+            // max/200 = 11.5 MB
+            // max/500 = 15 MB
+            // max/1000 = 18 MB
+            // max/2000 = 22 MB
+            // max/5000 = 26 MB
+
+            // avg/1 = 21.3
+            // avg/2 = 25.5
+            // avg/3 = 29.0
+            // avg/5 = 34.6
+
+            // ba/5  = 27.2
+            // ba/10 = 29.3
+            // ba/20 = 31.5
+
+            // avg/2 + ba/20 = 10 MB
+        }
     }
 
     static synchronized void cleanup(@NonNull Context context) {
@@ -680,6 +819,7 @@ public class MessageClassifier {
         accountMsgIds.clear();
         classMessages.clear();
         wordClassFrequency.clear();
+        wordIndex.clear();
         dirty = true;
         Log.i("Classifier data cleared");
     }
@@ -689,26 +829,31 @@ public class MessageClassifier {
         return prefs.getBoolean("classification", false);
     }
 
-    static File getFile(@NonNull Context context) {
-        return new File(context.getFilesDir(), "classifier.json");
+    static File getFile(@NonNull Context context, boolean backup) {
+        return new File(context.getFilesDir(),
+                backup ? "classifier.backup" : "classifier.json");
     }
 
-    static File getBackupFile(@NonNull Context context) {
-        return new File(context.getFilesDir(), "classifier.backup");
+    static long getSize(Context context) {
+        try {
+            return getFile(context, false).length();
+        } catch (Throwable ignored) {
+            return -1L;
+        }
     }
 
     private static class State {
-        private final List<String> words = new ArrayList<>();
+        private final List<Integer> words = new ArrayList<>();
         private final Map<String, Stat> classStats = new HashMap<>();
     }
 
     private static class Frequency {
         private int count = 0;
         private int duplicates = 0;
-        private Map<String, Integer> before = new HashMap<>();
-        private Map<String, Integer> after = new HashMap<>();
+        private Map<Integer, Integer> before = new HashMap<>();
+        private Map<Integer, Integer> after = new HashMap<>();
 
-        private void add(String b, String a, int c, boolean duplicate) {
+        private void add(Integer b, Integer a, int c, boolean duplicate) {
             if (count + c < 0)
                 return;
 

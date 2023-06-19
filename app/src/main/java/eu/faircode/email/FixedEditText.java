@@ -16,13 +16,14 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
 import android.graphics.Canvas;
 import android.os.Build;
 import android.util.AttributeSet;
+import android.view.ActionMode;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.textclassifier.TextClassifier;
@@ -130,6 +131,8 @@ public class FixedEditText extends AppCompatEditText {
                   at android.widget.Editor.onDraw(Editor.java:1672)
                   at android.widget.TextView.onDraw(TextView.java:6914)
                   at android.view.View.draw(View.java:19200)
+                Fixed in Android 9:
+                https://android-review.googlesource.com/c/platform/frameworks/base/+/634929
             */
         }
     }
@@ -265,6 +268,26 @@ public class FixedEditText extends AppCompatEditText {
              */
             Log.w(ex);
             return false;
+        }
+    }
+
+    @Override
+    public ActionMode startActionMode(ActionMode.Callback callback) {
+        try {
+            return super.startActionMode(callback);
+        } catch (Throwable ex) {
+            Log.e(ex);
+            return null;
+        }
+    }
+
+    @Override
+    public ActionMode startActionMode(ActionMode.Callback callback, int type) {
+        try {
+            return super.startActionMode(callback, type);
+        } catch (Throwable ex) {
+            Log.e(ex);
+            return null;
         }
     }
 

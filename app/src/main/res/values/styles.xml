@@ -91,6 +91,8 @@
         <item name="android:scrollbarThumbVertical">@drawable/scroll_thumb</item>
         <item name="android:scrollbarTrackVertical">@drawable/scroll_track</item>
         <item name="android:scrollbarFadeDuration">5000</item>
+
+        <item name="viewInflaterClass">eu.faircode.email.AppCompatViewInflaterEx</item>
     </style>
 
     <style name="AppThemeBaseDark" parent="Base.Theme.AppCompat">
@@ -165,6 +167,8 @@
         <item name="android:colorBackgroundFloating" tools:targetApi="23">
             @color/material_grey_850
         </item>
+
+        <item name="viewInflaterClass">eu.faircode.email.AppCompatViewInflaterEx</item>
     </style>
 
     <!-- Light -->
@@ -612,6 +616,13 @@
         <item name="android:scrollbarSize">6dp</item>
         <item name="android:scrollbarThumbVertical">@drawable/scroll_thumb_popup</item>
         <item name="android:scrollbarTrackVertical">@drawable/scroll_track_popup</item>
+        <item name="android:fadeScrollbars">false</item>
+    </style>
+
+    <style name="horizontalScrollViewStyle">
+        <item name="android:scrollbarSize">1dp</item>
+        <item name="android:scrollbarThumbHorizontal">@drawable/scroll_thumb_horizontal</item>
+        <!--item name="android:scrollbarTrackHorizontal">@drawable/scroll_track_popup</item-->
         <item name="android:fadeScrollbars">false</item>
     </style>
 

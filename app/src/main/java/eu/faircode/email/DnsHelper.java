@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -26,12 +26,16 @@ import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkInfo;
 import android.os.Build;
+import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 
+import org.xbill.DNS.AAAARecord;
+import org.xbill.DNS.ARecord;
 import org.xbill.DNS.Lookup;
 import org.xbill.DNS.MXRecord;
 import org.xbill.DNS.Message;
+import org.xbill.DNS.NSRecord;
 import org.xbill.DNS.Record;
 import org.xbill.DNS.SOARecord;
 import org.xbill.DNS.SRVRecord;
@@ -80,6 +84,9 @@ public class DnsHelper {
     static DnsRecord[] lookup(Context context, String name, String type, int timeout) throws UnknownHostException {
         int rtype;
         switch (type) {
+            case "ns":
+                rtype = Type.NS;
+                break;
             case "mx":
                 rtype = Type.MX;
                 break;
@@ -91,6 +98,12 @@ public class DnsHelper {
                 break;
             case "txt":
                 rtype = Type.TXT;
+                break;
+            case "a":
+                rtype = Type.A;
+                break;
+            case "aaaa":
+                rtype = Type.AAAA;
                 break;
             default:
                 throw new IllegalArgumentException(type);
@@ -142,8 +155,7 @@ public class DnsHelper {
                                     @Override
                                     public void onError(@NonNull DnsResolver.DnsException e) {
                                         try {
-                                            Log.w(e);
-                                            ex = new IOException(e.getMessage());
+                                            ex = new IOException(e.getMessage(), e);
                                         } finally {
                                             sem.release();
                                         }
@@ -157,14 +169,14 @@ public class DnsHelper {
                         }
 
                         if (ex == null) {
-                            //ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+                            //ConnectivityManager cm = getSystemService(context, ConnectivityManager.class);
                             //Network active = (cm == null ? null : cm.getActiveNetwork());
                             //LinkProperties props = (active == null ? null : cm.getLinkProperties(active));
                             //Log.i("DNS private=" + (props == null ? null : props.isPrivateDnsActive()));
                             Log.i("DNS answer=" + result.toString() + " flags=" + result.getHeader().printFlags());
                             return result;
                         } else {
-                            Log.w(ex);
+                            Log.i(ex);
                             throw ex;
                         }
                     }
@@ -187,7 +199,10 @@ public class DnsHelper {
             if (records != null)
                 for (Record record : records) {
                     Log.i("Found record=" + record);
-                    if (record instanceof MXRecord) {
+                    if (record instanceof NSRecord) {
+                        NSRecord ns = (NSRecord) record;
+                        result.add(new DnsRecord(ns.getTarget().toString(true)));
+                    } else if (record instanceof MXRecord) {
                         MXRecord mx = (MXRecord) record;
                         result.add(new DnsRecord(mx.getTarget().toString(true)));
                     } else if (record instanceof SOARecord) {
@@ -195,14 +210,39 @@ public class DnsHelper {
                         result.add(new DnsRecord(soa.getHost().toString(true)));
                     } else if (record instanceof SRVRecord) {
                         SRVRecord srv = (SRVRecord) record;
-                        result.add(new DnsRecord(srv.getTarget().toString(true), srv.getPort()));
+                        result.add(new DnsRecord(srv.getTarget().toString(true), srv.getPort(), srv.getPriority(), srv.getWeight()));
                     } else if (record instanceof TXTRecord) {
                         TXTRecord txt = (TXTRecord) record;
-                        for (Object content : txt.getStrings())
-                            result.add(new DnsRecord(content.toString(), 0));
+                        for (Object content : txt.getStrings()) {
+                            String text = content.toString();
+                            int i = 0;
+                            int slash = text.indexOf('\\', i);
+                            while (slash >= 0 && slash + 4 < text.length()) {
+                                String digits = text.substring(slash + 1, slash + 4);
+                                if (TextUtils.isDigitsOnly(digits)) {
+                                    int k = Integer.parseInt(digits);
+                                    text = text.substring(0, slash) + (char) k + text.substring(slash + 4);
+                                } else
+                                    i += 4;
+                                slash = text.indexOf('\\', i);
+                            }
+                            if (result.size() > 0)
+                                result.get(0).response += text;
+                            else
+                                result.add(new DnsRecord(text, 0));
+                        }
+                    } else if (record instanceof ARecord) {
+                        ARecord a = (ARecord) record;
+                        result.add(new DnsRecord(a.getAddress().getHostAddress()));
+                    } else if (record instanceof AAAARecord) {
+                        AAAARecord aaaa = (AAAARecord) record;
+                        result.add(new DnsRecord(aaaa.getAddress().getHostAddress()));
                     } else
                         throw new IllegalArgumentException(record.getClass().getName());
                 }
+
+            for (DnsRecord record : result)
+                record.query = name;
 
             return result.toArray(new DnsRecord[0]);
         } catch (TextParseException ex) {
@@ -212,7 +252,7 @@ public class DnsHelper {
     }
 
     private static String getDnsServer(Context context) {
-        ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager cm = Helper.getSystemService(context, ConnectivityManager.class);
         if (cm == null)
             return DEFAULT_DNS;
 
@@ -246,16 +286,32 @@ public class DnsHelper {
     }
 
     static class DnsRecord {
-        String name;
+        String query;
+        String response;
         Integer port;
+        Integer priority;
+        Integer weight;
 
-        DnsRecord(String name) {
-            this.name = name;
+        DnsRecord(String response) {
+            this.response = response;
         }
 
-        DnsRecord(String name, int port) {
-            this.name = name;
+        DnsRecord(String response, int port) {
+            this.response = response;
             this.port = port;
+        }
+
+        DnsRecord(String response, int port, int priority, int weight) {
+            this.response = response;
+            this.port = port;
+            this.priority = priority;
+            this.weight = weight;
+        }
+
+        @NonNull
+        @Override
+        public String toString() {
+            return query + "=" + response + ":" + port + " " + priority + "/" + weight;
         }
     }
 }

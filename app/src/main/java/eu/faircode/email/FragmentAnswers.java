@@ -16,26 +16,32 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static androidx.recyclerview.widget.RecyclerView.NO_POSITION;
 
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.SearchView;
 import androidx.constraintlayout.widget.Group;
 import androidx.fragment.app.FragmentTransaction;
@@ -57,6 +63,7 @@ import java.util.Objects;
 public class FragmentAnswers extends FragmentBase {
     private boolean cards;
 
+    private View view;
     private RecyclerView rvAnswer;
     private ContentLoadingProgressBar pbWait;
     private Group grpReady;
@@ -79,7 +86,7 @@ public class FragmentAnswers extends FragmentBase {
         setSubtitle(R.string.menu_answers);
         setHasOptionsMenu(true);
 
-        View view = inflater.inflate(R.layout.fragment_answers, container, false);
+        view = inflater.inflate(R.layout.fragment_answers, container, false);
 
         // Get controls
         rvAnswer = view.findViewById(R.id.rvAnswer);
@@ -98,6 +105,8 @@ public class FragmentAnswers extends FragmentBase {
             itemDecorator.setDrawable(getContext().getDrawable(R.drawable.divider));
             rvAnswer.addItemDecoration(itemDecorator);
         }
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
 
         DividerItemDecoration categoryDecorator = new DividerItemDecoration(getContext(), llm.getOrientation()) {
             @Override
@@ -132,6 +141,10 @@ public class FragmentAnswers extends FragmentBase {
                     return null;
 
                 if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return null;
+
+                String sort = prefs.getString("answer_sort", "name");
+                if ("last_applied".equals(sort) || "applied".equals(sort))
                     return null;
 
                 EntityAnswer prev = adapter.getItemAtPosition(pos - 1);
@@ -205,14 +218,18 @@ public class FragmentAnswers extends FragmentBase {
             searching = savedInstanceState.getString("fair:searching");
         adapter.search(searching);
 
-        DB db = DB.getInstance(getContext());
+        final Context context = getContext();
+        DB db = DB.getInstance(context);
         db.answer().liveAnswers().observe(getViewLifecycleOwner(), new Observer<List<EntityAnswer>>() {
             @Override
             public void onChanged(List<EntityAnswer> answers) {
                 if (answers == null)
                     answers = new ArrayList<>();
 
-                adapter.set(answers);
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                String sort = prefs.getString("answer_sort", "name");
+
+                adapter.set(sort, answers);
 
                 pbWait.setVisibility(View.GONE);
                 grpReady.setVisibility(View.VISIBLE);
@@ -228,10 +245,21 @@ public class FragmentAnswers extends FragmentBase {
         SearchView searchView = (SearchView) menuSearch.getActionView();
         searchView.setQueryHint(getString(R.string.title_rules_search_hint));
 
-        if (!TextUtils.isEmpty(searching)) {
-            menuSearch.expandActionView();
-            searchView.setQuery(searching, true);
-        }
+        final String search = searching;
+        view.post(new RunnableEx("answers:search") {
+            @Override
+            public void delegate() {
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return;
+
+                if (TextUtils.isEmpty(search))
+                    menuSearch.collapseActionView();
+                else {
+                    menuSearch.expandActionView();
+                    searchView.setQuery(search, true);
+                }
+            }
+        });
 
         getViewLifecycleOwner().getLifecycle().addObserver(new LifecycleObserver() {
             @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
@@ -244,7 +272,7 @@ public class FragmentAnswers extends FragmentBase {
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextChange(String newText) {
-                if (getView() != null) {
+                if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
                     searching = newText;
                     adapter.search(newText);
                 }
@@ -253,12 +281,108 @@ public class FragmentAnswers extends FragmentBase {
 
             @Override
             public boolean onQueryTextSubmit(String query) {
-                searching = query;
-                adapter.search(query);
+                if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
+                    searching = query;
+                    adapter.search(query);
+                }
                 return true;
             }
         });
 
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+        String sort = prefs.getString("answer_sort", "order");
+
+        if ("last_applied".equals(sort))
+            menu.findItem(R.id.menu_sort_on_last_applied).setChecked(true);
+        else if ("applied".equals(sort))
+            menu.findItem(R.id.menu_sort_on_applied).setChecked(true);
+        else
+            menu.findItem(R.id.menu_sort_on_name).setChecked(true);
+
+        Menu smenu = menu.findItem(R.id.menu_placeholders).getSubMenu();
+
+        List<String> names = EntityAnswer.getCustomPlaceholders(getContext());
+        for (int i = 0; i < names.size(); i++)
+            smenu.add(Menu.FIRST, i + 1, i + 1, names.get(i));
+
         super.onCreateOptionsMenu(menu, inflater);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getGroupId() == Menu.FIRST) {
+            onMenuDefine(item.getTitle().toString());
+            return true;
+        } else {
+            int itemId = item.getItemId();
+            if (itemId == R.id.menu_sort_on_name) {
+                item.setChecked(true);
+                onMenuSort("name");
+                return true;
+            } else if (itemId == R.id.menu_sort_on_applied) {
+                item.setChecked(true);
+                onMenuSort("applied");
+                return true;
+            } else if (itemId == R.id.menu_sort_on_last_applied) {
+                item.setChecked(true);
+                onMenuSort("last_applied");
+                return true;
+            } else if (itemId == R.id.menu_define) {
+                onMenuDefine(null);
+                return true;
+            } else
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    private void onMenuSort(String sort) {
+        final Context context = getContext();
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        prefs.edit().putString("answer_sort", sort).apply();
+        adapter.setSort(sort);
+    }
+
+    private void onMenuDefine(String name) {
+        final Context context = getContext();
+        View view = LayoutInflater.from(context).inflate(R.layout.dialog_placeholder, null);
+        final EditText etName = view.findViewById(R.id.etName);
+        final EditText etValue = view.findViewById(R.id.etValue);
+
+        etName.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                // Do nothing
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // Do nothing
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                String value = EntityAnswer.getCustomPlaceholder(context, s.toString().trim());
+                if (!TextUtils.isEmpty(value))
+                    etValue.setText(value);
+            }
+        });
+
+        etName.setText(name);
+
+        new AlertDialog.Builder(context)
+                .setView(view)
+                .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        String name = etName.getText().toString().trim();
+                        String value = etValue.getText().toString();
+                        if (TextUtils.isEmpty(name))
+                            return;
+                        EntityAnswer.setCustomPlaceholder(context, name, value);
+                        invalidateOptionsMenu();
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 }

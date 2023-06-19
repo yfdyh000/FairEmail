@@ -6,6 +6,8 @@ import android.app.ActivityManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteDatabaseCorruptException;
 import android.net.Uri;
 import android.os.Build;
 import android.text.TextUtils;
@@ -22,8 +24,6 @@ import androidx.room.TypeConverter;
 import androidx.room.TypeConverters;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
-
-import com.getkeepsafe.relinker.ReLinker;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -46,9 +46,6 @@ import java.util.concurrent.ExecutorService;
 import javax.mail.Address;
 import javax.mail.internet.InternetAddress;
 
-import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory;
-import io.requery.android.database.sqlite.SQLiteDatabase;
-
 /*
     This file is part of FairEmail.
 
@@ -65,13 +62,13 @@ import io.requery.android.database.sqlite.SQLiteDatabase;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 // https://developer.android.com/topic/libraries/architecture/room.html
 
 @Database(
-        version = 225,
+        version = 280,
         entities = {
                 EntityIdentity.class,
                 EntityAccount.class,
@@ -123,11 +120,14 @@ public abstract class DB extends RoomDatabase {
     private static Context sContext;
     private static DB sInstance;
 
+    static final String DB_NAME = "fairemail";
     static final int DEFAULT_QUERY_THREADS = 4; // AndroidX default thread count: 4
-    static final int DEFAULT_CACHE_SIZE = 10; // percentage of memory class
-
-    private static final String DB_NAME = "fairemail";
+    static final int DEFAULT_CACHE_SIZE = 20; // percentage of memory class
+    private static final int DB_JOURNAL_SIZE_LIMIT = 1048576; // requery/sqlite-android default
     private static final int DB_CHECKPOINT = 1000; // requery/sqlite-android default
+
+    private static ExecutorService executor =
+            Helper.getBackgroundExecutor(0, "db");
 
     private static final String[] DB_TABLES = new String[]{
             "identity", "account", "folder", "message", "attachment", "operation", "contact", "certificate", "answer", "rule", "search", "log"};
@@ -138,21 +138,68 @@ public abstract class DB extends RoomDatabase {
             "page_count", "page_size", "max_page_count", "freelist_count",
             "cache_size", "cache_spill",
             "soft_heap_limit", "hard_heap_limit", "mmap_size",
-            "foreign_keys"
+            "foreign_keys", "auto_vacuum",
+            "recursive_triggers",
+            "compile_options"
     ));
 
     @Override
     public void init(@NonNull DatabaseConfiguration configuration) {
-        // https://www.sqlite.org/pragma.html#pragma_wal_autocheckpoint
-        if (BuildConfig.DEBUG) {
-            File dbfile = configuration.context.getDatabasePath(DB_NAME);
-            if (dbfile.exists()) {
-                try (SQLiteDatabase db = SQLiteDatabase.openDatabase(dbfile.getPath(), null, SQLiteDatabase.OPEN_READWRITE)) {
-                    Log.i("Set PRAGMA wal_autocheckpoint=" + DB_CHECKPOINT);
-                    try (Cursor cursor = db.rawQuery("PRAGMA wal_autocheckpoint=" + DB_CHECKPOINT + ";", null)) {
-                        cursor.moveToNext(); // required
+        File dbfile = configuration.context.getDatabasePath(DB_NAME);
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(configuration.context);
+        boolean sqlite_integrity_check = prefs.getBoolean("sqlite_integrity_check", true);
+
+        // https://www.sqlite.org/pragma.html#pragma_integrity_check
+        if (sqlite_integrity_check && dbfile.exists()) {
+            String check = (Helper.isRedmiNote() || Helper.isOnePlus() || Helper.isOppo() || BuildConfig.DEBUG
+                    ? "integrity_check" : "quick_check");
+            try (SQLiteDatabase db = SQLiteDatabase.openDatabase(dbfile.getPath(), null, SQLiteDatabase.OPEN_READWRITE)) {
+                Log.i("PRAGMA " + check);
+                try (Cursor cursor = db.rawQuery("PRAGMA " + check + ";", null)) {
+                    while (cursor.moveToNext()) {
+                        String line = cursor.getString(0);
+                        if ("ok".equals(line))
+                            Log.i("PRAGMA " + check + "=" + line);
+                        else
+                            Log.e("PRAGMA " + check + "=" + line);
                     }
                 }
+            } catch (SQLiteDatabaseCorruptException ex) {
+                Log.e(ex);
+                dbfile.delete();
+            } catch (Throwable ex) {
+                Log.e(ex);
+                /*
+                    java.lang.String, java.lang.String, android.os.Bundle)' on a null object reference
+                        at android.provider.Settings$NameValueCache.getStringForUser(Settings.java:3002)
+                        at android.provider.Settings$Global.getStringForUser(Settings.java:16253)
+                        at android.provider.Settings$Global.getString(Settings.java:16241)
+                        at android.database.sqlite.SQLiteCompatibilityWalFlags.initIfNeeded(SQLiteCompatibilityWalFlags.java:105)
+                        at android.database.sqlite.SQLiteCompatibilityWalFlags.isLegacyCompatibilityWalEnabled(SQLiteCompatibilityWalFlags.java:57)
+                        at android.database.sqlite.SQLiteDatabase.<init>(SQLiteDatabase.java:321)
+                        at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:788)
+                        at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:737)
+                        at eu.faircode.email.DB.init(SourceFile:61)
+                        at androidx.room.RoomDatabase$Builder.build(SourceFile:274)
+                        at eu.faircode.email.DB.getInstance(SourceFile:106)
+                        at eu.faircode.email.DB.setupViewInvalidation(SourceFile:1)
+                        at eu.faircode.email.ApplicationEx.onCreate(SourceFile:140)
+                        at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1229)
+                        at android.app.ActivityThread.handleBindApplication(ActivityThread.java:6719)
+                 */
+            }
+        }
+
+        // https://www.sqlite.org/pragma.html#pragma_wal_autocheckpoint
+        if (BuildConfig.DEBUG && dbfile.exists()) {
+            try (SQLiteDatabase db = SQLiteDatabase.openDatabase(dbfile.getPath(), null, SQLiteDatabase.OPEN_READWRITE)) {
+                Log.i("Set PRAGMA wal_autocheckpoint=" + DB_CHECKPOINT);
+                try (Cursor cursor = db.rawQuery("PRAGMA wal_autocheckpoint=" + DB_CHECKPOINT + ";", null)) {
+                    cursor.moveToNext(); // required
+                }
+            } catch (Throwable ex) {
+                Log.e(ex);
             }
         }
 
@@ -243,35 +290,42 @@ public abstract class DB extends RoomDatabase {
     }
 
     static void createEmergencyBackup(Context context) {
-        Log.i("Creating emergency backup");
-        try {
-            DB db = DB.getInstance(context);
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean emergency_file = prefs.getBoolean("emergency_file", true);
 
-            JSONArray jaccounts = new JSONArray();
-            List<EntityAccount> accounts = db.account().getAccounts();
-            for (EntityAccount account : accounts) {
-                JSONObject jaccount = account.toJSON();
+        File emergency = new File(context.getFilesDir(), "emergency.json");
 
-                JSONArray jfolders = new JSONArray();
-                List<EntityFolder> folders = db.folder().getFolders(account.id, false, true);
-                for (EntityFolder folder : folders)
-                    jfolders.put(folder.toJSON());
-                jaccount.put("folders", jfolders);
+        if (emergency_file) {
+            Log.i("Creating emergency backup");
+            try {
+                DB db = DB.getInstance(context);
 
-                JSONArray jidentities = new JSONArray();
-                List<EntityIdentity> identities = db.identity().getIdentities(account.id);
-                for (EntityIdentity identity : identities)
-                    jidentities.put(identity.toJSON());
-                jaccount.put("identities", jidentities);
+                JSONArray jaccounts = new JSONArray();
+                List<EntityAccount> accounts = db.account().getAccounts();
+                for (EntityAccount account : accounts) {
+                    JSONObject jaccount = account.toJSON();
 
-                jaccounts.put(jaccount);
+                    JSONArray jfolders = new JSONArray();
+                    List<EntityFolder> folders = db.folder().getFolders(account.id, false, true);
+                    for (EntityFolder folder : folders)
+                        jfolders.put(folder.toJSON());
+                    jaccount.put("folders", jfolders);
+
+                    JSONArray jidentities = new JSONArray();
+                    List<EntityIdentity> identities = db.identity().getIdentities(account.id);
+                    for (EntityIdentity identity : identities)
+                        jidentities.put(identity.toJSON());
+                    jaccount.put("identities", jidentities);
+
+                    jaccounts.put(jaccount);
+                }
+
+                Helper.writeText(emergency, jaccounts.toString(2));
+            } catch (Throwable ex) {
+                Log.e(ex);
             }
-
-            File emergency = new File(context.getFilesDir(), "emergency.json");
-            Helper.writeText(emergency, jaccounts.toString(2));
-        } catch (Throwable ex) {
-            Log.e(ex);
-        }
+        } else
+            emergency.delete();
     }
 
     private static void checkEmergencyBackup(Context context) {
@@ -342,7 +396,7 @@ public abstract class DB extends RoomDatabase {
 
             sInstance = migrate(sContext, getBuilder(sContext)).build();
 
-            sInstance.getQueryExecutor().execute(new Runnable() {
+            Helper.getSerialExecutor().execute(new Runnable() {
                 @Override
                 public void run() {
                     checkEmergencyBackup(sContext);
@@ -377,31 +431,22 @@ public abstract class DB extends RoomDatabase {
     }
 
     private static RoomDatabase.Builder<DB> getBuilder(Context context) {
-        try {
-            ReLinker.log(new ReLinker.Logger() {
-                @Override
-                public void log(String message) {
-                    Log.i("Relinker: " + message);
-                }
-            }).loadLibrary(context, "sqlite3x");
-        } catch (Throwable ex) {
-            Log.e(ex);
-        }
-
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        int threads = prefs.getInt("query_threads", DEFAULT_QUERY_THREADS);
         boolean wal = prefs.getBoolean("wal", true);
-        Log.i("DB query threads=" + threads + " wal=" + wal);
-        ExecutorService executorQuery = Helper.getBackgroundExecutor(threads, "query");
-        ExecutorService executorTransaction = Helper.getBackgroundExecutor(0, "transaction");
+        Log.i("DB wal=" + wal);
 
-        return Room
+        RoomDatabase.Builder<DB> builder = Room
                 .databaseBuilder(context, DB.class, DB_NAME)
-                .openHelperFactory(new RequerySQLiteOpenHelperFactory())
-                .setQueryExecutor(executorQuery)
-                .setTransactionExecutor(executorTransaction)
+                //.openHelperFactory(new RequerySQLiteOpenHelperFactory())
+                //.setQueryExecutor()
+                .setTransactionExecutor(executor)
                 .setJournalMode(wal ? JournalMode.WRITE_AHEAD_LOGGING : JournalMode.TRUNCATE) // using the latest sqlite
                 .addCallback(new Callback() {
+                    @Override
+                    public void onCreate(@NonNull SupportSQLiteDatabase db) {
+                        defaultSearches(db, context);
+                    }
+
                     @Override
                     public void onOpen(@NonNull SupportSQLiteDatabase db) {
                         Map<String, String> crumb = new HashMap<>();
@@ -409,12 +454,34 @@ public abstract class DB extends RoomDatabase {
                         crumb.put("WAL", Boolean.toString(db.isWriteAheadLoggingEnabled()));
                         Log.breadcrumb("Database", crumb);
 
+                        // https://www.sqlite.org/pragma.html#pragma_auto_vacuum
+                        // https://android.googlesource.com/platform/external/sqlite.git/+/6ab557bdc070f11db30ede0696888efd19800475%5E!/
+                        boolean sqlite_auto_vacuum = prefs.getBoolean("sqlite_auto_vacuum", false);
+                        String mode = (sqlite_auto_vacuum ? "FULL" : "INCREMENTAL");
+                        Log.i("Set PRAGMA auto_vacuum=" + mode);
+                        try (Cursor cursor = db.query("PRAGMA auto_vacuum=" + mode + ";")) {
+                            cursor.moveToNext(); // required
+                        }
+
+                        // https://sqlite.org/pragma.html#pragma_synchronous
+                        boolean sqlite_sync_extra = prefs.getBoolean("sqlite_sync_extra", true);
+                        String sync = (sqlite_sync_extra ? "EXTRA" : "NORMAL");
+                        Log.i("Set PRAGMA synchronous=" + sync);
+                        try (Cursor cursor = db.query("PRAGMA synchronous=" + sync + ";")) {
+                            cursor.moveToNext(); // required
+                        }
+
+                        Log.i("Set PRAGMA journal_size_limit=" + DB_JOURNAL_SIZE_LIMIT);
+                        try (Cursor cursor = db.query("PRAGMA journal_size_limit=" + DB_JOURNAL_SIZE_LIMIT + ";")) {
+                            cursor.moveToNext(); // required
+                        }
+
                         // https://www.sqlite.org/pragma.html#pragma_cache_size
                         Integer cache_size = getCacheSizeKb(context);
                         if (cache_size != null) {
                             cache_size = -cache_size; // kibibytes
                             Log.i("Set PRAGMA cache_size=" + cache_size);
-                            try (Cursor cursor = db.query("PRAGMA cache_size=" + cache_size + ";", null)) {
+                            try (Cursor cursor = db.query("PRAGMA cache_size=" + cache_size + ";")) {
                                 cursor.moveToNext(); // required
                             }
                         }
@@ -422,23 +489,44 @@ public abstract class DB extends RoomDatabase {
                         // Prevent long running operations from getting an exclusive lock
                         // https://www.sqlite.org/pragma.html#pragma_cache_spill
                         Log.i("Set PRAGMA cache_spill=0");
-                        try (Cursor cursor = db.query("PRAGMA cache_spill=0;", null)) {
+                        try (Cursor cursor = db.query("PRAGMA cache_spill=0;")) {
+                            cursor.moveToNext(); // required
+                        }
+
+                        Log.i("Set PRAGMA recursive_triggers=off");
+                        try (Cursor cursor = db.query("PRAGMA recursive_triggers=off;")) {
                             cursor.moveToNext(); // required
                         }
 
                         // https://www.sqlite.org/pragma.html
                         for (String pragma : DB_PRAGMAS)
-                            try (Cursor cursor = db.query("PRAGMA " + pragma + ";")) {
-                                Log.i("Get PRAGMA " + pragma + "=" + (cursor.moveToNext() ? cursor.getString(0) : "?"));
-                            }
+                            if (!"compile_options".equals(pragma) || BuildConfig.DEBUG)
+                                try (Cursor cursor = db.query("PRAGMA " + pragma + ";")) {
+                                    boolean has = false;
+                                    while (cursor.moveToNext()) {
+                                        has = true;
+                                        Log.i("Get PRAGMA " + pragma + "=" + (cursor.isNull(0) ? "<null>" : cursor.getString(0)));
+                                    }
+                                    if (!has)
+                                        Log.i("Get PRAGMA " + pragma + "=<?>");
+                                }
 
-                        if (BuildConfig.DEBUG && false) {
-                            db.execSQL("DROP TRIGGER IF EXISTS `attachment_insert`");
-                            db.execSQL("DROP TRIGGER IF EXISTS `attachment_delete`");
-                        }
+                        if (BuildConfig.DEBUG && false)
+                            dropTriggers(db);
+
                         createTriggers(db);
                     }
                 });
+
+        if (BuildConfig.DEBUG && false)
+            builder.setQueryCallback(new QueryCallback() {
+                @Override
+                public void onQuery(@NonNull String sqlQuery, @NonNull List<Object> bindArgs) {
+                    Log.i("query=" + sqlQuery);
+                }
+            }, Helper.getParallelExecutor());
+
+        return builder;
     }
 
     static Integer getCacheSizeKb(Context context) {
@@ -446,7 +534,7 @@ public abstract class DB extends RoomDatabase {
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
             int sqlite_cache = prefs.getInt("sqlite_cache", DEFAULT_CACHE_SIZE);
 
-            ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+            ActivityManager am = Helper.getSystemService(context, ActivityManager.class);
             int class_mb = am.getMemoryClass();
             int cache_size = sqlite_cache * class_mb * 1024 / 100;
 
@@ -455,6 +543,14 @@ public abstract class DB extends RoomDatabase {
             Log.e(ex);
             return null;
         }
+    }
+
+    private static void dropTriggers(@NonNull SupportSQLiteDatabase db) {
+        db.execSQL("DROP TRIGGER IF EXISTS `attachment_insert`");
+        db.execSQL("DROP TRIGGER IF EXISTS `attachment_delete`");
+
+        db.execSQL("DROP TRIGGER IF EXISTS `account_update`");
+        db.execSQL("DROP TRIGGER IF EXISTS `identity_update`");
     }
 
     private static void createTriggers(@NonNull SupportSQLiteDatabase db) {
@@ -484,6 +580,37 @@ public abstract class DB extends RoomDatabase {
                 "  WHERE message.id = OLD.message" +
                 "  AND OLD.encryption IS NULL" +
                 "  AND NOT ((OLD.disposition = 'inline' OR (OLD.related IS NOT 0 AND OLD.cid IS NOT NULL)) AND OLD.type IN (" + images + "));" +
+                " END");
+
+        db.execSQL("CREATE TRIGGER IF NOT EXISTS account_update" +
+                " AFTER UPDATE ON account" +
+                " BEGIN" +
+                "  UPDATE account SET last_modified = strftime('%s') * 1000" +
+                "  WHERE OLD.id = NEW.id" +
+                "  AND OLD.last_modified = NEW.last_modified" +
+                "  AND (NEW.auth_type = " + AUTH_TYPE_PASSWORD + " OR OLD.password = NEW.password)" +
+                "  AND OLD.keep_alive_ok IS NEW.keep_alive_ok" +
+                "  AND OLD.keep_alive_failed IS NEW.keep_alive_failed" +
+                "  AND OLD.keep_alive_succeeded IS NEW.keep_alive_succeeded" +
+                "  AND OLD.quota_usage IS NEW.quota_usage" +
+                "  AND OLD.thread IS NEW.thread" +
+                "  AND OLD.state IS NEW.state" +
+                "  AND OLD.warning IS NEW.warning" +
+                "  AND OLD.error IS NEW.error" +
+                "  AND OLD.last_connected IS NEW.last_connected" +
+                "  AND OLD.backoff_until IS NEW.backoff_until;" +
+                " END");
+
+        db.execSQL("CREATE TRIGGER IF NOT EXISTS identity_update" +
+                " AFTER UPDATE ON identity" +
+                " BEGIN" +
+                "  UPDATE identity SET last_modified = strftime('%s') * 1000" +
+                "  WHERE OLD.id = NEW.id" +
+                "  AND OLD.last_modified = NEW.last_modified" +
+                "  AND OLD.state IS NEW.state" +
+                "  AND OLD.error IS NEW.error" +
+                "  AND OLD.last_connected IS NEW.last_connected" +
+                "  AND (NEW.auth_type = " + AUTH_TYPE_PASSWORD + " OR OLD.password = NEW.password);" +
                 " END");
     }
 
@@ -1597,17 +1724,16 @@ public abstract class DB extends RoomDatabase {
                         logMigration(startVersion, endVersion);
                         db.execSQL("DROP TRIGGER IF EXISTS `attachment_insert`");
                         db.execSQL("DROP TRIGGER IF EXISTS `attachment_delete`");
-                        createTriggers(db);
+                        //createTriggers(db);
                     }
                 })
                 .addMigrations(new Migration(134, 135) {
                     @Override
                     public void migrate(@NonNull SupportSQLiteDatabase db) {
                         logMigration(startVersion, endVersion);
-                        db.execSQL("CREATE VIEW IF NOT EXISTS `account_view` AS " +
-                                TupleAccountView.query.replace(", category", ""));
-                        db.execSQL("CREATE VIEW IF NOT EXISTS `identity_view` AS " + TupleIdentityView.query);
-                        db.execSQL("CREATE VIEW IF NOT EXISTS `folder_view` AS " + TupleFolderView.query);
+                        //db.execSQL("CREATE VIEW IF NOT EXISTS `account_view` AS " + TupleAccountView.query);
+                        //db.execSQL("CREATE VIEW IF NOT EXISTS `identity_view` AS " + TupleIdentityView.query);
+                        //db.execSQL("CREATE VIEW IF NOT EXISTS `folder_view` AS " + TupleFolderView.query);
                     }
                 })
                 .addMigrations(new Migration(135, 136) {
@@ -1786,9 +1912,9 @@ public abstract class DB extends RoomDatabase {
                     @Override
                     public void migrate(@NonNull SupportSQLiteDatabase db) {
                         logMigration(startVersion, endVersion);
-                        db.execSQL("DROP TRIGGER attachment_insert");
-                        db.execSQL("DROP TRIGGER attachment_delete");
-                        createTriggers(db);
+                        db.execSQL("DROP TRIGGER IF EXISTS `attachment_insert`");
+                        db.execSQL("DROP TRIGGER IF EXISTS `attachment_delete`");
+                        //createTriggers(db);
                     }
                 })
                 .addMigrations(new Migration(160, 161) {
@@ -1812,18 +1938,18 @@ public abstract class DB extends RoomDatabase {
                     @Override
                     public void migrate(@NonNull SupportSQLiteDatabase db) {
                         logMigration(startVersion, endVersion);
-                        db.execSQL("DROP TRIGGER attachment_insert");
-                        db.execSQL("DROP TRIGGER attachment_delete");
-                        createTriggers(db);
+                        db.execSQL("DROP TRIGGER IF EXISTS `attachment_insert`");
+                        db.execSQL("DROP TRIGGER IF EXISTS `attachment_delete`");
+                        //createTriggers(db);
                     }
                 })
                 .addMigrations(new Migration(163, 164) {
                     @Override
                     public void migrate(@NonNull SupportSQLiteDatabase db) {
                         logMigration(startVersion, endVersion);
-                        db.execSQL("DROP TRIGGER attachment_insert");
-                        db.execSQL("DROP TRIGGER attachment_delete");
-                        createTriggers(db);
+                        db.execSQL("DROP TRIGGER IF EXISTS `attachment_insert`");
+                        db.execSQL("DROP TRIGGER IF EXISTS `attachment_delete`");
+                        //createTriggers(db);
                     }
                 })
                 .addMigrations(new Migration(164, 165) {
@@ -1873,7 +1999,7 @@ public abstract class DB extends RoomDatabase {
                         logMigration(startVersion, endVersion);
                         db.execSQL("DROP TRIGGER IF EXISTS `attachment_insert`");
                         db.execSQL("DROP TRIGGER IF EXISTS `attachment_delete`");
-                        createTriggers(db);
+                        //createTriggers(db);
                     }
                 })
                 .addMigrations(new Migration(171, 172) {
@@ -1972,11 +2098,11 @@ public abstract class DB extends RoomDatabase {
                     public void migrate(@NonNull SupportSQLiteDatabase db) {
                         logMigration(startVersion, endVersion);
                         db.execSQL("ALTER TABLE `folder` ADD COLUMN `auto_classify_source` INTEGER NOT NULL DEFAULT 0");
-                        db.execSQL("ALTER TABLE `folder` RENAME COLUMN `auto_classify` TO 'auto_classify_target'");
+                        db.execSQL("ALTER TABLE `folder` ADD COLUMN `auto_classify_target` INTEGER NOT NULL DEFAULT 0");
                         db.execSQL("UPDATE `folder`" +
                                 " SET auto_classify_source = 1" +
                                 " WHERE (SELECT pop FROM account WHERE id = folder.account) = " + EntityAccount.TYPE_IMAP +
-                                " AND (auto_classify_target" +
+                                " AND (auto_classify" +
                                 " OR type = '" + EntityFolder.INBOX + "'" +
                                 " OR type = '" + EntityFolder.JUNK + "')");
                     }
@@ -2114,19 +2240,14 @@ public abstract class DB extends RoomDatabase {
                     public void migrate(@NonNull SupportSQLiteDatabase db) {
                         logMigration(startVersion, endVersion);
                         db.execSQL("ALTER TABLE `account` ADD COLUMN `uuid` TEXT NOT NULL DEFAULT ''");
-                        Cursor cursor = null;
-                        try {
-                            cursor = db.query("SELECT id FROM account");
+                        try (Cursor cursor = db.query("SELECT id FROM account")) {
                             while (cursor != null && cursor.moveToNext()) {
                                 long id = cursor.getLong(0);
                                 String uuid = UUID.randomUUID().toString();
-                                Log.i("MMM account=" + id + " uuid=" + uuid);
-                                db.execSQL("UPDATE account SET uuid = ? WHERE id = ?",
-                                        new Object[]{uuid, id});
+                                db.execSQL("UPDATE account SET uuid = ? WHERE id = ?", new Object[]{uuid, id});
                             }
                         } catch (Throwable ex) {
-                            if (cursor != null)
-                                cursor.close();
+                            Log.e(ex);
                         }
                     }
                 }).addMigrations(new Migration(204, 205) {
@@ -2145,9 +2266,8 @@ public abstract class DB extends RoomDatabase {
                     @Override
                     public void migrate(@NonNull SupportSQLiteDatabase db) {
                         logMigration(startVersion, endVersion);
-                        db.execSQL("DROP VIEW IF EXISTS `account_view`");
-                        db.execSQL("CREATE VIEW IF NOT EXISTS `account_view` AS " +
-                                TupleAccountView.query.replace(", category", ""));
+                        //db.execSQL("DROP VIEW IF EXISTS `account_view`");
+                        //db.execSQL("CREATE VIEW IF NOT EXISTS `account_view` AS " + TupleAccountView.query);
                     }
                 }).addMigrations(new Migration(207, 208) {
                     @Override
@@ -2199,8 +2319,8 @@ public abstract class DB extends RoomDatabase {
                         logMigration(startVersion, endVersion);
                         db.execSQL("CREATE INDEX `index_account_synchronize` ON `account` (`synchronize`)");
                         db.execSQL("CREATE INDEX `index_account_category` ON `account` (`category`)");
-                        db.execSQL("DROP VIEW IF EXISTS `account_view`");
-                        db.execSQL("CREATE VIEW IF NOT EXISTS `account_view` AS " + TupleAccountView.query);
+                        //db.execSQL("DROP VIEW IF EXISTS `account_view`");
+                        //db.execSQL("CREATE VIEW IF NOT EXISTS `account_view` AS " + TupleAccountView.query);
                     }
                 }).addMigrations(new Migration(214, 215) {
                     @Override
@@ -2258,7 +2378,7 @@ public abstract class DB extends RoomDatabase {
                         db.execSQL("ALTER TABLE `attachment` ADD COLUMN `related` INTEGER");
                         db.execSQL("DROP TRIGGER IF EXISTS `attachment_insert`");
                         db.execSQL("DROP TRIGGER IF EXISTS `attachment_delete`");
-                        createTriggers(db);
+                        //createTriggers(db);
                     }
                 }).addMigrations(new Migration(223, 224) {
                     @Override
@@ -2274,7 +2394,455 @@ public abstract class DB extends RoomDatabase {
                                 " SET auto_delete = 0" +
                                 " WHERE type ='" + EntityFolder.JUNK + "'");
                     }
-                }).addMigrations(new Migration(998, 999) {
+                }).addMigrations(new Migration(225, 226) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `answer` ADD COLUMN `snippet` INTEGER NOT NULL DEFAULT 0");
+                    }
+                }).addMigrations(new Migration(226, 227) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("DROP TRIGGER IF EXISTS `attachment_insert`");
+                        db.execSQL("DROP TRIGGER IF EXISTS `attachment_delete`");
+                        //createTriggers(db);
+                    }
+                }).addMigrations(new Migration(227, 228) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `contact` ADD COLUMN `group` TEXT");
+                    }
+                }).addMigrations(new Migration(228, 229) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("DROP VIEW IF EXISTS `identity_view`");
+                        db.execSQL("CREATE VIEW IF NOT EXISTS `identity_view` AS " + TupleIdentityView.query);
+                    }
+                }).addMigrations(new Migration(229, 230) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `folder` ADD COLUMN `hide_seen` INTEGER NOT NULL DEFAULT 0");
+                    }
+                }).addMigrations(new Migration(230, 231) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("UPDATE `message` SET thread = account || ':' || thread");
+                    }
+                }).addMigrations(new Migration(231, 232) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `contact` ADD COLUMN 'identity' INTEGER");
+                    }
+                }).addMigrations(new Migration(232, 233) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `account` ADD COLUMN 'conditions' TEXT");
+                    }
+                }).addMigrations(new Migration(233, 234) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        dropTriggers(db);
+                        db.execSQL("UPDATE account" +
+                                " SET max_messages = MAX(max_messages, MIN(max_messages * 4," +
+                                "   (SELECT COUNT(*) FROM folder" +
+                                "    JOIN message ON message.folder = folder.id" +
+                                "    WHERE folder.account = account.id" +
+                                "    AND folder.type = '" + EntityFolder.INBOX + "'" +
+                                "    AND NOT message.ui_hide)))" +
+                                " WHERE pop = " + EntityAccount.TYPE_POP +
+                                " AND NOT max_messages IS NULL" +
+                                " AND NOT leave_on_device");
+                    }
+                }).addMigrations(new Migration(234, 233) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                    }
+                }).addMigrations(new Migration(234, 235) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `message` ADD COLUMN `recent` INTEGER NOT NULL DEFAULT 0");
+                    }
+                }).addMigrations(new Migration(235, 236) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `identity` ADD COLUMN `octetmime` INTEGER NOT NULL DEFAULT 0");
+                    }
+                }).addMigrations(new Migration(236, 237) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `rule` ADD COLUMN `uuid` TEXT NOT NULL DEFAULT ''");
+                        try (Cursor cursor = db.query("SELECT id FROM rule")) {
+                            while (cursor != null && cursor.moveToNext()) {
+                                long id = cursor.getLong(0);
+                                String uuid = UUID.randomUUID().toString();
+                                db.execSQL("UPDATE rule SET uuid = ? WHERE id = ?", new Object[]{uuid, id});
+                            }
+                        } catch (Throwable ex) {
+                            Log.e(ex);
+                        }
+                    }
+                }).addMigrations(new Migration(237, 238) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `answer` ADD COLUMN `uuid` TEXT NOT NULL DEFAULT ''");
+                        try (Cursor cursor = db.query("SELECT id FROM answer")) {
+                            while (cursor != null && cursor.moveToNext()) {
+                                long id = cursor.getLong(0);
+                                String uuid = UUID.randomUUID().toString();
+                                db.execSQL("UPDATE answer SET uuid = ? WHERE id = ?", new Object[]{uuid, id});
+                            }
+                        } catch (Throwable ex) {
+                            Log.e(ex);
+                        }
+                    }
+                }).addMigrations(new Migration(238, 239) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `identity` ADD COLUMN `uuid` TEXT NOT NULL DEFAULT ''");
+                        try (Cursor cursor = db.query("SELECT id FROM identity")) {
+                            while (cursor != null && cursor.moveToNext()) {
+                                long id = cursor.getLong(0);
+                                String uuid = UUID.randomUUID().toString();
+                                db.execSQL("UPDATE identity SET uuid = ? WHERE id = ?", new Object[]{uuid, id});
+                            }
+                        } catch (Throwable ex) {
+                            Log.e(ex);
+                        }
+                    }
+                }).addMigrations(new Migration(239, 240) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `search` ADD COLUMN `order` INTEGER");
+                    }
+                }).addMigrations(new Migration(240, 241) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `folder` ADD COLUMN `inherited_type` TEXT");
+                        db.execSQL("DROP VIEW IF EXISTS `folder_view`");
+                        db.execSQL("CREATE VIEW IF NOT EXISTS `folder_view` AS " + TupleFolderView.query);
+                    }
+                }).addMigrations(new Migration(241, 242) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `account` ADD COLUMN `unicode` INTEGER NOT NULL DEFAULT 0");
+                    }
+                }).addMigrations(new Migration(242, 243) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `account` ADD COLUMN `keep_alive_noop` INTEGER NOT NULL DEFAULT 0");
+                        db.execSQL("UPDATE account SET keep_alive_noop = 1" +
+                                " WHERE host = 'outlook.office365.com' AND pop = " + EntityAccount.TYPE_IMAP);
+                    }
+                }).addMigrations(new Migration(243, 244) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("UPDATE account SET keep_alive_noop = 0" +
+                                " WHERE host = 'outlook.office365.com' AND pop = " + EntityAccount.TYPE_IMAP);
+                    }
+                }).addMigrations(new Migration(244, 245) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("UPDATE account SET keep_alive_noop = 1" +
+                                " WHERE host = 'outlook.office365.com' AND pop = " + EntityAccount.TYPE_IMAP);
+                    }
+                }).addMigrations(new Migration(245, 246) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                    }
+                }).addMigrations(new Migration(246, 247) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                    }
+                }).addMigrations(new Migration(247, 248) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        EntityMessage.convert(context);
+                    }
+                }).addMigrations(new Migration(248, 249) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        Fts4DbHelper.delete(context);
+                        Fts5DbHelper.delete(context);
+                        db.execSQL("UPDATE `message` SET fts = 0");
+                    }
+                }).addMigrations(new Migration(249, 250) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        db.execSQL("UPDATE `account` SET partial_fetch = 0 WHERE host = 'imap.mail.yahoo.com'");
+                    }
+                }).addMigrations(new Migration(250, 251) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        // RENAME COLUMN workaround
+                        boolean auto_classify;
+                        boolean auto_classify_target;
+                        try (Cursor cursor = db.query("SELECT * FROM `folder` LIMIT 0")) {
+                            auto_classify = (cursor.getColumnIndex("auto_classify") >= 0);
+                            auto_classify_target = (cursor.getColumnIndex("auto_classify_target") >= 0);
+                        }
+                        if (!auto_classify)
+                            db.execSQL("ALTER TABLE `folder` ADD COLUMN `auto_classify` INTEGER NOT NULL DEFAULT 0");
+                        if (!auto_classify_target)
+                            db.execSQL("ALTER TABLE `folder` ADD COLUMN `auto_classify_target` INTEGER NOT NULL DEFAULT 0");
+                        db.execSQL("UPDATE `folder` SET auto_classify_target = auto_classify WHERE auto_classify <> 0");
+                    }
+                }).addMigrations(new Migration(251, 252) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        db.execSQL("ALTER TABLE `account` ADD COLUMN `calendar` TEXT");
+                    }
+                }).addMigrations(new Migration(252, 253) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                        SharedPreferences.Editor editor = prefs.edit();
+                        for (String key : prefs.getAll().keySet())
+                            if (key.startsWith("updated.") || key.startsWith("unset."))
+                                editor.remove(key);
+                        try (Cursor cursor = db.query("SELECT account.id" +
+                                ", archive.type AS archive" +
+                                ", drafts.type AS drafts" +
+                                ", trash.type AS trash" +
+                                ", junk.type AS junk" +
+                                ", sent.type AS sent" +
+                                " FROM `account`" +
+                                " LEFT JOIN folder AS archive ON archive.account = account.id AND archive.type = 'All'" +
+                                " LEFT JOIN folder AS drafts ON drafts.account = account.id AND drafts.type = 'Drafts'" +
+                                " LEFT JOIN folder AS trash ON trash.account = account.id AND trash.type = 'Trash'" +
+                                " LEFT JOIN folder AS junk ON junk.account = account.id AND junk.type = 'Junk'" +
+                                " LEFT JOIN folder AS sent ON sent.account = account.id AND sent.type = 'Sent'" +
+                                " WHERE account.pop = 0")) {
+                            while (cursor.moveToNext()) {
+                                long id = cursor.getLong(0);
+                                if (cursor.getString(1) == null)
+                                    editor.putBoolean("unset." + id + ".All", true);
+                                if (cursor.getString(2) == null)
+                                    editor.putBoolean("unset." + id + ".Drafts", true);
+                                if (cursor.getString(3) == null)
+                                    editor.putBoolean("unset." + id + ".Trash", true);
+                                if (cursor.getString(4) == null)
+                                    editor.putBoolean("unset." + id + ".Junk", true);
+                                if (cursor.getString(5) == null)
+                                    editor.putBoolean("unset." + id + ".Sent", true);
+                            }
+                        } catch (Throwable ex) {
+                            Log.e(ex);
+                        }
+                        editor.apply();
+                    }
+                }).addMigrations(new Migration(253, 254) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("UPDATE account SET keep_alive_noop = 1" +
+                                " WHERE (host = 'imap.mail.yahoo.com' OR host = 'imap.aol.com')" +
+                                " AND pop = " + EntityAccount.TYPE_IMAP);
+                    }
+                }).addMigrations(new Migration(254, 255) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `message` ADD COLUMN `ui_local_only` INTEGER NOT NULL DEFAULT 0");
+                    }
+                }).addMigrations(new Migration(255, 256) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `account` ADD COLUMN `capability_uidl` INTEGER");
+                    }
+                }).addMigrations(new Migration(256, 257) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `search` ADD COLUMN `account_uuid` TEXT");
+                        db.execSQL("ALTER TABLE `search` ADD COLUMN `folder_name` TEXT");
+                    }
+                }).addMigrations(new Migration(257, 258) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        defaultSearches(db, context);
+                    }
+                }).addMigrations(new Migration(258, 259) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("UPDATE account SET keep_alive_noop = 0" +
+                                " WHERE host = 'outlook.office365.com' AND pop = " + EntityAccount.TYPE_IMAP);
+                    }
+                }).addMigrations(new Migration(259, 260) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `rule` ADD COLUMN `daily` INTEGER NOT NULL DEFAULT 0");
+                    }
+                }).addMigrations(new Migration(260, 261) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                        String startup = prefs.getString("startup", "unified");
+                        if ("folders".equals(startup))
+                            db.execSQL("UPDATE `folder` SET `hide_seen` = 0 WHERE `unified` = 0");
+                        else
+                            db.execSQL("UPDATE `folder` SET `hide_seen` = 0");
+                    }
+                }).addMigrations(new Migration(262, 261) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                    }
+                }).addMigrations(new Migration(261, 262) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `folder` ADD COLUMN `subtype` TEXT");
+                    }
+                }).addMigrations(new Migration(262, 263) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `account` ADD COLUMN `last_modified` INTEGER");
+                        db.execSQL("ALTER TABLE `identity` ADD COLUMN `last_modified` INTEGER");
+                        //createTriggers(db);
+                    }
+                }).addMigrations(new Migration(263, 264) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `account` ADD COLUMN `raw_fetch` INTEGER NOT NULL DEFAULT 0");
+                        //createTriggers(db);
+                    }
+                }).addMigrations(new Migration(264, 265) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `identity` ADD COLUMN `reply_extra_name` INTEGER NOT NULL DEFAULT 0");
+                        //createTriggers(db);
+                    }
+                }).addMigrations(new Migration(265, 266) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("CREATE INDEX `index_message_replying` ON `message` (`replying`)");
+                        db.execSQL("CREATE INDEX `index_message_forwarding` ON `message` (`forwarding`)");
+                        createTriggers(db);
+                    }
+                }).addMigrations(new Migration(266, 267) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        // Do nothing
+                    }
+                }).addMigrations(new Migration(267, 268) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `folder` ADD COLUMN `count_unread` INTEGER NOT NULL DEFAULT 1");
+                    }
+                }).addMigrations(new Migration(268, 269) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `message` ADD COLUMN `signedby` TEXT");
+                    }
+                }).addMigrations(new Migration(269, 270) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("UPDATE account SET partial_fetch = 1" +
+                                " WHERE host = 'imap.mail.yahoo.com' OR host = 'imap.aol.com'");
+                    }
+                }).addMigrations(new Migration(270, 271) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("UPDATE account SET partial_fetch = 0, raw_fetch = 1" +
+                                " WHERE host = 'imap.mail.yahoo.com' OR host = 'imap.aol.com'");
+                    }
+                }).addMigrations(new Migration(271, 272) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("UPDATE account SET partial_fetch = 1, raw_fetch = 0" +
+                                " WHERE host = 'imap.mail.yahoo.com' OR host = 'imap.aol.com'");
+                    }
+                }).addMigrations(new Migration(272, 273) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `account` ADD COLUMN `client_delete` INTEGER NOT NULL DEFAULT 0");
+                    }
+                }).addMigrations(new Migration(273, 274) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `answer` ADD COLUMN `label` TEXT");
+                        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_answer_label` ON `answer` (`label`)");
+                    }
+                }).addMigrations(new Migration(274, 275) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `contact` ADD COLUMN `folder` INTEGER");
+                    }
+                }).addMigrations(new Migration(275, 276) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `log` ADD COLUMN `thread` INTEGER");
+                    }
+                }).addMigrations(new Migration(276, 277) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `identity` ADD COLUMN `uri` TEXT");
+                    }
+                }).addMigrations(new Migration(277, 278) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `rule` ADD COLUMN `group` TEXT");
+                    }
+                }).addMigrations(new Migration(278, 279) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `account` ADD COLUMN `summary` INTEGER NOT NULL DEFAULT 0");
+                        db.execSQL("DROP VIEW IF EXISTS `account_view`");
+                        db.execSQL("CREATE VIEW IF NOT EXISTS `account_view` AS " + TupleAccountView.query);
+                    }
+                }).addMigrations(new Migration(279, 280) {
+                    @Override
+                    public void migrate(@NonNull SupportSQLiteDatabase db) {
+                        logMigration(startVersion, endVersion);
+                        db.execSQL("ALTER TABLE `folder` ADD COLUMN `flags` TEXT");
+                    }
+                })
+                .addMigrations(new Migration(998, 999) {
                     @Override
                     public void migrate(@NonNull SupportSQLiteDatabase db) {
                         logMigration(startVersion, endVersion);
@@ -2287,10 +2855,34 @@ public abstract class DB extends RoomDatabase {
                 });
     }
 
-    public static void checkpoint(Context context) {
-        if (!BuildConfig.DEBUG)
-            return;
+    public static void defaultSearches(SupportSQLiteDatabase db, Context context) {
+        try {
+            BoundaryCallbackMessages.SearchCriteria criteria;
 
+            criteria = new BoundaryCallbackMessages.SearchCriteria();
+            criteria.with_flagged = true;
+
+            db.execSQL("INSERT INTO `search` (`name`, `order`, `data`) VALUES (?, ?, ?)",
+                    new Object[]{
+                            context.getString(R.string.title_search_with_flagged),
+                            0,
+                            criteria.toJsonData().toString()
+                    });
+
+            criteria = new BoundaryCallbackMessages.SearchCriteria();
+            criteria.with_unseen = true;
+            db.execSQL("INSERT INTO `search` (`name`, `order`, `data`) VALUES (?, ?, ?)",
+                    new Object[]{
+                            context.getString(R.string.title_search_with_unseen),
+                            0,
+                            criteria.toJsonData().toString()
+                    });
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
+    }
+
+    public static void checkpoint(Context context) {
         // https://www.sqlite.org/pragma.html#pragma_wal_checkpoint
         DB db = getInstance(context);
         db.getQueryExecutor().execute(new Runnable() {
@@ -2300,7 +2892,8 @@ public abstract class DB extends RoomDatabase {
                     long start = new Date().getTime();
                     StringBuilder sb = new StringBuilder();
                     SupportSQLiteDatabase sdb = db.getOpenHelper().getWritableDatabase();
-                    try (Cursor cursor = sdb.query("PRAGMA wal_checkpoint(PASSIVE);")) {
+                    String mode = (true ? "RESTART" : "PASSIVE");
+                    try (Cursor cursor = sdb.query("PRAGMA wal_checkpoint(" + mode + ");")) {
                         if (cursor.moveToNext()) {
                             for (int i = 0; i < cursor.getColumnCount(); i++) {
                                 if (i > 0)
@@ -2311,7 +2904,8 @@ public abstract class DB extends RoomDatabase {
                     }
 
                     long elapse = new Date().getTime() - start;
-                    Log.i("PRAGMA wal_checkpoint=" + sb + " elapse=" + elapse);
+                    EntityLog.log(context, "PRAGMA wal_checkpoint(" + mode + ")=" + sb +
+                            " elapse=" + elapse + " ms");
                 } catch (Throwable ex) {
                     Log.e(ex);
                 }
@@ -2351,7 +2945,50 @@ public abstract class DB extends RoomDatabase {
     @Override
     @SuppressWarnings("deprecation")
     public void endTransaction() {
-        super.endTransaction();
+        try {
+            super.endTransaction();
+        } catch (Throwable ex) {
+            String msg = ex.getMessage();
+            if (TextUtils.isEmpty(msg))
+                throw ex;
+
+            if (msg.contains("no current transaction")) {
+                // java.lang.IllegalStateException: Cannot perform this operation because there is no current transaction.
+                Log.w(ex);
+                return;
+            }
+
+            if (msg.contains("no transaction is active")) {
+                // Moto e⁶ plus - Android 9
+                /*
+                    android.database.sqlite.SQLiteException: cannot rollback - no transaction is active (code 1 SQLITE_ERROR)
+                            at android.database.sqlite.SQLiteConnection.nativeExecute(SQLiteConnection.java:-2)
+                            at android.database.sqlite.SQLiteConnection.execute(SQLiteConnection.java:569)
+                            at android.database.sqlite.SQLiteSession.endTransactionUnchecked(SQLiteSession.java:439)
+                            at android.database.sqlite.SQLiteSession.endTransaction(SQLiteSession.java:401)
+                            at android.database.sqlite.SQLiteDatabase.endTransaction(SQLiteDatabase.java:566)
+                            at androidx.sqlite.db.framework.FrameworkSQLiteDatabase.endTransaction(FrameworkSQLiteDatabase:75)
+                            at androidx.room.RoomDatabase.internalEndTransaction(RoomDatabase:594)
+                            at androidx.room.RoomDatabase.endTransaction(RoomDatabase:584)
+                            at eu.faircode.email.DB.endTransaction(DB:2842)
+                            at androidx.room.paging.LimitOffsetDataSource.loadInitial(LimitOffsetDataSource:181)
+                            at androidx.paging.PositionalDataSource.dispatchLoadInitial(PositionalDataSource:286)
+                            at androidx.paging.TiledPagedList.<init>(TiledPagedList:107)
+                            at androidx.paging.PagedList.create(PagedList:229)
+                            at androidx.paging.PagedList$Builder.build(PagedList:388)
+                            at androidx.paging.LivePagedListBuilder$1.compute(LivePagedListBuilder:206)
+                            at androidx.paging.LivePagedListBuilder$1.compute(LivePagedListBuilder:171)
+                            at androidx.lifecycle.ComputableLiveData$2.run(ComputableLiveData:110)
+                            at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1167)
+                            at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
+                            at java.lang.Thread.run(Thread.java:764)
+                 */
+                Log.w(ex);
+                return;
+            }
+
+            throw ex;
+        }
     }
 
     public static class Converters {

@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import androidx.annotation.NonNull;
@@ -30,7 +30,7 @@ import java.util.Objects;
         value = TupleIdentityView.query
 )
 public class TupleIdentityView {
-    static final String query = "SELECT id, name, email, display, color, synchronize FROM identity";
+    static final String query = "SELECT id, name, email, account, display, color, synchronize FROM identity";
 
     @NonNull
     public Long id;
@@ -38,6 +38,8 @@ public class TupleIdentityView {
     public String name;
     @NonNull
     public String email;
+    @NonNull
+    public Long account;
     public String display;
     public Integer color;
     @NonNull

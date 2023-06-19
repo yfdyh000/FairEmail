@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.text.TextUtils;
@@ -36,6 +36,6 @@ public class TupleThreadInfo {
     }
 
     public boolean isReferencing(String msgid) {
-        return !isSelf(msgid) && !isReferenced(msgid);
+        return !TextUtils.isEmpty(msgid) && !isSelf(msgid) && !isReferenced(msgid);
     }
 }

@@ -16,23 +16,30 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.app.Activity.RESULT_OK;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.StatusBarManager;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Paint;
+import android.graphics.drawable.Icon;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.service.quicksettings.TileService;
+import android.text.TextUtils;
+import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -45,18 +52,21 @@ import android.widget.CompoundButton;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.constraintlayout.widget.Group;
-import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceManager;
 
-import java.util.List;
+import java.util.function.Consumer;
 
 public class FragmentOptionsNotifications extends FragmentBase implements SharedPreferences.OnSharedPreferenceChangeListener {
+    private View view;
+    private ImageButton ibHelp;
     private Button btnManage;
     private ImageButton ibClear;
     private Button btnManageDefault;
@@ -64,9 +74,9 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
     private Button btnManageService;
     private ImageView ivChannelService;
     private ImageButton ibWhy;
-    private FixedTextView tvNotifySeparate;
+    private TextView tvNotifySeparate;
     private SwitchCompat swNewestFirst;
-    private SwitchCompat swBackground;
+    private SwitchCompat swNotifySummary;
 
     private CheckBox cbNotifyActionTrash;
     private CheckBox cbNotifyActionJunk;
@@ -87,10 +97,13 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
     private SwitchCompat swBadge;
     private ImageButton ibBadge;
     private SwitchCompat swUnseenIgnored;
+    private SwitchCompat swNotifyGrouping;
+    private SwitchCompat swNotifyPrivate;
     private SwitchCompat swNotifyBackgroundOnly;
     private SwitchCompat swNotifyKnownOnly;
+    private SwitchCompat swNotifySuppressInCall;
+    private SwitchCompat swNotifySuppressInCar;
     private TextView tvNotifyKnownPro;
-    private SwitchCompat swNotifySummary;
     private SwitchCompat swNotifyRemove;
     private SwitchCompat swNotifyClear;
     private SwitchCompat swNotifySubtext;
@@ -104,27 +117,32 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
     private SwitchCompat swMessagingStyle;
     private ImageButton ibCar;
     private SwitchCompat swBiometricsNotify;
+    private SwitchCompat swBackground;
     private SwitchCompat swAlertOnce;
+    private ImageButton ibTileSync;
+    private ImageButton ibTileUnseen;
     private TextView tvNoGrouping;
     private TextView tvNoChannels;
 
     private Group grpChannel;
-    private Group grpNotification;
+    private Group grpProperties;
+    private Group grpScreenOn;
+    private Group grpBackground;
+    private Group grpTiles;
 
     private final static String[] RESET_OPTIONS = new String[]{
-            "notify_newest_first",
-            "background_service",
+            "notify_newest_first", "notify_summary",
             "notify_trash", "notify_junk", "notify_block_sender", "notify_archive", "notify_move",
             "notify_reply", "notify_reply_direct",
             "notify_flag", "notify_seen", "notify_hide", "notify_snooze",
             "light", "sound", "notify_screen_on",
             "badge", "unseen_ignored",
-            "notify_background_only", "notify_known", "notify_summary", "notify_remove", "notify_clear",
+            "notify_grouping", "notify_private", "notify_background_only", "notify_known", "notify_suppress_in_call", "notify_suppress_in_car",
+            "notify_remove", "notify_clear",
             "notify_subtext", "notify_preview", "notify_preview_all", "notify_preview_only", "notify_transliterate",
             "wearable_preview",
             "notify_messaging",
-            "biometrics_notify",
-            "alert_once"
+            "biometrics_notify", "background_service", "alert_once"
     };
 
     @Override
@@ -133,10 +151,11 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
         setSubtitle(R.string.title_setup);
         setHasOptionsMenu(true);
 
-        View view = inflater.inflate(R.layout.fragment_options_notifications, container, false);
+        view = inflater.inflate(R.layout.fragment_options_notifications, container, false);
 
         // Get controls
 
+        ibHelp = view.findViewById(R.id.ibHelp);
         btnManage = view.findViewById(R.id.btnManage);
         ibClear = view.findViewById(R.id.ibClear);
         btnManageDefault = view.findViewById(R.id.btnManageDefault);
@@ -146,7 +165,7 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
         ibWhy = view.findViewById(R.id.ibWhy);
         tvNotifySeparate = view.findViewById(R.id.tvNotifySeparate);
         swNewestFirst = view.findViewById(R.id.swNewestFirst);
-        swBackground = view.findViewById(R.id.swBackground);
+        swNotifySummary = view.findViewById(R.id.swNotifySummary);
 
         cbNotifyActionTrash = view.findViewById(R.id.cbNotifyActionTrash);
         cbNotifyActionJunk = view.findViewById(R.id.cbNotifyActionJunk);
@@ -167,10 +186,13 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
         swBadge = view.findViewById(R.id.swBadge);
         ibBadge = view.findViewById(R.id.ibBadge);
         swUnseenIgnored = view.findViewById(R.id.swUnseenIgnored);
+        swNotifyGrouping = view.findViewById(R.id.swNotifyGrouping);
+        swNotifyPrivate = view.findViewById(R.id.swNotifyPrivate);
         swNotifyBackgroundOnly = view.findViewById(R.id.swNotifyBackgroundOnly);
         swNotifyKnownOnly = view.findViewById(R.id.swNotifyKnownOnly);
+        swNotifySuppressInCall = view.findViewById(R.id.swNotifySuppressInCall);
+        swNotifySuppressInCar = view.findViewById(R.id.swNotifySuppressInCar);
         tvNotifyKnownPro = view.findViewById(R.id.tvNotifyKnownPro);
-        swNotifySummary = view.findViewById(R.id.swNotifySummary);
         swNotifyRemove = view.findViewById(R.id.swNotifyRemove);
         swNotifyClear = view.findViewById(R.id.swNotifyClear);
         swNotifySubtext = view.findViewById(R.id.swNotifySubtext);
@@ -184,12 +206,18 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
         swMessagingStyle = view.findViewById(R.id.swMessagingStyle);
         ibCar = view.findViewById(R.id.ibCar);
         swBiometricsNotify = view.findViewById(R.id.swBiometricsNotify);
+        swBackground = view.findViewById(R.id.swBackground);
         swAlertOnce = view.findViewById(R.id.swAlertOnce);
+        ibTileSync = view.findViewById(R.id.ibTileSync);
+        ibTileUnseen = view.findViewById(R.id.ibTileUnseen);
         tvNoGrouping = view.findViewById(R.id.tvNoGrouping);
         tvNoChannels = view.findViewById(R.id.tvNoChannels);
 
         grpChannel = view.findViewById(R.id.grpChannel);
-        grpNotification = view.findViewById(R.id.grpNotification);
+        grpProperties = view.findViewById(R.id.grpProperties);
+        grpScreenOn = view.findViewById(R.id.grpScreenOn);
+        grpBackground = view.findViewById(R.id.grpBackground);
+        grpTiles = view.findViewById(R.id.grpTiles);
 
         setOptions();
 
@@ -198,6 +226,13 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
         PackageManager pm = getContext().getPackageManager();
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
         boolean debug = prefs.getBoolean("debug", false);
+
+        ibHelp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Helper.view(v.getContext(), Helper.getSupportUri(v.getContext(), "Options:notifications"), false);
+            }
+        });
 
         final Intent manage = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                 .putExtra("app_package", getContext().getPackageName())
@@ -216,36 +251,107 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
                 (BuildConfig.DEBUG || debug) ? View.VISIBLE : View.GONE);
         ibClear.setOnClickListener(new View.OnClickListener() {
             @Override
+            @RequiresApi(api = Build.VERSION_CODES.O)
             public void onClick(View v) {
-                new SimpleTask<Void>() {
+                new SimpleTask<Pair<String[], String[]>>() {
                     @Override
-                    protected Void onExecute(Context context, Bundle args) {
+                    protected Pair<String[], String[]> onExecute(Context context, Bundle args) throws Throwable {
+                        String[] ids = NotificationHelper.getChannelIds(context);
+                        String[] titles = new String[ids.length];
+
                         DB db = DB.getInstance(context);
 
-                        List<EntityAccount> accounts = db.account().getAccounts();
-                        if (accounts == null)
-                            return null;
-
-                        for (EntityAccount account : accounts)
-                            if (account.notify) {
-                                EntityLog.log(context, account.name + " disabling notify");
-                                db.account().setAccountNotify(account.id, false);
+                        for (int i = 0; i < ids.length; i++)
+                            try {
+                                if (ids[i].startsWith("notification.folder.")) {
+                                    long fid = Long.parseLong(ids[i].split("\\.")[2]);
+                                    EntityFolder folder = db.folder().getFolder(fid);
+                                    EntityAccount account = db.account().getAccount(folder == null ? -1L : folder.account);
+                                    titles[i] = (folder == null ? ids[i] : account.name + "/" + folder.name);
+                                } else if (ids[i].startsWith("notification.")) {
+                                    String[] parts = ids[i].split("\\.");
+                                    if (parts.length == 2 && TextUtils.isDigitsOnly(parts[1])) {
+                                        long aid = Long.parseLong(parts[1]);
+                                        EntityAccount account = db.account().getAccount(aid);
+                                        titles[i] = (account == null ? ids[i] : account.name);
+                                    } else
+                                        titles[i] = ids[i].substring("notification.".length());
+                                } else
+                                    titles[i] = ids[i];
+                            } catch (Throwable ex) {
+                                Log.e(ex);
+                                titles[i] = ids[i];
                             }
 
-                        return null;
+                        return new Pair<>(ids, titles);
                     }
 
                     @Override
-                    @RequiresApi(api = Build.VERSION_CODES.O)
-                    protected void onExecuted(Bundle args, Void data) {
-                        NotificationHelper.clear(getContext());
+                    protected void onExecuted(Bundle args, Pair<String[], String[]> data) {
+                        boolean[] selected = new boolean[data.first.length];
+
+                        new AlertDialog.Builder(v.getContext())
+                                .setIcon(R.drawable.twotone_delete_24)
+                                .setTitle(R.string.title_advanced_notifications_delete)
+                                .setMultiChoiceItems(data.second, selected, new DialogInterface.OnMultiChoiceClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which, boolean isChecked) {
+                                        selected[which] = isChecked;
+                                    }
+                                })
+                                .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        Bundle args = new Bundle();
+                                        args.putStringArray("ids", data.first);
+                                        args.putBooleanArray("selected", selected);
+
+                                        new SimpleTask<Void>() {
+                                            @Override
+                                            protected Void onExecute(Context context, Bundle args) throws Throwable {
+                                                String[] ids = args.getStringArray("ids");
+                                                boolean[] selected = args.getBooleanArray("selected");
+
+                                                DB db = DB.getInstance(context);
+
+                                                for (int i = 0; i < selected.length; i++)
+                                                    try {
+                                                        if (!selected[i])
+                                                            continue;
+
+                                                        if (ids[i].startsWith("notification.")) {
+                                                            String[] parts = ids[i].split("\\.");
+                                                            if (parts.length == 2 && TextUtils.isDigitsOnly(parts[1])) {
+                                                                long aid = Long.parseLong(ids[i].split("\\.")[1]);
+                                                                if (db.account().setAccountNotify(aid, false) != 1)
+                                                                    continue;
+                                                            }
+                                                        }
+
+                                                        NotificationHelper.deleteChannel(context, ids[i]);
+                                                    } catch (Throwable ex) {
+                                                        Log.e(ex);
+                                                    }
+
+                                                return null;
+                                            }
+
+                                            @Override
+                                            protected void onException(Bundle args, Throwable ex) {
+                                                Log.unexpectedError(getParentFragmentManager(), ex);
+                                            }
+                                        }.execute(FragmentOptionsNotifications.this, args, "channel:delete");
+                                    }
+                                })
+                                .setNegativeButton(android.R.string.cancel, null)
+                                .show();
                     }
 
                     @Override
                     protected void onException(Bundle args, Throwable ex) {
                         Log.unexpectedError(getParentFragmentManager(), ex);
                     }
-                }.execute(FragmentOptionsNotifications.this, new Bundle(), "notification:clear");
+                }.execute(FragmentOptionsNotifications.this, new Bundle(), "channel:list");
             }
         });
 
@@ -299,11 +405,11 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
             }
         });
 
-        swBackground.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+        swNotifySummary.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("background_service", checked).apply();
-                ServiceSynchronize.eval(compoundButton.getContext(), "background=" + checked);
+                prefs.edit().putBoolean("notify_summary", checked).apply();
+                enableOptions();
             }
         });
 
@@ -395,6 +501,11 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
             }
         });
 
+        grpScreenOn.setVisibility(
+                BuildConfig.DEBUG ||
+                        Build.VERSION.SDK_INT <= Build.VERSION_CODES.TIRAMISU ||
+                        hasPermission("android.permission.TURN_SCREEN_ON")
+                        ? View.VISIBLE : View.GONE);
         swNotifyScreenOn.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
@@ -412,7 +523,7 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
                 intent.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true);
                 intent.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true);
                 intent.putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, sound == null ? null : Uri.parse(sound));
-                startActivityForResult(Helper.getChooser(getContext(), intent), ActivitySetup.REQUEST_SOUND);
+                startActivityForResult(Helper.getChooser(getContext(), intent), ActivitySetup.REQUEST_SOUND_INBOUND);
             }
         });
 
@@ -439,6 +550,20 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
             }
         });
 
+        swNotifyGrouping.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("notify_grouping", checked).apply();
+            }
+        });
+
+        swNotifyPrivate.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("notify_private", checked).apply();
+            }
+        });
+
         swNotifyBackgroundOnly.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
@@ -455,11 +580,25 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
             }
         });
 
-        swNotifySummary.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+        swNotifySuppressInCall.setVisibility(
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+                        ? View.GONE : View.VISIBLE);
+        swNotifySuppressInCall.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("notify_summary", checked).apply();
-                enableOptions();
+                prefs.edit().putBoolean("notify_suppress_in_call", checked).apply();
+                ServiceSynchronize.restart(compoundButton.getContext());
+            }
+        });
+
+        swNotifySuppressInCar.setVisibility(
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.M || BuildConfig.PLAY_STORE_RELEASE
+                        ? View.GONE : View.VISIBLE);
+        swNotifySuppressInCar.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("notify_suppress_in_car", checked).apply();
+                ServiceSynchronize.restart(compoundButton.getContext());
             }
         });
 
@@ -555,10 +694,34 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
             }
         });
 
+        swBackground.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("background_service", checked).apply();
+                ServiceSynchronize.eval(compoundButton.getContext(), "background=" + checked);
+            }
+        });
+
         swAlertOnce.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("alert_once", !checked).apply();
+            }
+        });
+
+        ibTileSync.setOnClickListener(new View.OnClickListener() {
+            @Override
+            @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+            public void onClick(View v) {
+                addTile(v.getContext(), ServiceTileSynchronize.class, R.string.tile_synchronize, R.drawable.twotone_sync_24);
+            }
+        });
+
+        ibTileUnseen.setOnClickListener(new View.OnClickListener() {
+            @Override
+            @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+            public void onClick(View v) {
+                addTile(v.getContext(), ServiceTileUnseen.class, R.string.tile_unseen, R.drawable.twotone_mail_outline_24);
             }
         });
 
@@ -576,9 +739,15 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
         tvNoChannels.setVisibility(Build.VERSION.SDK_INT < Build.VERSION_CODES.O ? View.VISIBLE : View.GONE);
 
         grpChannel.setVisibility(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? View.VISIBLE : View.GONE);
-        grpNotification.setVisibility(
+        grpProperties.setVisibility(
                 Build.VERSION.SDK_INT < Build.VERSION_CODES.O || BuildConfig.DEBUG
                         ? View.VISIBLE : View.GONE);
+        grpBackground.setVisibility(
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.O || BuildConfig.DEBUG
+                        ? View.VISIBLE : View.GONE);
+        grpTiles.setVisibility(
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || !BuildConfig.DEBUG
+                        ? View.GONE : View.VISIBLE);
 
         PreferenceManager.getDefaultSharedPreferences(getContext()).registerOnSharedPreferenceChangeListener(this);
 
@@ -590,7 +759,7 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
         super.onResume();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManager nm = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+            NotificationManager nm = Helper.getSystemService(getContext(), NotificationManager.class);
 
             NotificationChannel notification = nm.getNotificationChannel("notification");
             if (notification != null) {
@@ -614,8 +783,7 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
 
     @Override
     public void onSharedPreferenceChanged(SharedPreferences prefs, String key) {
-        if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-            setOptions();
+        setOptions();
     }
 
     @Override
@@ -634,44 +802,55 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
     }
 
     private void setOptions() {
-        boolean pro = ActivityBilling.isPro(getContext());
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+        try {
+            if (view == null || getContext() == null)
+                return;
 
-        swNewestFirst.setChecked(prefs.getBoolean("notify_newest_first", false));
-        swBackground.setChecked(prefs.getBoolean("background_service", false));
+            boolean pro = ActivityBilling.isPro(getContext());
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
 
-        cbNotifyActionTrash.setChecked(prefs.getBoolean("notify_trash", true) || !pro);
-        cbNotifyActionJunk.setChecked(prefs.getBoolean("notify_junk", false) && pro);
-        cbNotifyActionBlockSender.setChecked(prefs.getBoolean("notify_block_sender", false) && pro);
-        cbNotifyActionArchive.setChecked(prefs.getBoolean("notify_archive", true) || !pro);
-        cbNotifyActionMove.setChecked(prefs.getBoolean("notify_move", false) && pro);
-        cbNotifyActionReply.setChecked(prefs.getBoolean("notify_reply", false) && pro);
-        cbNotifyActionReplyDirect.setChecked(prefs.getBoolean("notify_reply_direct", false) && pro);
-        cbNotifyActionFlag.setChecked(prefs.getBoolean("notify_flag", false) && pro);
-        cbNotifyActionSeen.setChecked(prefs.getBoolean("notify_seen", true) || !pro);
-        cbNotifyActionHide.setChecked(prefs.getBoolean("notify_hide", false) && pro);
-        cbNotifyActionSnooze.setChecked(prefs.getBoolean("notify_snooze", false) && pro);
-        swLight.setChecked(prefs.getBoolean("light", false));
-        swNotifyScreenOn.setChecked(prefs.getBoolean("notify_screen_on", false));
+            swNewestFirst.setChecked(prefs.getBoolean("notify_newest_first", false));
+            swNotifySummary.setChecked(prefs.getBoolean("notify_summary", false));
 
-        swBadge.setChecked(prefs.getBoolean("badge", true));
-        swUnseenIgnored.setChecked(prefs.getBoolean("unseen_ignored", false));
-        swNotifyBackgroundOnly.setChecked(prefs.getBoolean("notify_background_only", false));
-        swNotifyKnownOnly.setChecked(prefs.getBoolean("notify_known", false));
-        swNotifySummary.setChecked(prefs.getBoolean("notify_summary", false));
-        swNotifyRemove.setChecked(prefs.getBoolean("notify_remove", true));
-        swNotifyClear.setChecked(prefs.getBoolean("notify_clear", false));
-        swNotifySubtext.setChecked(prefs.getBoolean("notify_subtext", true));
-        swNotifyPreview.setChecked(prefs.getBoolean("notify_preview", true));
-        swNotifyPreviewAll.setChecked(prefs.getBoolean("notify_preview_all", false));
-        swNotifyPreviewOnly.setChecked(prefs.getBoolean("notify_preview_only", false));
-        swNotifyTransliterate.setChecked(prefs.getBoolean("notify_transliterate", false));
-        swWearablePreview.setChecked(prefs.getBoolean("wearable_preview", false));
-        swMessagingStyle.setChecked(prefs.getBoolean("notify_messaging", false));
-        swBiometricsNotify.setChecked(prefs.getBoolean("biometrics_notify", true));
-        swAlertOnce.setChecked(!prefs.getBoolean("alert_once", true));
+            cbNotifyActionTrash.setChecked(prefs.getBoolean("notify_trash", true) || !pro);
+            cbNotifyActionJunk.setChecked(prefs.getBoolean("notify_junk", false) && pro);
+            cbNotifyActionBlockSender.setChecked(prefs.getBoolean("notify_block_sender", false) && pro);
+            cbNotifyActionArchive.setChecked(prefs.getBoolean("notify_archive", true) || !pro);
+            cbNotifyActionMove.setChecked(prefs.getBoolean("notify_move", false) && pro);
+            cbNotifyActionReply.setChecked(prefs.getBoolean("notify_reply", false) && pro);
+            cbNotifyActionReplyDirect.setChecked(prefs.getBoolean("notify_reply_direct", false) && pro);
+            cbNotifyActionFlag.setChecked(prefs.getBoolean("notify_flag", false) && pro);
+            cbNotifyActionSeen.setChecked(prefs.getBoolean("notify_seen", true) || !pro);
+            cbNotifyActionHide.setChecked(prefs.getBoolean("notify_hide", false) && pro);
+            cbNotifyActionSnooze.setChecked(prefs.getBoolean("notify_snooze", false) && pro);
+            swLight.setChecked(prefs.getBoolean("light", false));
+            swNotifyScreenOn.setChecked(prefs.getBoolean("notify_screen_on", false));
 
-        enableOptions();
+            swBadge.setChecked(prefs.getBoolean("badge", true));
+            swUnseenIgnored.setChecked(prefs.getBoolean("unseen_ignored", false));
+            swNotifyGrouping.setChecked(prefs.getBoolean("notify_grouping", true));
+            swNotifyPrivate.setChecked(prefs.getBoolean("notify_private", true));
+            swNotifyBackgroundOnly.setChecked(prefs.getBoolean("notify_background_only", false));
+            swNotifyKnownOnly.setChecked(prefs.getBoolean("notify_known", false));
+            swNotifySuppressInCall.setChecked(prefs.getBoolean("notify_suppress_in_call", false));
+            swNotifySuppressInCar.setChecked(prefs.getBoolean("notify_suppress_in_car", false));
+            swNotifyRemove.setChecked(prefs.getBoolean("notify_remove", true));
+            swNotifyClear.setChecked(prefs.getBoolean("notify_clear", false));
+            swNotifySubtext.setChecked(prefs.getBoolean("notify_subtext", true));
+            swNotifyPreview.setChecked(prefs.getBoolean("notify_preview", true));
+            swNotifyPreviewAll.setChecked(prefs.getBoolean("notify_preview_all", false));
+            swNotifyPreviewOnly.setChecked(prefs.getBoolean("notify_preview_only", false));
+            swNotifyTransliterate.setChecked(prefs.getBoolean("notify_transliterate", false));
+            swWearablePreview.setChecked(prefs.getBoolean("wearable_preview", false));
+            swMessagingStyle.setChecked(prefs.getBoolean("notify_messaging", false));
+            swBiometricsNotify.setChecked(prefs.getBoolean("biometrics_notify", true));
+            swBackground.setChecked(prefs.getBoolean("background_service", false));
+            swAlertOnce.setChecked(!prefs.getBoolean("alert_once", true));
+
+            enableOptions();
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
     }
 
     private void enableOptions() {
@@ -701,7 +880,7 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
 
         try {
             switch (requestCode) {
-                case ActivitySetup.REQUEST_SOUND:
+                case ActivitySetup.REQUEST_SOUND_INBOUND:
                     if (resultCode == RESULT_OK && data != null)
                         onSelectSound(data.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI));
                     break;
@@ -719,10 +898,51 @@ public class FragmentOptionsNotifications extends FragmentBase implements Shared
         if (uri == null) // silent sound
             prefs.edit().putString("sound", "").apply();
         else {
-            if ("content".equals(uri.getScheme()))
+            if ("content".equals(uri.getScheme())) {
+                try {
+                    getContext().getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    if (!Helper.isPersisted(getContext(), uri, true, false))
+                        Log.unexpectedError(FragmentOptionsNotifications.this,
+                                new IllegalStateException("No permission granted to access selected sound " + uri));
+                } catch (Throwable ex) {
+                    Log.w(ex);
+                }
                 prefs.edit().putString("sound", uri.toString()).apply();
-            else
+            } else
                 prefs.edit().remove("sound").apply();
         }
+    }
+
+    @RequiresApi(api = 33)
+    private void addTile(Context context, Class<? extends TileService> cls, int title, int icon) {
+        StatusBarManager sbm = Helper.getSystemService(context, StatusBarManager.class);
+        sbm.requestAddTileService(
+                ComponentName.createRelative(context, cls.getName()),
+                context.getString(title),
+                Icon.createWithResource(context, icon),
+                Helper.getUIExecutor(),
+                new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer result) {
+                        Log.i("Tile result=" + result + " class=" + cls.getName());
+                        if (result == null)
+                            return;
+                        switch (result) {
+                            case StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED:
+                            case StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_NOT_ADDED:
+                                break;
+                            case StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED:
+                                getMainHandler().post(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        ToastEx.makeText(context, R.string.tile_already_added, Toast.LENGTH_LONG).show();
+                                    }
+                                });
+                                break;
+                            default:
+                                Log.e("Tile result=" + result + " class=" + cls.getName());
+                        }
+                    }
+                });
     }
 }

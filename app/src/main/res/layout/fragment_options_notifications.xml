@@ -17,21 +17,33 @@
         android:layout_height="wrap_content"
         android:paddingBottom="24dp">
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvDefault"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="3dp"
-            android:drawableStart="@drawable/twotone_support_24"
-            android:drawablePadding="6dp"
+            android:layout_marginStart="3dp"
             android:gravity="center_vertical"
+            android:minHeight="36dp"
             android:text="@string/title_advanced_default"
             android:textAppearance="@style/TextAppearance.AppCompat.Small"
             android:textColor="?android:attr/textColorPrimary"
             android:textStyle="italic"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/ibHelp"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
+
+        <ImageButton
+            android:id="@+id/ibHelp"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="3dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:padding="6dp"
+            android:scaleType="fitCenter"
+            app:layout_constraintBottom_toBottomOf="@+id/tvDefault"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/tvDefault"
+            app:srcCompat="@drawable/twotone_help_24" />
 
         <androidx.cardview.widget.CardView
             android:id="@+id/cardGeneral"
@@ -52,7 +64,7 @@
                 android:paddingHorizontal="6dp"
                 android:paddingVertical="12dp">
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvCaptionGeneral"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -75,7 +87,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvCaptionGeneral" />
 
-                <eu.faircode.email.FixedImageButton
+                <ImageButton
                     android:id="@+id/ibClear"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -85,7 +97,7 @@
                     app:layout_constraintTop_toTopOf="@id/btnManage"
                     app:srcCompat="@drawable/twotone_delete_24" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvManageHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -109,7 +121,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvManageHint" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/ivChannelDefault"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -119,7 +131,7 @@
                     app:layout_constraintTop_toTopOf="@+id/btnManageDefault"
                     app:srcCompat="@drawable/switch_off_on" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvManageDefaultHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -143,7 +155,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvManageDefaultHint" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/ivChannelService"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -153,7 +165,7 @@
                     app:layout_constraintTop_toTopOf="@+id/btnManageService"
                     app:srcCompat="@drawable/switch_off_on" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvManageServiceHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -165,7 +177,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/btnManageService" />
 
-                <eu.faircode.email.FixedImageButton
+                <ImageButton
                     android:id="@+id/ibWhy"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -175,17 +187,17 @@
                     app:layout_constraintTop_toBottomOf="@+id/tvManageServiceHint"
                     app:srcCompat="@drawable/twotone_info_24" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvNotifySeparate"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:drawableEnd="@drawable/twotone_open_in_new_12"
                     android:drawablePadding="6dp"
-                    android:drawableTint="?android:attr/textColorLink"
                     android:text="@string/title_advanced_notify_separate_hint"
                     android:textAppearance="@style/TextAppearance.AppCompat.Small"
                     android:textColor="?android:attr/textColorLink"
+                    app:drawableTint="?android:attr/textColorLink"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/ibWhy" />
 
@@ -201,30 +213,17 @@
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/swBackground"
+                    android:id="@+id/swNotifySummary"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:text="@string/title_advanced_notifications_background"
+                    android:text="@string/title_advanced_notify_summary"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swNewestFirst"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
-                    android:id="@+id/tvBackgroundHint"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="48dp"
-                    android:text="@string/title_advanced_notifications_background_hint"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
-                    android:textColor="?attr/colorWarning"
-                    android:textStyle="italic"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swBackground" />
-
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvNotifyActions"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -235,21 +234,48 @@
                     android:textColor="?android:attr/textColorPrimary"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvBackgroundHint" />
+                    app:layout_constraintTop_toBottomOf="@id/swNotifySummary" />
+
+                <TextView
+                    android:id="@+id/tvNotifyActionsHint"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginEnd="48dp"
+                    android:text="@string/title_advanced_notify_action_hint"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textStyle="italic"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvNotifyActions" />
+
+                <TextView
+                    android:id="@+id/tvNotifyActionsPro"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="48dp"
+                    android:text="@string/title_pro_feature"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?android:attr/textColorLink"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvNotifyActionsHint" />
 
                 <CheckBox
                     android:id="@+id/cbNotifyActionTrash"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
                     android:text="@string/title_advanced_notify_action_trash"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvNotifyActions" />
+                    app:layout_constraintTop_toBottomOf="@id/tvNotifyActionsPro" />
 
                 <CheckBox
                     android:id="@+id/cbNotifyActionJunk"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
                     android:layout_marginTop="6dp"
                     android:text="@string/title_advanced_notify_action_junk"
                     app:layout_constraintStart_toStartOf="parent"
@@ -259,7 +285,7 @@
                     android:id="@+id/cbNotifyActionBlockSender"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="24dp"
+                    android:layout_marginStart="48dp"
                     android:layout_marginTop="6dp"
                     android:text="@string/title_block_sender"
                     app:layout_constraintStart_toStartOf="parent"
@@ -269,6 +295,7 @@
                     android:id="@+id/cbNotifyActionArchive"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
                     android:layout_marginTop="6dp"
                     android:text="@string/title_advanced_notify_action_archive"
                     app:layout_constraintStart_toStartOf="parent"
@@ -278,15 +305,17 @@
                     android:id="@+id/cbNotifyActionMove"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
                     android:layout_marginTop="6dp"
                     android:text="@string/title_advanced_notify_action_move"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/cbNotifyActionArchive" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvNotifyActionMoveHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
                     android:layout_marginEnd="48dp"
                     android:text="@string/title_advanced_move_hint"
                     android:textAppearance="@style/TextAppearance.AppCompat.Small"
@@ -299,6 +328,7 @@
                     android:id="@+id/cbNotifyActionReply"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
                     android:layout_marginTop="6dp"
                     android:text="@string/title_advanced_notify_action_reply"
                     app:layout_constraintStart_toStartOf="parent"
@@ -308,6 +338,7 @@
                     android:id="@+id/cbNotifyActionReplyDirect"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
                     android:layout_marginTop="6dp"
                     android:text="@string/title_advanced_notify_action_reply_direct"
                     app:layout_constraintStart_toStartOf="parent"
@@ -317,6 +348,7 @@
                     android:id="@+id/cbNotifyActionFlag"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
                     android:layout_marginTop="6dp"
                     android:text="@string/title_advanced_notify_action_flag"
                     app:layout_constraintStart_toStartOf="parent"
@@ -326,6 +358,7 @@
                     android:id="@+id/cbNotifyActionSeen"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
                     android:layout_marginTop="6dp"
                     android:text="@string/title_advanced_notify_action_seen"
                     app:layout_constraintStart_toStartOf="parent"
@@ -335,6 +368,7 @@
                     android:id="@+id/cbNotifyActionHide"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
                     android:layout_marginTop="6dp"
                     android:text="@string/title_advanced_notify_action_hide"
                     app:layout_constraintStart_toStartOf="parent"
@@ -344,35 +378,11 @@
                     android:id="@+id/cbNotifyActionSnooze"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
                     android:layout_marginTop="6dp"
                     android:text="@string/title_advanced_notify_action_snooze"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/cbNotifyActionHide" />
-
-                <eu.faircode.email.FixedTextView
-                    android:id="@+id/tvNotifyActionsHint"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginEnd="48dp"
-                    android:text="@string/title_advanced_notify_action_hint"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
-                    android:textStyle="italic"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/cbNotifyActionSnooze" />
-
-                <eu.faircode.email.FixedTextView
-                    android:id="@+id/tvNotifyActionsPro"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="48dp"
-                    android:text="@string/title_pro_feature"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
-                    android:textColor="?android:attr/textColorLink"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvNotifyActionsHint" />
 
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swLight"
@@ -382,7 +392,7 @@
                     android:text="@string/title_advanced_light"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvNotifyActionsPro"
+                    app:layout_constraintTop_toBottomOf="@id/cbNotifyActionSnooze"
                     app:switchPadding="12dp" />
 
                 <Button
@@ -408,7 +418,7 @@
                     app:layout_constraintTop_toBottomOf="@id/btnSound"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvNotifyScreenOnHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -427,10 +437,16 @@
                     app:constraint_referenced_ids="tvManageHint,btnManageDefault,tvManageDefaultHint,btnManageService,tvManageServiceHint" />
 
                 <androidx.constraintlayout.widget.Group
-                    android:id="@+id/grpNotification"
+                    android:id="@+id/grpProperties"
                     android:layout_width="0dp"
                     android:layout_height="0dp"
-                    app:constraint_referenced_ids="swBackground,tvBackgroundHint,swLight,btnSound" />
+                    app:constraint_referenced_ids="swLight,btnSound" />
+
+                <androidx.constraintlayout.widget.Group
+                    android:id="@+id/grpScreenOn"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    app:constraint_referenced_ids="swNotifyScreenOn,tvNotifyScreenOnHint" />
             </androidx.constraintlayout.widget.ConstraintLayout>
         </androidx.cardview.widget.CardView>
 
@@ -453,13 +469,18 @@
                 android:paddingHorizontal="6dp"
                 android:paddingVertical="12dp">
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvCaptionAdvanced"
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:drawableStart="@drawable/twotone_warning_24"
+                    android:drawablePadding="6dp"
                     android:gravity="center"
                     android:text="@string/title_setup_advanced"
                     android:textAppearance="@style/TextAppearance.AppCompat.Large"
+                    android:textColor="?attr/colorWarning"
+                    android:textStyle="bold"
+                    app:drawableTint="?attr/colorWarning"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
@@ -476,7 +497,7 @@
                     app:layout_constraintTop_toBottomOf="@id/tvCaptionAdvanced"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvBadgeHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -488,7 +509,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swBadge" />
 
-                <eu.faircode.email.FixedImageButton
+                <ImageButton
                     android:id="@+id/ibBadge"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -512,6 +533,30 @@
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swNotifyGrouping"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="true"
+                    android:text="@string/title_advanced_notify_grouping"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swUnseenIgnored"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swNotifyPrivate"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="true"
+                    android:text="@string/title_advanced_notify_private"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swNotifyGrouping"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swNotifyBackgroundOnly"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -519,7 +564,7 @@
                     android:text="@string/title_advanced_notify_background"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swUnseenIgnored"
+                    app:layout_constraintTop_toBottomOf="@id/swNotifyPrivate"
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
@@ -533,7 +578,7 @@
                     app:layout_constraintTop_toBottomOf="@id/swNotifyBackgroundOnly"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvNotifyKnownPro"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -546,15 +591,39 @@
                     app:layout_constraintTop_toBottomOf="@id/swNotifyKnownOnly" />
 
                 <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/swNotifySummary"
+                    android:id="@+id/swNotifySuppressInCall"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:text="@string/title_advanced_notify_summary"
+                    android:text="@string/title_advanced_notify_suppress_in_call"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvNotifyKnownPro"
                     app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swNotifySuppressInCar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_notify_suppress_in_car"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swNotifySuppressInCall"
+                    app:switchPadding="12dp" />
+
+                <TextView
+                    android:id="@+id/tvNotifySuppressInCarHint"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginEnd="48dp"
+                    android:text="@string/title_advanced_notify_car_hint"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textStyle="italic"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swNotifySuppressInCar" />
 
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swNotifyRemove"
@@ -565,10 +634,10 @@
                     android:text="@string/title_advanced_notify_remove"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swNotifySummary"
+                    app:layout_constraintTop_toBottomOf="@id/tvNotifySuppressInCarHint"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvNotifyRemoveHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -616,7 +685,7 @@
                     app:layout_constraintTop_toBottomOf="@id/swNotifySubtext"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvNotifyPreviewHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -639,7 +708,7 @@
                     app:layout_constraintTop_toBottomOf="@id/tvNotifyPreviewHint"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvNotifyPreviewAllHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -662,7 +731,7 @@
                     app:layout_constraintTop_toBottomOf="@id/tvNotifyPreviewAllHint"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvNotifyPreviewOnlyHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -685,7 +754,7 @@
                     app:layout_constraintTop_toBottomOf="@id/tvNotifyPreviewOnlyHint"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedImageButton
+                <ImageButton
                     android:id="@+id/ibLight"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -707,7 +776,7 @@
                     app:layout_constraintTop_toBottomOf="@id/ibLight"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvWearablePreviewHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -719,7 +788,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swWearablePreview" />
 
-                <eu.faircode.email.FixedImageButton
+                <ImageButton
                     android:id="@+id/ibWearable"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -740,7 +809,7 @@
                     app:layout_constraintTop_toBottomOf="@id/ibWearable"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvMessagingStyle"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -752,7 +821,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swMessagingStyle" />
 
-                <eu.faircode.email.FixedImageButton
+                <ImageButton
                     android:id="@+id/ibCar"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -775,6 +844,30 @@
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swBackground"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_notifications_background"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swBiometricsNotify"
+                    app:switchPadding="12dp" />
+
+                <TextView
+                    android:id="@+id/tvBackgroundHint"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="48dp"
+                    android:text="@string/title_advanced_notifications_background_hint"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?attr/colorWarning"
+                    android:textStyle="italic"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swBackground" />
+
+                <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swAlertOnce"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -782,10 +875,44 @@
                     android:text="@string/title_advanced_alert_once"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swBiometricsNotify"
+                    app:layout_constraintTop_toBottomOf="@id/tvBackgroundHint"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
+                    android:id="@+id/tvTiles"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginEnd="48dp"
+                    android:text="@string/title_advanced_tiles"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?android:attr/textColorPrimary"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swAlertOnce" />
+
+                <ImageButton
+                    android:id="@+id/ibTileSync"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@string/tile_synchronize"
+                    android:tooltipText="@string/tile_synchronize"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvTiles"
+                    app:srcCompat="@drawable/twotone_sync_24" />
+
+                <ImageButton
+                    android:id="@+id/ibTileUnseen"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:contentDescription="@string/tile_unseen"
+                    android:tooltipText="@string/tile_unseen"
+                    app:layout_constraintStart_toEndOf="@id/ibTileSync"
+                    app:layout_constraintTop_toBottomOf="@id/tvTiles"
+                    app:srcCompat="@drawable/twotone_mail_outline_24" />
+
+                <TextView
                     android:id="@+id/tvNoGrouping"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -796,9 +923,9 @@
                     android:textStyle="italic"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swAlertOnce" />
+                    app:layout_constraintTop_toBottomOf="@id/ibTileSync" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvNoChannels"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -810,6 +937,18 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@+id/tvNoGrouping" />
+
+                <androidx.constraintlayout.widget.Group
+                    android:id="@+id/grpBackground"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    app:constraint_referenced_ids="swBackground,tvBackgroundHint" />
+
+                <androidx.constraintlayout.widget.Group
+                    android:id="@+id/grpTiles"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    app:constraint_referenced_ids="tvTiles,ibTileSync,ibTileUnseen" />
             </androidx.constraintlayout.widget.ConstraintLayout>
         </androidx.cardview.widget.CardView>
     </androidx.constraintlayout.widget.ConstraintLayout>

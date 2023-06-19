@@ -36,8 +36,14 @@ FairEmail uses:
 * [Public Suffix List](https://publicsuffix.org/). Copyright © 2007–20 Mozilla Foundation. [Mozilla Public License, v. 2.0](https://mozilla.org/MPL/2.0/).
 * [Outlook Message Parser](https://github.com/bbottema/outlook-message-parser). Copyright (C) 2017 Benny Bottema. [Apache License 2.0](https://github.com/bbottema/outlook-message-parser/blob/master/LICENSE-2.0.txt).
 * [ez-vcard](https://github.com/mangstadt/ez-vcard). Copyright (c) 2012-2021, Michael Angstadt. All rights reserved. [FreeBSD License](https://github.com/mangstadt/ez-vcard/blob/master/LICENSE).
-* [Arimo font](https://fonts.google.com/specimen/Arimo). By Steve Matteson. [Apache License 2.0](https://fonts.google.com/specimen/Arimo#license)
-* [Tinos font](https://fonts.google.com/specimen/Tinos). By Steve Matteson. [Apache License 2.0](https://fonts.google.com/specimen/Tinos#license)
-* [Cousine font](https://fonts.google.com/specimen/Cousine). By Steve Matteson. [Apache License 2.0](https://fonts.google.com/specimen/Cousine#license)
-* [Lato font](https://fonts.google.com/specimen/Lato). By Łukasz Dziedzic. [Apache License 2.0](https://fonts.google.com/specimen/Lato#license)
-* [Caladea font](https://fonts.google.com/specimen/Caladea). By Andrés Torresi, Carolina Giovanolli. [Apache License 2.0](https://fonts.google.com/specimen/Caladea#license)
+* [Arimo font](https://fonts.google.com/specimen/Arimo). By Steve Matteson. [Apache License 2.0](https://fonts.google.com/specimen/Arimo#license).
+* [Tinos font](https://fonts.google.com/specimen/Tinos). By Steve Matteson. [Apache License 2.0](https://fonts.google.com/specimen/Tinos#license).
+* [Cousine font](https://fonts.google.com/specimen/Cousine). By Steve Matteson. [Apache License 2.0](https://fonts.google.com/specimen/Cousine#license).
+* [Lato font](https://fonts.google.com/specimen/Lato). By Łukasz Dziedzic. [Apache License 2.0](https://fonts.google.com/specimen/Lato#license).
+* [Caladea font](https://fonts.google.com/specimen/Caladea). By Andrés Torresi, Carolina Giovanolli. [Apache License 2.0](https://fonts.google.com/specimen/Caladea#license).
+* [Apache Commons Compress](https://commons.apache.org/proper/commons-compress/). Copyright © 2002-2021 The Apache Software Foundation. All Rights Reserved. [Apache License 2.0](https://www.apache.org/licenses/).
+* [LeakCanary](https://github.com/square/leakcanary). Copyright 2015 Square, Inc. [Apache License 2.0](https://github.com/square/leakcanary/blob/main/LICENSE.txt).
+* [IPAddress](https://github.com/seancfoley/IPAddress). Copyright 2016-2018 Sean C Foley. [Apache License 2.0](https://github.com/seancfoley/IPAddress/blob/master/LICENSE).
+* [MaterialDings](https://github.com/Accusoft/MaterialDings). Copyright (c) 2018 Accusoft Corporation. [MIT License](https://github.com/Accusoft/MaterialDings/blob/master/LICENSE.md).
+* [Send](https://github.com/timvisee/send). [Mozilla Public License 2.0](https://github.com/timvisee/send/blob/master/LICENSE).
+* [DetectHtml](https://github.com/dbennett455/DetectHtml). [The MIT License](https://github.com/dbennett455/DetectHtml/blob/master/LICENSE).

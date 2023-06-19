@@ -16,13 +16,14 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.accounts.AccountsException;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
+import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
@@ -36,29 +37,45 @@ import androidx.preference.PreferenceManager;
 import com.sun.mail.iap.ConnectionException;
 import com.sun.mail.util.FolderClosedIOException;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.InterfaceAddress;
+import java.net.NetworkInterface;
+import java.net.URL;
+import java.net.URLDecoder;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
+import javax.mail.MessagingException;
 import javax.net.SocketFactory;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
+import inet.ipaddr.IPAddressString;
+
 public class ConnectionHelper {
+    static final int MAX_REDIRECTS = 5; // https://www.freesoft.org/CIE/RFC/1945/46.htm
+
     static final List<String> PREF_NETWORK = Collections.unmodifiableList(Arrays.asList(
-            "metered", "roaming", "rlah", "require_validated", "vpn_only" // update network state
+            "metered", "roaming", "rlah", "require_validated", "require_validated_captive", "vpn_only" // update network state
     ));
 
     // Roam like at home
@@ -172,7 +189,7 @@ public class ConnectionHelper {
 
     static NetworkInfo getNetworkInfo(Context context, Network network) {
         try {
-            ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            ConnectivityManager cm = Helper.getSystemService(context, ConnectivityManager.class);
             return (cm == null ? null : cm.getNetworkInfo(network));
         } catch (Throwable ex) {
             Log.e(ex);
@@ -194,7 +211,7 @@ public class ConnectionHelper {
             state.suitable = (isMetered != null && (metered || !isMetered));
             state.active = getActiveNetwork(context);
 
-            ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            ConnectivityManager cm = Helper.getSystemService(context, ConnectivityManager.class);
 
             if (state.connected && !roaming) {
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
@@ -212,7 +229,7 @@ public class ConnectionHelper {
 
                 if (state.roaming != null && state.roaming && rlah)
                     try {
-                        TelephonyManager tm = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+                        TelephonyManager tm = Helper.getSystemService(context, TelephonyManager.class);
                         if (tm != null) {
                             String sim = tm.getSimCountryIso();
                             String network = tm.getNetworkCountryIso();
@@ -237,9 +254,10 @@ public class ConnectionHelper {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean standalone_vpn = prefs.getBoolean("standalone_vpn", false);
         boolean require_validated = prefs.getBoolean("require_validated", false);
+        boolean require_validated_captive = prefs.getBoolean("require_validated_captive", true);
         boolean vpn_only = prefs.getBoolean("vpn_only", false);
 
-        ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager cm = Helper.getSystemService(context, ConnectivityManager.class);
         if (cm == null) {
             Log.i("isMetered: no connectivity manager");
             return null;
@@ -248,6 +266,8 @@ public class ConnectionHelper {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.M) {
             NetworkInfo ani = cm.getActiveNetworkInfo();
             if (ani == null || !ani.isConnected())
+                return null;
+            if (vpn_only && !vpnActive(context))
                 return null;
             return cm.isActiveNetworkMetered();
         }
@@ -282,10 +302,11 @@ public class ConnectionHelper {
                 Log.i("isMetered: no internet");
                 return null;
             }
-            if (require_validated &&
+            boolean captive = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL);
+            if ((require_validated || (require_validated_captive && captive)) &&
                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
                     !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
-                Log.i("isMetered: not validated");
+                Log.i("isMetered: not validated captive=" + captive);
                 return null;
             }
         }
@@ -316,6 +337,14 @@ public class ConnectionHelper {
             return metered;
         }
 
+        Network[] networks = cm.getAllNetworks();
+        if (networks != null && networks.length == 1) {
+            // Standalone VPN
+            boolean metered = cm.isActiveNetworkMetered();
+            Log.i("isMetered: active VPN metered=" + metered);
+            return metered;
+        }
+
         // VPN: evaluate underlying networks
         Integer transport = null;
         if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))
@@ -324,7 +353,6 @@ public class ConnectionHelper {
             transport = NetworkCapabilities.TRANSPORT_WIFI;
 
         boolean underlying = false;
-        Network[] networks = cm.getAllNetworks();
         for (Network network : networks) {
             caps = cm.getNetworkCapabilities(network);
             if (caps == null) {
@@ -378,7 +406,7 @@ public class ConnectionHelper {
     }
 
     static Network getActiveNetwork(Context context) {
-        ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager cm = Helper.getSystemService(context, ConnectivityManager.class);
         if (cm == null)
             return null;
 
@@ -403,6 +431,12 @@ public class ConnectionHelper {
     }
 
     static boolean isIoError(Throwable ex) {
+        if (ex instanceof MessagingException &&
+                ex.getMessage() != null &&
+                ex.getMessage().contains("Got bad greeting") &&
+                ex.getMessage().contains("[EOF]"))
+            return true;
+
         while (ex != null) {
             if (isMaxConnections(ex.getMessage()) ||
                     ex instanceof IOException ||
@@ -416,6 +450,7 @@ public class ConnectionHelper {
                 return true;
             ex = ex.getCause();
         }
+
         return false;
     }
 
@@ -453,8 +488,7 @@ public class ConnectionHelper {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N)
             return false;
 
-        ConnectivityManager cm =
-                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager cm = Helper.getSystemService(context, ConnectivityManager.class);
         if (cm == null)
             return false;
 
@@ -465,8 +499,34 @@ public class ConnectionHelper {
         return (status == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED);
     }
 
+    static String getDataSaving(Context context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N)
+            return null;
+
+        try {
+            ConnectivityManager cm = Helper.getSystemService(context, ConnectivityManager.class);
+            if (cm == null)
+                return null;
+
+            int status = cm.getRestrictBackgroundStatus();
+            switch (status) {
+                case ConnectivityManager.RESTRICT_BACKGROUND_STATUS_DISABLED:
+                    return "disabled";
+                case ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED:
+                    return "enabled";
+                case ConnectivityManager.RESTRICT_BACKGROUND_STATUS_WHITELISTED:
+                    return "whitelisted";
+                default:
+                    return Integer.toString(status);
+            }
+        } catch (Throwable ex) {
+            Log.e(ex);
+            return null;
+        }
+    }
+
     static boolean vpnActive(Context context) {
-        ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager cm = Helper.getSystemService(context, ConnectivityManager.class);
         if (cm == null)
             return false;
 
@@ -484,8 +544,13 @@ public class ConnectionHelper {
     }
 
     static boolean airplaneMode(Context context) {
-        return Settings.Global.getInt(context.getContentResolver(),
-                Settings.Global.AIRPLANE_MODE_ON, 0) != 0;
+        try {
+            return (Settings.Global.getInt(context.getContentResolver(),
+                    Settings.Global.AIRPLANE_MODE_ON, 0) != 0);
+        } catch (Throwable ex) {
+            Log.e(ex);
+            return false;
+        }
     }
 
     static InetAddress from6to4(InetAddress addr) {
@@ -503,6 +568,9 @@ public class ConnectionHelper {
     }
 
     static boolean isNumericAddress(String host) {
+        // IPv4-mapped IPv6 can be 45 characters
+        if (host == null || host.length() > 64)
+            return false;
         return ConnectionHelper.jni_is_numeric_address(host);
     }
 
@@ -518,14 +586,69 @@ public class ConnectionHelper {
         }
     }
 
+    static boolean inSubnet(final String ip, final String net, final int prefix) {
+        try {
+            return new IPAddressString(net + "/" + prefix).getAddress()
+                    .contains(new IPAddressString(ip).getAddress());
+        } catch (Throwable ex) {
+            Log.w(ex);
+            return false;
+        }
+    }
+
+    static boolean[] has46(Context context) {
+        boolean has4 = false;
+        boolean has6 = false;
+
+        String ifacename = null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+            try {
+                ConnectivityManager cm = Helper.getSystemService(context, ConnectivityManager.class);
+                Network active = (cm == null ? null : cm.getActiveNetwork());
+                LinkProperties props = (active == null ? null : cm.getLinkProperties(active));
+                ifacename = (props == null ? null : props.getInterfaceName());
+            } catch (Throwable ex) {
+                Log.e(ex);
+            }
+
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces != null && interfaces.hasMoreElements()) {
+                NetworkInterface ni = interfaces.nextElement();
+                if (ifacename != null && !ifacename.equals(ni.getName()))
+                    continue;
+                for (InterfaceAddress iaddr : ni.getInterfaceAddresses()) {
+                    InetAddress addr = iaddr.getAddress();
+                    boolean local = (addr.isLoopbackAddress() || addr.isLinkLocalAddress());
+                    EntityLog.log(context, EntityLog.Type.Network,
+                            "Interface=" + ni + " addr=" + addr + " local=" + local);
+                    if (!local)
+                        if (addr instanceof Inet4Address)
+                            has4 = true;
+                        else if (addr instanceof Inet6Address)
+                            has6 = true;
+                }
+            }
+        } catch (Throwable ex) {
+            Log.e(ex);
+            /*
+                java.lang.NullPointerException: Attempt to read from field 'java.util.List java.net.NetworkInterface.childs' on a null object reference
+                    at java.net.NetworkInterface.getAll(NetworkInterface.java:498)
+                    at java.net.NetworkInterface.getNetworkInterfaces(NetworkInterface.java:398)
+             */
+        }
+
+        return new boolean[]{has4, has6};
+    }
+
     static List<String> getCommonNames(Context context, String domain, int port, int timeout) throws IOException {
         List<String> result = new ArrayList<>();
         InetSocketAddress address = new InetSocketAddress(domain, port);
         SocketFactory factory = SSLSocketFactory.getDefault();
         try (SSLSocket sslSocket = (SSLSocket) factory.createSocket()) {
-            EntityLog.log(context, "Connecting to " + address);
+            EntityLog.log(context, EntityLog.Type.Network, "Connecting to " + address);
             sslSocket.connect(address, timeout);
-            EntityLog.log(context, "Connected " + address);
+            EntityLog.log(context, EntityLog.Type.Network, "Connected " + address);
 
             sslSocket.setSoTimeout(timeout);
             sslSocket.startHandshake();
@@ -541,5 +664,137 @@ public class ConnectionHelper {
                 }
         }
         return result;
+    }
+
+    static void setUserAgent(Context context, HttpURLConnection connection) {
+        connection.setRequestProperty("User-Agent", WebViewEx.getUserAgent(context));
+
+        if (BuildConfig.DEBUG) {
+            // https://web.dev/migrate-to-ua-ch/
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+            boolean generic_ua = prefs.getBoolean("generic_ua", false);
+
+            // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Sec-CH-UA
+            connection.setRequestProperty("Sec-CH-UA", "\"Chromium\""); // No WebView API yet
+            // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Sec-CH-UA-Mobile
+            connection.setRequestProperty("Sec-CH-UA-Mobile", "?1");
+            // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Sec-CH-UA-Platform
+            connection.setRequestProperty("Sec-CH-UA-Platform", "\"Android\"");
+
+            if (!generic_ua) {
+                String release = Build.VERSION.RELEASE;
+                if (release == null)
+                    release = "";
+                release = release.replace("\"", "'");
+
+                String model = Build.MODEL;
+                if (model == null)
+                    model = "";
+                model = model.replace("\"", "'");
+
+                // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Sec-CH-UA-Platform-Version
+                connection.setRequestProperty("Sec-CH-UA-Platform-Version", "\"" + release + "\"");
+                // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Sec-CH-UA-Model
+                connection.setRequestProperty("Sec-CH-UA-Model", "\"" + model + "\"");
+            }
+        }
+    }
+
+    static HttpURLConnection openConnectionUnsafe(Context context, String source, int ctimeout, int rtimeout) throws IOException {
+        return openConnectionUnsafe(context, new URL(source), ctimeout, rtimeout);
+    }
+
+    static HttpURLConnection openConnectionUnsafe(Context context, URL url, int ctimeout, int rtimeout) throws IOException {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean open_safe = prefs.getBoolean("open_safe", false);
+
+        int redirects = 0;
+        while (true) {
+            HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+            urlConnection.setRequestMethod("GET");
+            urlConnection.setDoOutput(false);
+            urlConnection.setReadTimeout(rtimeout);
+            urlConnection.setConnectTimeout(ctimeout);
+            urlConnection.setInstanceFollowRedirects(true);
+
+            if (urlConnection instanceof HttpsURLConnection) {
+                if (!open_safe)
+                    ((HttpsURLConnection) urlConnection).setHostnameVerifier(new HostnameVerifier() {
+                        @Override
+                        public boolean verify(String hostname, SSLSession session) {
+                            return true;
+                        }
+                    });
+            } else {
+                if (open_safe)
+                    throw new IOException("https required url=" + url);
+            }
+
+            ConnectionHelper.setUserAgent(context, urlConnection);
+            urlConnection.connect();
+
+            try {
+                int status = urlConnection.getResponseCode();
+
+                if (!open_safe &&
+                        (status == HttpURLConnection.HTTP_MOVED_PERM ||
+                                status == HttpURLConnection.HTTP_MOVED_TEMP ||
+                                status == HttpURLConnection.HTTP_SEE_OTHER ||
+                                status == 307 /* Temporary redirect */ ||
+                                status == 308 /* Permanent redirect */)) {
+                    if (++redirects > MAX_REDIRECTS)
+                        throw new IOException("Too many redirects");
+
+                    String header = urlConnection.getHeaderField("Location");
+                    if (header == null)
+                        throw new IOException("Location header missing");
+
+                    String location = URLDecoder.decode(header, StandardCharsets.UTF_8.name());
+                    url = new URL(url, location);
+                    Log.i("Redirect #" + redirects + " to " + url);
+
+                    urlConnection.disconnect();
+                    continue;
+                }
+
+                if (status == HttpURLConnection.HTTP_NOT_FOUND)
+                    throw new FileNotFoundException("Error " + status + ": " + urlConnection.getResponseMessage());
+                if (status != HttpURLConnection.HTTP_OK)
+                    throw new IOException("Error " + status + ": " + urlConnection.getResponseMessage());
+
+                return urlConnection;
+            } catch (IOException ex) {
+                urlConnection.disconnect();
+                throw ex;
+            }
+        }
+    }
+
+    static Integer getLinkDownstreamBandwidthKbps(Context context) {
+        // 2G GSM ~14.4 Kbps
+        // G GPRS ~26.8 Kbps
+        // E EDGE ~108.8 Kbps
+        // 3G UMTS ~128 Kbps
+        // H HSPA ~3.6 Mbps
+        // H+ HSPA+ ~14.4 Mbps-23.0 Mbps
+        // 4G LTE ~50 Mbps
+        // 4G LTE-A ~500 Mbps
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
+            return null;
+        try {
+            ConnectivityManager cm = Helper.getSystemService(context, ConnectivityManager.class);
+            if (cm == null)
+                return null;
+            Network active = cm.getActiveNetwork();
+            if (active == null)
+                return null;
+            NetworkCapabilities caps = cm.getNetworkCapabilities(active);
+            if (caps == null)
+                return null;
+            return caps.getLinkDownstreamBandwidthKbps();
+        } catch (Throwable ex) {
+            Log.w(ex);
+            return null;
+        }
     }
 }

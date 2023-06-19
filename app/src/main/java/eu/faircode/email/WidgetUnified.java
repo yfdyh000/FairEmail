@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.app.PendingIntent;
@@ -28,6 +28,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.util.TypedValue;
 import android.view.View;
 import android.widget.RemoteViews;
@@ -40,13 +41,19 @@ public class WidgetUnified extends AppWidgetProvider {
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
 
+        int colorWidgetForeground = context.getResources().getColor(R.color.colorWidgetForeground);
+        int lightColorSeparator = context.getResources().getColor(R.color.lightColorSeparator);
+        int darkColorSeparator = context.getResources().getColor(R.color.darkColorSeparator);
+
         for (int appWidgetId : appWidgetIds) {
             String name = prefs.getString("widget." + appWidgetId + ".name", null);
             long account = prefs.getLong("widget." + appWidgetId + ".account", -1L);
             long folder = prefs.getLong("widget." + appWidgetId + ".folder", -1L);
             String type = prefs.getString("widget." + appWidgetId + ".type", null);
+            boolean daynight = prefs.getBoolean("widget." + appWidgetId + ".daynight", false);
             boolean semi = prefs.getBoolean("widget." + appWidgetId + ".semi", true);
             int background = prefs.getInt("widget." + appWidgetId + ".background", Color.TRANSPARENT);
+            boolean separators = prefs.getBoolean("widget." + appWidgetId + ".separators", true);
             int font = prefs.getInt("widget." + appWidgetId + ".font", 0);
             int padding = prefs.getInt("widget." + appWidgetId + ".padding", 0);
             boolean refresh = prefs.getBoolean("widget." + appWidgetId + ".refresh", false);
@@ -66,7 +73,7 @@ public class WidgetUnified extends AppWidgetProvider {
             view.putExtra("type", type);
             view.putExtra("refresh", true);
             view.putExtra("version", version);
-            view.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             PendingIntent pi = PendingIntentCompat.getActivity(
                     context, appWidgetId, view, PendingIntent.FLAG_UPDATE_CURRENT);
 
@@ -81,7 +88,7 @@ public class WidgetUnified extends AppWidgetProvider {
             edit.setAction("widget:" + appWidgetId);
             edit.putExtra("action", "new");
             edit.putExtra("account", account);
-            edit.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            edit.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             PendingIntent piCompose = PendingIntentCompat.getActivity(
                     context, appWidgetId, edit, PendingIntent.FLAG_UPDATE_CURRENT);
 
@@ -103,10 +110,6 @@ public class WidgetUnified extends AppWidgetProvider {
             views.setViewPadding(R.id.refresh, px, px, px, px);
             views.setOnClickPendingIntent(R.id.refresh, piSync);
 
-            boolean syncing = prefs.getBoolean("widget." + appWidgetId + ".syncing", false);
-            views.setImageViewResource(R.id.refresh, syncing ? R.drawable.twotone_compare_arrows_24 : R.drawable.twotone_sync_24);
-            views.setViewVisibility(R.id.refresh, refresh ? View.VISIBLE : View.GONE);
-
             views.setViewVisibility(R.id.compose, compose ? View.VISIBLE : View.GONE);
             views.setViewPadding(R.id.compose, px, px, px, px);
             views.setOnClickPendingIntent(R.id.compose, piCompose);
@@ -118,36 +121,64 @@ public class WidgetUnified extends AppWidgetProvider {
             views.setRemoteAdapter(R.id.lv, service);
 
             Intent thread = new Intent(context, ActivityView.class);
-            thread.setAction("widget");
+            thread.setPackage(BuildConfig.APPLICATION_ID);
+            thread.setAction("widget:" + appWidgetId);
             thread.putExtra("widget_account", account);
             thread.putExtra("widget_folder", folder);
             thread.putExtra("widget_type", type);
             thread.putExtra("filter_archive", !EntityFolder.ARCHIVE.equals(type));
-            thread.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            thread.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             PendingIntent piItem = PendingIntentCompat.getActivity(
                     context, ActivityView.PI_WIDGET, thread, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
 
             views.setPendingIntentTemplate(R.id.lv, piItem);
 
-            if (background == Color.TRANSPARENT) {
-                if (semi)
-                    views.setInt(android.R.id.background, "setBackgroundResource", R.drawable.widget_background);
-                else
-                    views.setInt(android.R.id.background, "setBackgroundColor", background);
+            boolean syncing = prefs.getBoolean("widget." + appWidgetId + ".syncing", false);
+            views.setImageViewResource(R.id.refresh, syncing
+                    ? R.drawable.twotone_compare_arrows_24
+                    : R.drawable.twotone_sync_24);
 
-                int colorWidgetForeground = context.getResources().getColor(R.color.colorWidgetForeground);
+            // https://developer.android.com/guide/topics/ui/look-and-feel/darktheme
+            if (!daynight && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                views.setColorStateListAttr(R.id.background, "setBackgroundTintList", 0);
+                views.setColorStateListAttr(R.id.separator, "setBackgroundTintList", 0);
+            }
+
+            if (daynight && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                views.setInt(R.id.background, "setBackgroundColor", Color.WHITE);
+                views.setColorStateListAttr(R.id.background, "setBackgroundTintList", android.R.attr.colorBackground);
+                views.setColorStateListAttr(R.id.title, "setTextColor", android.R.attr.textColorPrimary);
+                views.setInt(R.id.separator, "setBackgroundColor", Color.WHITE);
+                views.setColorStateListAttr(R.id.separator, "setBackgroundTintList", android.R.attr.colorControlNormal);
+                views.setColorAttr(R.id.refresh, "setColorFilter", android.R.attr.textColorPrimary);
+                views.setColorAttr(R.id.compose, "setColorFilter", android.R.attr.textColorPrimary);
+            } else if (background == Color.TRANSPARENT) {
+                if (semi)
+                    views.setInt(R.id.background, "setBackgroundResource", R.drawable.widget_background);
+                else
+                    views.setInt(R.id.background, "setBackgroundColor", background);
+
                 views.setTextColor(R.id.title, colorWidgetForeground);
+                views.setInt(R.id.separator, "setBackgroundColor", lightColorSeparator);
+                views.setInt(R.id.refresh, "setColorFilter", colorWidgetForeground);
+                views.setInt(R.id.compose, "setColorFilter", colorWidgetForeground);
             } else {
                 float lum = (float) ColorUtils.calculateLuminance(background);
 
                 if (semi)
                     background = ColorUtils.setAlphaComponent(background, 127);
 
-                views.setInt(android.R.id.background, "setBackgroundColor", background);
+                views.setInt(R.id.background, "setBackgroundColor", background);
 
-                if (lum > 0.7f)
-                    views.setTextColor(R.id.title, Color.BLACK);
+                int fg = (lum > 0.7f ? Color.BLACK : colorWidgetForeground);
+                views.setTextColor(R.id.title, fg);
+                views.setInt(R.id.separator, "setBackgroundColor",
+                        lum > 0.7f ? darkColorSeparator : lightColorSeparator);
+                views.setInt(R.id.refresh, "setColorFilter", fg);
+                views.setInt(R.id.compose, "setColorFilter", fg);
             }
+
+            views.setViewVisibility(R.id.separator, separators ? View.VISIBLE : View.GONE);
 
             int dp6 = Helper.dp2pixels(context, 6);
             views.setViewPadding(R.id.content, dp6, 0, dp6, 0);

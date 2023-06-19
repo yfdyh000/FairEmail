@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -48,10 +48,14 @@ import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListUpdateCallback;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.text.Collator;
 import java.text.DateFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 public class AdapterAnswer extends RecyclerView.Adapter<AdapterAnswer.ViewHolder> {
     private Fragment parentFragment;
@@ -63,6 +67,7 @@ public class AdapterAnswer extends RecyclerView.Adapter<AdapterAnswer.ViewHolder
     private DateFormat DF;
     private NumberFormat NF = NumberFormat.getNumberInstance();
 
+    private String sort = null;
     private String search = null;
     private List<EntityAnswer> all = new ArrayList<>();
     private List<EntityAnswer> selected = new ArrayList<>();
@@ -75,6 +80,7 @@ public class AdapterAnswer extends RecyclerView.Adapter<AdapterAnswer.ViewHolder
         private TextView tvName;
         private ImageView ivExternal;
         private ImageView ivStandard;
+        private ImageView ivSnippet;
         private ImageView ivFavorite;
         private ImageView ivReceipt;
         private TextView tvLastApplied;
@@ -90,6 +96,7 @@ public class AdapterAnswer extends RecyclerView.Adapter<AdapterAnswer.ViewHolder
             tvName = itemView.findViewById(R.id.tvName);
             ivExternal = itemView.findViewById(R.id.ivExternal);
             ivStandard = itemView.findViewById(R.id.ivStandard);
+            ivSnippet = itemView.findViewById(R.id.ivSnippet);
             ivFavorite = itemView.findViewById(R.id.ivFavorite);
             ivReceipt = itemView.findViewById(R.id.ivReceipt);
             tvLastApplied = itemView.findViewById(R.id.tvLastApplied);
@@ -112,6 +119,7 @@ public class AdapterAnswer extends RecyclerView.Adapter<AdapterAnswer.ViewHolder
             tvName.setText(answer.name);
             ivExternal.setVisibility(answer.external ? View.VISIBLE : View.GONE);
             ivStandard.setVisibility(answer.standard ? View.VISIBLE : View.GONE);
+            ivSnippet.setVisibility(answer.snippet ? View.VISIBLE : View.GONE);
             ivFavorite.setVisibility(answer.favorite ? View.VISIBLE : View.GONE);
             ivReceipt.setVisibility(answer.receipt ? View.VISIBLE : View.GONE);
             tvLastApplied.setText(answer.last_applied == null ? null : DF.format(answer.last_applied));
@@ -310,8 +318,39 @@ public class AdapterAnswer extends RecyclerView.Adapter<AdapterAnswer.ViewHolder
         }.execute(context, owner, new Bundle(), "answer:composable");
     }
 
-    public void set(@NonNull List<EntityAnswer> answers) {
-        Log.i("Set answers=" + answers.size() + " search=" + search);
+    public void set(String sort, @NonNull List<EntityAnswer> answers) {
+        this.sort = sort;
+        Log.i("Set answers=" + answers.size() + " sort=" + sort + " search=" + search);
+
+        final Collator collator = Collator.getInstance(Locale.getDefault());
+        collator.setStrength(Collator.SECONDARY); // Case insensitive, process accents etc
+
+        Collections.sort(answers, new Comparator<EntityAnswer>() {
+            @Override
+            public int compare(EntityAnswer a1, EntityAnswer a2) {
+                int order;
+                if ("last_applied".equals(sort))
+                    order = -Long.compare(
+                            a1.last_applied == null ? 0 : a1.last_applied,
+                            a2.last_applied == null ? 0 : a2.last_applied);
+                else if ("applied".equals(sort)) {
+                    order = -Integer.compare(
+                            a1.applied == null ? 0 : a1.applied,
+                            a2.applied == null ? 0 : a2.applied);
+                } else {
+                    order = collator.compare(a1.group == null ? "" : a1.group, a2.group == null ? "" : a2.group);
+                    if (order == 0)
+                        order = -Boolean.compare(a1.favorite, a2.favorite);
+                }
+
+                if (order == 0)
+                    return collator.compare(
+                            a1.name == null ? "" : a1.name,
+                            a2.name == null ? "" : a2.name);
+                else
+                    return order;
+            }
+        });
 
         all = answers;
 
@@ -354,13 +393,24 @@ public class AdapterAnswer extends RecyclerView.Adapter<AdapterAnswer.ViewHolder
                 Log.d("Changed @" + position + " #" + count);
             }
         });
-        diff.dispatchUpdatesTo(this);
+
+        try {
+            diff.dispatchUpdatesTo(this);
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
+    }
+
+    public void setSort(String sort) {
+        this.sort = sort;
+        set(sort, all);
+        notifyDataSetChanged();
     }
 
     public void search(String query) {
         Log.i("Answers query=" + query);
         search = query;
-        set(all);
+        set(sort, all);
     }
 
     private static class DiffCallback extends DiffUtil.Callback {

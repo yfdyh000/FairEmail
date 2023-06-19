@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -43,7 +43,7 @@ public class AdapterIdentitySelect extends ArrayAdapter<TupleIdentityEx> {
         this.identities = identities;
 
         for (TupleIdentityEx identity : identities)
-            if (identity.color != null) {
+            if (identity.color != null || identity.accountColor != null) {
                 hasColor = true;
                 break;
             }
@@ -68,9 +68,11 @@ public class AdapterIdentitySelect extends ArrayAdapter<TupleIdentityEx> {
         View vwColor = view.findViewById(R.id.vwColor);
         TextView text1 = view.findViewById(android.R.id.text1);
         TextView text2 = view.findViewById(android.R.id.text2);
-        TextView tvExtra = view.findViewById(R.id.tvExtra);
+        TextView tvExtra1 = view.findViewById(R.id.tvExtra1);
+        TextView tvExtra2 = view.findViewById(R.id.tvExtra2);
 
-        vwColor.setBackgroundColor(identity.color == null ? Color.TRANSPARENT : identity.color);
+        Integer color = (identity.color == null ? identity.accountColor : identity.color);
+        vwColor.setBackgroundColor(color == null ? Color.TRANSPARENT : color);
         vwColor.setVisibility(hasColor ? View.VISIBLE : View.GONE);
 
         boolean single = (identities.size() == 1 && identity.cc == null && identity.bcc == null);
@@ -79,13 +81,19 @@ public class AdapterIdentitySelect extends ArrayAdapter<TupleIdentityEx> {
             text1.setText(identity.getDisplayName() + " <" + identity.email + ">");
         else {
             text1.setText(identity.getDisplayName() + (identity.primary ? " ★" : ""));
-            text2.setText(identity.accountName + "/" + identity.email);
+            text2.setText(identity.accountName + ":" + identity.email);
         }
 
-        tvExtra.setText((identity.cc == null ? "" : "+CC") + (identity.bcc == null ? "" : "+BCC"));
+        tvExtra1.setText(identity.max_size == null ? null : Helper.humanReadableByteCount(identity.max_size));
+        tvExtra1.setVisibility(identity.max_size == null || !BuildConfig.DEBUG ? View.GONE : View.VISIBLE);
+
+        tvExtra2.setText(
+                (identity.cc == null ? "" : "+CC") +
+                        (identity.bcc == null ? "" : "+BCC") +
+                        (identity.replyto != null && !identity.replyto.equals(identity.email) ? "<<" : ""));
 
         text2.setVisibility(single ? View.GONE : View.VISIBLE);
-        tvExtra.setVisibility(identity.cc == null && identity.bcc == null ? View.GONE : View.VISIBLE);
+        tvExtra2.setVisibility(identity.cc == null && identity.bcc == null ? View.GONE : View.VISIBLE);
 
         return view;
     }

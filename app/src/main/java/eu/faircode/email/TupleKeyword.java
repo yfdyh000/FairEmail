@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -26,10 +26,13 @@ import android.graphics.Color;
 import androidx.annotation.Nullable;
 import androidx.preference.PreferenceManager;
 
+import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 public class TupleKeyword {
@@ -54,8 +57,6 @@ public class TupleKeyword {
     }
 
     static List<TupleKeyword> from(Context context, Persisted data) {
-        if (data == null)
-            data = new Persisted();
         if (data.selected == null)
             data.selected = new String[0];
         if (data.available == null)
@@ -63,24 +64,35 @@ public class TupleKeyword {
 
         List<TupleKeyword> result = new ArrayList<>();
 
-        List<String> keywords = new ArrayList<>();
+        List<String> all = new ArrayList<>();
+        List<String> selected = Arrays.asList(data.selected);
 
         for (String keyword : data.selected)
-            if (!keywords.contains(keyword))
-                keywords.add(keyword);
+            if (!all.contains(keyword))
+                all.add(keyword);
 
         for (String keyword : data.available)
-            if (!keywords.contains(keyword))
-                keywords.add(keyword);
-
-        Collections.sort(keywords);
+            if (!all.contains(keyword))
+                all.add(keyword);
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
 
-        for (String keyword : keywords) {
+        final Collator collator = Collator.getInstance(Locale.getDefault());
+        collator.setStrength(Collator.SECONDARY); // Case insensitive, process accents etc
+
+        Collections.sort(all, new Comparator<String>() {
+            @Override
+            public int compare(String k1, String k2) {
+                k1 = prefs.getString("kwtitle." + k1, getDefaultKeywordAlias(context, k1));
+                k2 = prefs.getString("kwtitle." + k2, getDefaultKeywordAlias(context, k2));
+                return collator.compare(k1, k2);
+            }
+        });
+
+        for (String keyword : all) {
             TupleKeyword k = new TupleKeyword();
             k.name = keyword;
-            k.selected = Arrays.asList(data.selected).contains(keyword);
+            k.selected = selected.contains(keyword);
 
             String c1 = "kwcolor." + keyword;
             String c2 = "keyword." + keyword; // legacy
@@ -109,6 +121,23 @@ public class TupleKeyword {
                 return context.getString(R.string.title_keyword_label5);
             default:
                 return keyword;
+        }
+    }
+
+    static Integer getDefaultKeywordColor(Context context, String keyword) {
+        switch (keyword) {
+            case "$label1": // Important
+                return Color.parseColor("#FF0000");
+            case "$label2": // Work
+                return Color.parseColor("#FF9900");
+            case "$label3": // Personal
+                return Color.parseColor("#009900");
+            case "$label4": // To do
+                return Color.parseColor("#3333FF");
+            case "$label5": // Later
+                return Color.parseColor("#993399");
+            default:
+                return null;
         }
     }
 }

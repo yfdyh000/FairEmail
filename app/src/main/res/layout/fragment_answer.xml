@@ -38,6 +38,21 @@
                     app:layout_constraintTop_toTopOf="parent" />
 
                 <eu.faircode.email.EditTextPlain
+                    android:id="@+id/etLabel"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginEnd="6dp"
+                    android:hint="@string/title_answer_label"
+                    android:imeOptions="actionNext"
+                    android:inputType="textNoSuggestions"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/etName" />
+
+                <eu.faircode.email.EditTextAutoComplete
                     android:id="@+id/etGroup"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -50,7 +65,7 @@
                     android:textAppearance="@style/TextAppearance.AppCompat.Small"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@+id/etName" />
+                    app:layout_constraintTop_toBottomOf="@+id/etLabel" />
 
                 <CheckBox
                     android:id="@+id/cbStandard"
@@ -83,6 +98,16 @@
                     app:layout_constraintTop_toBottomOf="@+id/cbReceipt" />
 
                 <CheckBox
+                    android:id="@+id/cbSnippet"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/title_answer_snippet"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/cbFavorite" />
+
+                <CheckBox
                     android:id="@+id/cbHide"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -90,7 +115,7 @@
                     android:layout_marginTop="6dp"
                     android:text="@string/title_answer_hide"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@+id/cbFavorite" />
+                    app:layout_constraintTop_toBottomOf="@+id/cbSnippet" />
 
                 <CheckBox
                     android:id="@+id/cbExternal"
@@ -149,18 +174,14 @@
             </androidx.constraintlayout.widget.ConstraintLayout>
         </eu.faircode.email.ScrollViewEx>
 
-        <com.google.android.material.bottomnavigation.BottomNavigationView
+        <include
             android:id="@+id/style_bar"
+            layout="@layout/include_style_bar"
             android:layout_width="0dp"
-            android:layout_height="36dp"
-            android:background="?attr/colorActionBackground"
-            app:itemIconTint="@color/action_foreground"
-            app:itemTextColor="@color/action_foreground"
-            app:labelVisibilityMode="unlabeled"
+            android:layout_height="wrap_content"
             app:layout_constraintBottom_toTopOf="@+id/bottom_navigation"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:menu="@menu/action_answer_style" />
+            app:layout_constraintStart_toStartOf="parent" />
 
         <com.google.android.material.bottomnavigation.BottomNavigationView
             android:id="@+id/bottom_navigation"

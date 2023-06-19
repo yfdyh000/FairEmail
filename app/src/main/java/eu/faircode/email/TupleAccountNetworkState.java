@@ -16,13 +16,17 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
+import android.content.Context;
 import android.os.Bundle;
+import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import org.json.JSONObject;
 
 public class TupleAccountNetworkState {
     public boolean enabled;
@@ -33,8 +37,11 @@ public class TupleAccountNetworkState {
     @NonNull
     public TupleAccountState accountState;
 
+    private JSONObject jconditions;
+
     public TupleAccountNetworkState(
             boolean enabled,
+            boolean scheduled,
             @NonNull Bundle command,
             @NonNull ConnectionHelper.NetworkState networkState,
             @NonNull TupleAccountState accountState) {
@@ -42,9 +49,30 @@ public class TupleAccountNetworkState {
         this.command = command;
         this.networkState = networkState;
         this.accountState = accountState;
+
+        this.jconditions = new JSONObject();
+        if (!TextUtils.isEmpty(this.accountState.conditions))
+            try {
+                jconditions = new JSONObject(this.accountState.conditions);
+            } catch (Throwable ex) {
+                Log.e(ex);
+            }
+
+        if (!scheduled && !jconditions.optBoolean("ignore_schedule"))
+            this.enabled = false;
     }
 
-    public boolean canRun() {
+    public boolean canConnect(Context context) {
+        boolean unmetered = jconditions.optBoolean("unmetered");
+        boolean vpn_only = jconditions.optBoolean("vpn_only");
+        return (!unmetered || this.networkState.isUnmetered()) &&
+                (!vpn_only || ConnectionHelper.vpnActive(context));
+    }
+
+    public boolean canRun(Context context) {
+        if (!canConnect(context))
+            return false;
+
         return (this.networkState.isSuitable() && this.accountState.shouldRun(enabled));
     }
 

@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -38,9 +38,6 @@ import android.graphics.drawable.AnimatedImageDrawable;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LevelListDrawable;
-import android.net.ConnectivityManager;
-import android.net.Network;
-import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.text.TextUtils;
@@ -53,11 +50,14 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.ColorUtils;
 import androidx.exifinterface.media.ExifInterface;
 import androidx.preference.PreferenceManager;
 
 import com.caverock.androidsvg.SVG;
+
+import org.jsoup.nodes.Element;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -78,14 +78,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Semaphore;
 
 class ImageHelper {
-    private static final ExecutorService executor_1 =
-            Helper.getBackgroundExecutor(1, "image_1");
-    private static final ExecutorService executor_n =
-            Helper.getBackgroundExecutor(0, "image_n");
-
     static final int DOWNLOAD_TIMEOUT = 15; // seconds
     private static final int MAX_PROBE = 128 * 1024; // bytes
     private static final int SLOW_CONNECTION = 2 * 1024; // Kbps
@@ -93,6 +88,7 @@ class ImageHelper {
 
     // https://developer.android.com/guide/topics/media/media-formats#image-formats
     static final List<String> IMAGE_TYPES = Collections.unmodifiableList(Arrays.asList(
+            "image/svg+xml", // native
             "image/bmp",
             "image/gif",
             "image/jpeg",
@@ -282,6 +278,11 @@ class ImageHelper {
     @NonNull
     static Bitmap renderSvg(InputStream is, int fillColor, int scaleToPixels) throws IOException {
         try {
+            // https://bugzilla.mozilla.org/show_bug.cgi?id=455100
+            // https://bug1105796.bmoattachments.org/attachment.cgi?id=8529795
+            // https://github.com/BigBadaboom/androidsvg/issues/122#issuecomment-361902061
+            SVG.setInternalEntitiesEnabled(false);
+
             SVG svg = SVG.getFromInputStream(is);
             float w = svg.getDocumentWidth();
             float h = svg.getDocumentHeight();
@@ -301,6 +302,20 @@ class ImageHelper {
     }
 
     static Drawable decodeImage(final Context context, final long id, String source, boolean show, int zoom, final float scale, final TextView view) {
+        return decodeImage(context, id, source, 0, 0, false, show, zoom, scale, view);
+    }
+
+    static Drawable decodeImage(final Context context, final long id, Element img, boolean show, int zoom, final float scale, final TextView view) {
+        String source = img.attr("src");
+        Integer w = Helper.parseInt(img.attr("width"));
+        Integer h = Helper.parseInt(img.attr("height"));
+        boolean tracking = !TextUtils.isEmpty(img.attr("x-tracking"));
+        return decodeImage(context, id, source, w == null ? 0 : w, h == null ? 0 : h, tracking, show, zoom, scale, view);
+    }
+
+    private static Drawable decodeImage(final Context context, final long id,
+                                        String source, final int aw, final int ah, boolean tracking,
+                                        boolean show, int zoom, final float scale, final TextView view) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean inline = prefs.getBoolean("inline_images", false);
 
@@ -308,33 +323,31 @@ class ImageHelper {
         final Resources res = context.getResources();
 
         try {
-            final AnnotatedSource a = new AnnotatedSource(source);
-
-            if (TextUtils.isEmpty(a.source)) {
-                Drawable d = context.getDrawable(R.drawable.twotone_broken_image_24);
+            if (TextUtils.isEmpty(source)) {
+                Drawable d = ContextCompat.getDrawable(context, R.drawable.twotone_broken_image_24);
                 d.setBounds(0, 0, px, px);
                 return d;
             }
 
-            boolean embedded = a.source.startsWith("cid:");
-            boolean data = a.source.startsWith("data:");
-            boolean content = a.source.startsWith("content:");
+            boolean embedded = source.startsWith("cid:");
+            boolean data = source.startsWith("data:");
+            boolean content = source.startsWith("content:");
 
-            Log.d("Image show=" + show + " inline=" + inline + " source=" + a.source);
+            Log.d("Image show=" + show + " inline=" + inline + " source=" + source);
 
             // Embedded images
             if (embedded && (show || inline)) {
                 DB db = DB.getInstance(context);
-                String cid = "<" + a.source.substring(4) + ">";
+                String cid = "<" + source.substring(4) + ">";
                 EntityAttachment attachment = db.attachment().getAttachment(id, cid);
                 if (attachment == null) {
                     Log.i("Image not found CID=" + cid);
-                    Drawable d = context.getDrawable(R.drawable.twotone_broken_image_24);
+                    Drawable d = ContextCompat.getDrawable(context, R.drawable.twotone_broken_image_24);
                     d.setBounds(0, 0, px, px);
                     return d;
                 } else if (!attachment.available) {
                     Log.i("Image not available CID=" + cid);
-                    Drawable d = context.getDrawable(R.drawable.twotone_photo_library_24);
+                    Drawable d = ContextCompat.getDrawable(context, R.drawable.twotone_photo_library_24);
                     d.setBounds(0, 0, px, px);
                     return d;
                 } else {
@@ -346,11 +359,11 @@ class ImageHelper {
                                     attachment.getMimeType(),
                                     scaleToPixels);
                             if (view != null)
-                                fitDrawable(d, a, scale, view);
+                                fitDrawable(d, aw, ah, scale, view);
                             return d;
                         } catch (IOException ex) {
                             Log.w(ex);
-                            Drawable d = context.getDrawable(R.drawable.twotone_broken_image_24);
+                            Drawable d = ContextCompat.getDrawable(context, R.drawable.twotone_broken_image_24);
                             d.setBounds(0, 0, px, px);
                             return d;
                         }
@@ -361,14 +374,14 @@ class ImageHelper {
                                 scaleToPixels);
                         if (bm == null) {
                             Log.i("Image not decodable CID=" + cid);
-                            Drawable d = context.getDrawable(R.drawable.twotone_broken_image_24);
+                            Drawable d = ContextCompat.getDrawable(context, R.drawable.twotone_broken_image_24);
                             d.setBounds(0, 0, px, px);
                             return d;
                         } else {
                             Drawable d = new BitmapDrawable(res, bm);
                             d.setBounds(0, 0, bm.getWidth(), bm.getHeight());
                             if (view != null)
-                                fitDrawable(d, a, scale, view);
+                                fitDrawable(d, aw, ah, scale, view);
                             return d;
                         }
                     }
@@ -376,11 +389,11 @@ class ImageHelper {
             }
 
             // Data URI
-            if (data && (show || inline || a.tracking))
+            if (data && (show || inline || tracking))
                 try {
                     int scaleToPixels = res.getDisplayMetrics().widthPixels;
-                    String mimeType = getDataUriType(a.source);
-                    ByteArrayInputStream bis = getDataUriStream(a.source);
+                    String mimeType = getDataUriType(source);
+                    ByteArrayInputStream bis = getDataUriStream(source);
                     Bitmap bm = getScaledBitmap(bis, "data:" + mimeType, mimeType, scaleToPixels);
                     if (bm == null)
                         throw new IllegalArgumentException("decode byte array failed");
@@ -389,38 +402,40 @@ class ImageHelper {
                     d.setBounds(0, 0, bm.getWidth(), bm.getHeight());
 
                     if (view != null)
-                        fitDrawable(d, a, scale, view);
+                        fitDrawable(d, aw, ah, scale, view);
                     return d;
                 } catch (IllegalArgumentException ex) {
                     Log.i(ex);
-                    Drawable d = context.getDrawable(R.drawable.twotone_broken_image_24);
+                    Drawable d = ContextCompat.getDrawable(context, R.drawable.twotone_broken_image_24);
                     d.setBounds(0, 0, px, px);
                     return d;
                 }
 
             if (content && (show || inline))
                 try {
-                    Uri uri = Uri.parse(a.source);
+                    Uri uri = Uri.parse(source);
                     Log.i("Loading image source=" + uri);
 
                     Bitmap bm;
                     int scaleToPixels = res.getDisplayMetrics().widthPixels;
                     try (InputStream is = context.getContentResolver().openInputStream(uri)) {
-                        bm = getScaledBitmap(is, a.source, null, scaleToPixels);
+                        if (is == null)
+                            throw new FileNotFoundException(uri.toString());
+                        bm = getScaledBitmap(is, source, null, scaleToPixels);
                         if (bm == null)
-                            throw new FileNotFoundException(a.source);
+                            throw new FileNotFoundException(source);
                     }
 
                     Drawable d = new BitmapDrawable(res, bm);
                     d.setBounds(0, 0, bm.getWidth(), bm.getHeight());
 
                     if (view != null)
-                        fitDrawable(d, a, scale, view);
+                        fitDrawable(d, aw, ah, scale, view);
                     return d;
                 } catch (Throwable ex) {
                     // FileNotFound, Security
                     Log.w(ex);
-                    Drawable d = context.getDrawable(R.drawable.twotone_broken_image_24);
+                    Drawable d = ContextCompat.getDrawable(context, R.drawable.twotone_broken_image_24);
                     d.setBounds(0, 0, px, px);
                     return d;
                 }
@@ -428,81 +443,70 @@ class ImageHelper {
             if (!show) {
                 // Show placeholder icon
                 int resid = (embedded || data ? R.drawable.twotone_photo_library_24 : R.drawable.twotone_image_24);
-                Drawable d = context.getDrawable(resid);
+                Drawable d = ContextCompat.getDrawable(context, resid);
                 d.setBounds(0, 0, px, px);
                 return d;
             }
 
             // Check cache
-            Drawable cached = getCachedImage(context, id, a.source);
+            Drawable cached = getCachedImage(context, id, source);
             if (cached != null || view == null) {
                 if (view == null)
                     if (cached == null) {
-                        Drawable d = context.getDrawable(R.drawable.twotone_hourglass_top_24);
+                        Drawable d = ContextCompat.getDrawable(context, R.drawable.twotone_hourglass_top_24);
                         d.setBounds(0, 0, px, px);
                         return d;
                     } else
                         return cached;
                 else
-                    fitDrawable(cached, a, scale, view);
+                    fitDrawable(cached, aw, ah, scale, view);
                 return cached;
             }
 
             final LevelListDrawable lld = new LevelListDrawable();
-            Drawable wait = context.getDrawable(R.drawable.twotone_hourglass_top_24);
+            Drawable wait = ContextCompat.getDrawable(context, R.drawable.twotone_hourglass_top_24);
             lld.addLevel(1, 1, wait);
             lld.setBounds(0, 0, px, px);
             lld.setLevel(1);
 
-            boolean slow = false;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
-                try {
-                    // 2G GSM ~14.4 Kbps
-                    // G GPRS ~26.8 Kbps
-                    // E EDGE ~108.8 Kbps
-                    // 3G UMTS ~128 Kbps
-                    // H HSPA ~3.6 Mbps
-                    // H+ HSPA+ ~14.4 Mbps-23.0 Mbps
-                    // 4G LTE ~50 Mbps
-                    // 4G LTE-A ~500 Mbps
-                    ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-                    Network active = (cm == null ? null : cm.getActiveNetwork());
-                    NetworkCapabilities caps = (active == null ? null : cm.getNetworkCapabilities(active));
-                    if (caps != null) {
-                        int kbps = caps.getLinkDownstreamBandwidthKbps();
-                        slow = (kbps < SLOW_CONNECTION);
-                    }
-                } catch (Throwable ex) {
-                    Log.e(ex);
-                }
+            Integer kbps = ConnectionHelper.getLinkDownstreamBandwidthKbps(context);
+            boolean slow = (kbps != null && kbps < SLOW_CONNECTION);
+            Semaphore semaphore = new Semaphore(1);
 
-            ExecutorService executor = (slow ? executor_1 : executor_n);
-
-            executor.submit(new Runnable() {
+            Helper.getDownloadTaskExecutor().submit(new Runnable() {
                 @Override
                 public void run() {
                     try {
                         // Check cache again
-                        Drawable cached = getCachedImage(context, id, a.source);
+                        Drawable cached = getCachedImage(context, id, source);
                         if (cached != null) {
-                            fitDrawable(cached, a, scale, view);
-                            post(cached, a.source);
+                            fitDrawable(cached, aw, ah, scale, view);
+                            post(cached, source);
                             return;
                         }
 
                         // Download image
-                        Drawable d = downloadImage(context, id, a.source, null);
-                        fitDrawable(d, a, scale, view);
-                        post(d, a.source);
+                        Drawable d;
+                        try {
+                            if (slow)
+                                semaphore.acquire();
+                            d = downloadImage(context, id, source, null);
+                        } finally {
+                            if (slow)
+                                semaphore.release();
+                        }
+
+                        fitDrawable(d, aw, ah, scale, view);
+                        post(d, source);
                     } catch (Throwable ex) {
                         // Show broken icon
                         Log.i(ex);
                         int resid = (ex instanceof IOException && !(ex instanceof FileNotFoundException)
                                 ? R.drawable.twotone_cloud_off_24
                                 : R.drawable.twotone_broken_image_24);
-                        Drawable d = context.getDrawable(resid);
+                        Drawable d = ContextCompat.getDrawable(context, resid);
                         d.setBounds(0, 0, px, px);
-                        post(d, a.source);
+                        post(d, source);
                     }
                 }
 
@@ -536,7 +540,7 @@ class ImageHelper {
         } catch (Throwable ex) {
             Log.e(ex);
 
-            Drawable d = context.getDrawable(R.drawable.twotone_broken_image_24);
+            Drawable d = ContextCompat.getDrawable(context, R.drawable.twotone_broken_image_24);
             d.setBounds(0, 0, px, px);
             return d;
         }
@@ -544,7 +548,7 @@ class ImageHelper {
 
     private static Map<Drawable, Rect> drawableBounds = new WeakHashMap<>();
 
-    static void fitDrawable(final Drawable d, final AnnotatedSource a, float scale, final View view) {
+    static void fitDrawable(final Drawable d, int aw, int ah, float scale, final View view) {
         synchronized (drawableBounds) {
             if (drawableBounds.containsKey(d))
                 d.setBounds(drawableBounds.get(d));
@@ -556,15 +560,15 @@ class ImageHelper {
         int w = Math.round(Helper.dp2pixels(view.getContext(), bounds.width()) * scale);
         int h = Math.round(Helper.dp2pixels(view.getContext(), bounds.height()) * scale);
 
-        if (a.width == 0 && a.height != 0)
-            a.width = Math.round(a.height * w / (float) h);
-        if (a.height == 0 && a.width != 0)
-            a.height = Math.round(a.width * h / (float) w);
+        if (aw == 0 && ah != 0)
+            aw = Math.round(ah * w / (float) h);
+        if (ah == 0 && aw != 0)
+            ah = Math.round(aw * h / (float) w);
 
-        if (a.width != 0 && a.height != 0) {
-            boolean swap = ((w > h) != (a.width > a.height)) && false;
-            w = Math.round(Helper.dp2pixels(view.getContext(), swap ? a.height : a.width) * scale);
-            h = Math.round(Helper.dp2pixels(view.getContext(), swap ? a.width : a.height) * scale);
+        if (aw != 0 && ah != 0) {
+            boolean swap = ((w > h) != (aw > ah)) && false;
+            w = Math.round(Helper.dp2pixels(view.getContext(), swap ? ah : aw) * scale);
+            h = Math.round(Helper.dp2pixels(view.getContext(), swap ? aw : ah) * scale);
         }
 
         float width = view.getContext().getResources().getDisplayMetrics().widthPixels;
@@ -588,11 +592,11 @@ class ImageHelper {
 
         d.setBounds(0, 0, w, h);
 
-        if (view instanceof TextView) {
-            int tc = ((TextView) view).getCurrentTextColor();
-            int bg = ColorUtils.setAlphaComponent(tc, Math.round(255 * 0.05f));
-            d.setColorFilter(bg, PorterDuff.Mode.DST_OVER);
-        }
+        //if (view instanceof TextView) {
+        //    int tc = ((TextView) view).getCurrentTextColor();
+        //    int bg = ColorUtils.setAlphaComponent(tc, Math.round(255 * 0.05f));
+        //    d.setColorFilter(bg, PorterDuff.Mode.DST_OVER);
+        //}
     }
 
     static String getDataUriType(String source) {
@@ -669,7 +673,7 @@ class ImageHelper {
         Bitmap bm;
         HttpURLConnection urlConnection = null;
         try {
-            urlConnection = Helper.openUrlRedirect(context, source, timeout);
+            urlConnection = ConnectionHelper.openConnectionUnsafe(context, source, timeout, timeout);
 
             if (id > 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 File file = getCacheFile(context, id, source, ".blob");
@@ -781,9 +785,7 @@ class ImageHelper {
 
     @NonNull
     static File getCacheFile(Context context, long id, String source, String extension) {
-        File dir = new File(context.getCacheDir(), "images");
-        if (!dir.exists())
-            dir.mkdir();
+        File dir = Helper.ensureExists(new File(context.getFilesDir(), "images"));
         return new File(dir, id + "_" + Math.abs(source.hashCode()) + extension);
     }
 
@@ -927,56 +929,5 @@ class ImageHelper {
             }
 
         return (lum / n);
-    }
-
-    static class AnnotatedSource {
-        private String source;
-        private int width = 0;
-        private int height = 0;
-        private boolean tracking = false;
-
-        // Encapsulate some ugliness
-
-        AnnotatedSource(String source) {
-            this.source = source;
-
-            if (source != null && source.endsWith("###")) {
-                int pos = source.substring(0, source.length() - 3).lastIndexOf("###");
-                if (pos > 0) {
-                    int x = source.indexOf("x", pos + 3);
-                    int s = source.indexOf(":", pos + 3);
-                    if (x > 0 && s > x)
-                        try {
-                            this.width = Integer.parseInt(source.substring(pos + 3, x));
-                            this.height = Integer.parseInt(source.substring(x + 1, s));
-                            this.tracking = Boolean.parseBoolean(source.substring(s + 1, source.length() - 3));
-                            this.source = source.substring(0, pos);
-                        } catch (NumberFormatException ex) {
-                            Log.e(ex);
-                        }
-                }
-            }
-        }
-
-        AnnotatedSource(String source, int width, int height, boolean tracking) {
-            this.source = source;
-            this.width = width;
-            this.height = height;
-            this.tracking = tracking;
-        }
-
-        public String getSource() {
-            return this.source;
-        }
-
-        public boolean isTracking() {
-            return this.tracking;
-        }
-
-        String getAnnotated() {
-            return (width == 0 && height == 0
-                    ? source
-                    : source + "###" + width + "x" + height + ":" + tracking + "###");
-        }
     }
 }

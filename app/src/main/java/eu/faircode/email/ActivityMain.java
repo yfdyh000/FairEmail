@@ -16,36 +16,85 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.app.ActivityOptions;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.preference.PreferenceManager;
 
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 public class ActivityMain extends ActivityBase implements FragmentManager.OnBackStackChangedListener, SharedPreferences.OnSharedPreferenceChangeListener {
+    static final int RESTORE_STATE_INTERVAL = 3; // minutes
+
     private static final long SPLASH_DELAY = 1500L; // milliseconds
-    private static final long RESTORE_STATE_INTERVAL = 3 * 60 * 1000L; // milliseconds
     private static final long SERVICE_START_DELAY = 5 * 1000L; // milliseconds
+    private static final long IGNORE_STORAGE_SPACE = 24 * 60 * 60 * 1000L; // milliseconds
+
+    private static final ExecutorService executor =
+            Helper.getBackgroundExecutor(1, "main");
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        long now = new Date().getTime();
+
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         boolean accept_unsupported = prefs.getBoolean("accept_unsupported", false);
+        long accept_space = prefs.getLong("accept_space", 0);
+
+        long cake = Helper.getAvailableStorageSpace();
+        if (cake < Helper.MIN_REQUIRED_SPACE && accept_space < now) {
+            setTheme(R.style.AppThemeBlueOrangeLight);
+            super.onCreate(savedInstanceState);
+            setContentView(R.layout.activity_space);
+
+            TextView tvRemaining = findViewById(R.id.tvRemaining);
+            tvRemaining.setText(getString(R.string.app_cake_remaining,
+                    Helper.humanReadableByteCount(cake)));
+
+            TextView tvRequired = findViewById(R.id.tvRequired);
+            tvRequired.setText(getString(R.string.app_cake_required,
+                    Helper.humanReadableByteCount(Helper.MIN_REQUIRED_SPACE, true)));
+
+            Button btnFix = findViewById(R.id.btnFix);
+            btnFix.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS);
+                    v.getContext().startActivity(intent);
+                }
+            });
+
+            Button btnContinue = findViewById(R.id.btnContinue);
+            btnContinue.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    prefs.edit().putLong("accept_space", now + IGNORE_STORAGE_SPACE).commit();
+                    ApplicationEx.restart(v.getContext(), "accept_space");
+                }
+            });
+
+            return;
+        }
 
         if (!accept_unsupported &&
                 !Helper.isSupportedDevice() &&
@@ -59,7 +108,7 @@ public class ActivityMain extends ActivityBase implements FragmentManager.OnBack
                 @Override
                 public void onClick(View v) {
                     prefs.edit().putBoolean("accept_unsupported", true).commit();
-                    ApplicationEx.restart(v.getContext());
+                    ApplicationEx.restart(v.getContext(), "accept_unsupported");
                 }
             });
 
@@ -69,9 +118,11 @@ public class ActivityMain extends ActivityBase implements FragmentManager.OnBack
         Intent intent = getIntent();
         Uri data = (intent == null ? null : intent.getData());
         if (data != null &&
-                "message".equals(data.getScheme()) &&
-                ("email.faircode.eu".equals(data.getHost()) ||
-                        BuildConfig.APPLICATION_ID.equals(data.getHost()))) {
+                (("message".equals(data.getScheme()) &&
+                        ("email.faircode.eu".equals(data.getHost()) ||
+                                BuildConfig.APPLICATION_ID.equals(data.getHost()))) ||
+                        ("https".equals(data.getScheme()) &&
+                                "link.fairemail.net".equals(data.getHost())))) {
             super.onCreate(savedInstanceState);
 
             Bundle args = new Bundle();
@@ -82,8 +133,8 @@ public class ActivityMain extends ActivityBase implements FragmentManager.OnBack
                 protected EntityMessage onExecute(Context context, Bundle args) {
                     Uri data = args.getParcelable("data");
                     long id;
-                    String f = data.getFragment();
-                    if ("email.faircode.eu".equals(data.getHost()))
+                    if ("email.faircode.eu".equals(data.getHost()) ||
+                            "link.fairemail.net".equals(data.getHost()))
                         id = Long.parseLong(data.getFragment());
                     else {
                         String path = data.getPath();
@@ -108,7 +159,7 @@ public class ActivityMain extends ActivityBase implements FragmentManager.OnBack
 
                     Intent thread = new Intent(ActivityMain.this, ActivityView.class);
                     thread.setAction("thread:" + message.id);
-                    thread.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    thread.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     thread.putExtra("account", message.account);
                     thread.putExtra("folder", message.folder);
                     thread.putExtra("thread", message.thread);
@@ -123,7 +174,7 @@ public class ActivityMain extends ActivityBase implements FragmentManager.OnBack
                 protected void onException(Bundle args, Throwable ex) {
                     // Ignored
                 }
-            }.execute(this, args, "message:linked");
+            }.setExecutor(executor).execute(this, args, "message:linked");
 
             return;
         }
@@ -170,11 +221,23 @@ public class ActivityMain extends ActivityBase implements FragmentManager.OnBack
 
                 @Override
                 protected Boolean onExecute(Context context, Bundle args) {
+                    DB db = DB.getInstance(context);
+
                     SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                    String last_activity = prefs.getString("last_activity", null);
+                    long composing = prefs.getLong("last_composing", -1L);
+                    if (ActivityCompose.class.getName().equals(last_activity) && composing >= 0) {
+                        EntityMessage draft = db.message().getMessage(composing);
+                        if (draft == null || draft.ui_hide)
+                            prefs.edit()
+                                    .remove("last_activity")
+                                    .remove("last_composing")
+                                    .apply();
+                    }
+
                     if (prefs.getBoolean("has_accounts", false))
                         return true;
 
-                    DB db = DB.getInstance(context);
                     List<EntityAccount> accounts = db.account().getSynchronizingAccounts(null);
                     boolean hasAccounts = (accounts != null && accounts.size() > 0);
 
@@ -202,9 +265,18 @@ public class ActivityMain extends ActivityBase implements FragmentManager.OnBack
                         // https://developer.android.com/docs/quality-guidelines/core-app-quality
                         long now = new Date().getTime();
                         long last = prefs.getLong("last_launched", 0L);
-                        if (!BuildConfig.PLAY_STORE_RELEASE &&
-                                now - last > RESTORE_STATE_INTERVAL)
+                        boolean restore_on_launch = prefs.getBoolean("restore_on_launch", false);
+                        if (!restore_on_launch || now - last > RESTORE_STATE_INTERVAL * 60 * 1000L)
                             view.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        else {
+                            String last_activity = prefs.getString("last_activity", null);
+                            long composing = prefs.getLong("last_composing", -1L);
+                            if (ActivityCompose.class.getName().equals(last_activity) && composing >= 0)
+                                view = new Intent(ActivityMain.this, ActivityCompose.class)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        .putExtra("action", "edit")
+                                        .putExtra("id", composing);
+                        }
 
                         Intent saved = args.getParcelable("intent");
                         if (saved == null) {
@@ -241,15 +313,44 @@ public class ActivityMain extends ActivityBase implements FragmentManager.OnBack
 
                 @Override
                 protected void onException(Bundle args, Throwable ex) {
-                    Log.unexpectedError(getSupportFragmentManager(), ex);
+                    // Log.unexpectedError() won't work here
+                    Log.e(ex);
+
+                    LayoutInflater inflater = LayoutInflater.from(ActivityMain.this);
+                    View dview = inflater.inflate(R.layout.dialog_unexpected, null);
+                    TextView tvError = dview.findViewById(R.id.tvError);
+
+                    String message = Log.formatThrowable(ex, false);
+                    tvError.setText(message);
+
+                    new AlertDialog.Builder(ActivityMain.this)
+                            .setView(dview)
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .setNeutralButton(R.string.menu_faq, new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    Uri uri = Helper.getSupportUri(ActivityMain.this, "Main:error")
+                                            .buildUpon()
+                                            .appendQueryParameter("message", Log.formatThrowable(ex, false))
+                                            .build();
+                                    Helper.view(ActivityMain.this, uri, true);
+                                }
+                            })
+                            .setOnDismissListener(new DialogInterface.OnDismissListener() {
+                                @Override
+                                public void onDismiss(DialogInterface dialog) {
+                                    finish();
+                                }
+                            })
+                            .show();
                 }
-            };
+            }.setExecutor(executor);
 
             if (Helper.shouldAuthenticate(this, false))
                 Helper.authenticate(ActivityMain.this, ActivityMain.this, null,
-                        new Runnable() {
+                        new RunnableEx("auth:succeeded") {
                             @Override
-                            public void run() {
+                            public void delegate() {
                                 Intent intent = getIntent();
                                 Bundle args = new Bundle();
                                 if (intent.hasExtra("intent"))
@@ -257,9 +358,9 @@ public class ActivityMain extends ActivityBase implements FragmentManager.OnBack
                                 boot.execute(ActivityMain.this, args, "main:accounts");
                             }
                         },
-                        new Runnable() {
+                        new RunnableEx("auth:cancelled") {
                             @Override
-                            public void run() {
+                            public void delegate() {
                                 try {
                                     finish();
                                 } catch (Throwable ex) {
@@ -304,10 +405,12 @@ public class ActivityMain extends ActivityBase implements FragmentManager.OnBack
             }
 
             // Default disable landscape columns for small screens
+            // Disable last sync time / nav menu for small screens
             if (!config.isLayoutSizeAtLeast(Configuration.SCREENLAYOUT_SIZE_NORMAL)) {
                 editor.putBoolean("landscape", false);
-                editor.putBoolean("landscape3", false);
+                editor.putBoolean("nav_last_sync", false);
             }
+            editor.putBoolean("landscape3", false);
 
             // Default send bubbles off when accessibility enabled
             if (Helper.isAccessibilityEnabled(this))

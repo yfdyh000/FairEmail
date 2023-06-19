@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static androidx.room.ForeignKey.CASCADE;
@@ -44,12 +44,14 @@ import org.jsoup.nodes.Element;
 import java.io.File;
 import java.io.Serializable;
 import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -72,6 +74,8 @@ import javax.mail.internet.InternetAddress;
                 @Index(value = {"account"}),
                 @Index(value = {"folder"}),
                 @Index(value = {"identity"}),
+                @Index(value = {"replying"}),
+                @Index(value = {"forwarding"}),
                 @Index(value = {"folder", "uid"}, unique = true),
                 @Index(value = {"inreplyto"}),
                 @Index(value = {"msgid"}),
@@ -98,6 +102,7 @@ public class EntityMessage implements Serializable {
     static final Integer PGP_SIGNONLY = 2;
     static final Integer SMIME_SIGNENCRYPT = 3;
     static final Integer SMIME_SIGNONLY = 4;
+    static final Integer PGP_ENCRYPTONLY = 5;
 
     static final Integer PRIORITIY_LOW = 0;
     static final Integer PRIORITIY_NORMAL = 1;
@@ -120,6 +125,8 @@ public class EntityMessage implements Serializable {
     static final Long SWIPE_ACTION_DELETE = -7L;
     static final Long SWIPE_ACTION_JUNK = -8L;
     static final Long SWIPE_ACTION_REPLY = -9L;
+
+    private static final int MAX_SNOOZED = 300;
 
     @PrimaryKey(autoGenerate = true)
     public Long id;
@@ -149,6 +156,7 @@ public class EntityMessage implements Serializable {
     public Boolean receipt_request;
     public Address[] receipt_to;
     public String bimi_selector;
+    public String signedby;
     public Boolean tls;
     public Boolean dkim;
     public Boolean spf;
@@ -198,6 +206,8 @@ public class EntityMessage implements Serializable {
     @NonNull
     public Long stored = new Date().getTime();
     @NonNull
+    public Boolean recent = false;
+    @NonNull
     public Boolean seen = false;
     @NonNull
     public Boolean answered = false;
@@ -231,6 +241,8 @@ public class EntityMessage implements Serializable {
     @NonNull
     public Boolean ui_silent = false;
     @NonNull
+    public Boolean ui_local_only = false;
+    @NonNull
     public Boolean ui_browsed = false;
     public Long ui_busy;
     public Long ui_snoozed;
@@ -257,12 +269,35 @@ public class EntityMessage implements Serializable {
         return "<" + UUID.randomUUID() + "@" + domain + '>';
     }
 
+    String getLink() {
+        // adb shell pm set-app-links --package eu.faircode.email 0 all
+        // adb shell pm verify-app-links --re-verify eu.faircode.email
+        // adb shell pm get-app-links eu.faircode.email
+        return "https://link.fairemail.net/#" + id;
+    }
+
     boolean isPlainOnly() {
         return (this.plain_only != null && (this.plain_only & 1) != 0);
     }
 
     boolean hasAlt() {
         return (this.plain_only != null && (this.plain_only & 0x80) != 0);
+    }
+
+    boolean fromSelf(List<TupleIdentityEx> identities) {
+        List<Address> senders = new ArrayList<>();
+        if (from != null)
+            senders.addAll(Arrays.asList(from));
+        if (reply != null)
+            senders.addAll(Arrays.asList(reply));
+
+        if (identities != null)
+            for (TupleIdentityEx identity : identities)
+                for (Address sender : senders)
+                    if (identity.self && identity.similarAddress(sender))
+                        return true;
+
+        return false;
     }
 
     boolean replySelf(List<TupleIdentityEx> identities, long account) {
@@ -326,6 +361,10 @@ public class EntityMessage implements Serializable {
         return hasKeyword(MessageHelper.FLAG_FORWARDED);
     }
 
+    boolean isFiltered() {
+        return hasKeyword(MessageHelper.FLAG_FILTERED);
+    }
+
     boolean isSigned() {
         return (EntityMessage.PGP_SIGNONLY.equals(ui_encrypt) ||
                 EntityMessage.SMIME_SIGNONLY.equals(ui_encrypt));
@@ -336,12 +375,45 @@ public class EntityMessage implements Serializable {
                 EntityMessage.SMIME_SIGNENCRYPT.equals(ui_encrypt));
     }
 
+    boolean isVerifiable() {
+        return (EntityMessage.PGP_SIGNONLY.equals(encrypt) ||
+                EntityMessage.SMIME_SIGNONLY.equals(encrypt));
+    }
+
+    boolean isUnlocked() {
+        return (EntityMessage.PGP_SIGNENCRYPT.equals(ui_encrypt) &&
+                !EntityMessage.PGP_SIGNENCRYPT.equals(encrypt)) ||
+                (EntityMessage.SMIME_SIGNENCRYPT.equals(ui_encrypt) &&
+                        !EntityMessage.SMIME_SIGNENCRYPT.equals(encrypt));
+    }
+
+    boolean isNotJunk(Context context) {
+        DB db = DB.getInstance(context);
+
+        boolean notJunk = false;
+        if (from != null)
+            for (Address sender : from) {
+                String email = ((InternetAddress) sender).getAddress();
+                if (TextUtils.isEmpty(email))
+                    continue;
+
+                EntityContact contact = db.contact().getContact(account, EntityContact.TYPE_NO_JUNK, email);
+                if (contact != null) {
+                    contact.times_contacted++;
+                    contact.last_contacted = new Date().getTime();
+                    db.contact().updateContact(contact);
+                    notJunk = true;
+                }
+            }
+        return notJunk;
+    }
+
     String[] checkFromDomain(Context context) {
-        return MessageHelper.equalDomain(context, from, smtp_from);
+        return MessageHelper.equalRootDomain(context, from, smtp_from);
     }
 
     String[] checkReplyDomain(Context context) {
-        return MessageHelper.equalDomain(context, reply, from);
+        return MessageHelper.equalRootDomain(context, reply, from);
     }
 
     static String getSubject(Context context, String language, String subject, boolean forward) {
@@ -431,10 +503,16 @@ public class EntityMessage implements Serializable {
 
     Element getReplyHeader(Context context, Document document, boolean separate, boolean extended) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean hide_timezone = prefs.getBoolean("hide_timezone", false);
         boolean language_detection = prefs.getBoolean("language_detection", false);
+        String compose_font = prefs.getString("compose_font", "");
         String l = (language_detection ? language : null);
 
-        DateFormat DTF = Helper.getDateTimeInstance(context);
+        DateFormat DTF = (hide_timezone
+                ? new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+                : Helper.getDateTimeInstance(context));
+        DTF.setTimeZone(hide_timezone ? TimeZone.getTimeZone("UTC") : TimeZone.getDefault());
+        String date = (received instanceof Number ? DTF.format(received) : "-");
 
         Element p = document.createElement("p");
         if (extended) {
@@ -463,7 +541,7 @@ public class EntityMessage implements Serializable {
                 Element strong = document.createElement("strong");
                 strong.text(Helper.getString(context, l, R.string.title_date) + " ");
                 p.appendChild(strong);
-                p.appendText(DTF.format(received));
+                p.appendText(date);
                 p.appendElement("br");
             }
             if (!TextUtils.isEmpty(subject)) {
@@ -474,10 +552,12 @@ public class EntityMessage implements Serializable {
                 p.appendElement("br");
             }
         } else
-            p.text(DTF.format(new Date(received)) + " " + MessageHelper.formatAddresses(from) + ":");
+            p.text(date + " " + MessageHelper.formatAddresses(from) + ":");
 
         Element div = document.createElement("div")
                 .attr("fairemail", "reply");
+        if (!TextUtils.isEmpty(compose_font))
+            div.attr("style", "font-family: " + StyleHelper.getFamily(compose_font));
         if (separate)
             div.appendElement("hr");
         div.appendChild(p);
@@ -516,10 +596,34 @@ public class EntityMessage implements Serializable {
     }
 
     static File getFile(Context context, Long id) {
-        File dir = new File(context.getFilesDir(), "messages");
-        if (!dir.exists())
-            dir.mkdir();
+        File root = Helper.ensureExists(new File(getRoot(context), "messages"));
+        File dir = Helper.ensureExists(new File(root, "D" + (id / 1000)));
         return new File(dir, id.toString());
+    }
+
+    static File getRoot(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean external_storage = prefs.getBoolean("external_storage_message", false);
+
+        File root = (external_storage
+                ? Helper.getExternalFilesDir(context)
+                : context.getFilesDir());
+        return root;
+    }
+
+    static void convert(Context context) {
+        File root = new File(context.getFilesDir(), "messages");
+        List<File> files = Helper.listFiles(root);
+        for (File file : files)
+            if (file.isFile())
+                try {
+                    long id = Long.parseLong(file.getName());
+                    File target = getFile(context, id);
+                    if (!file.renameTo(target))
+                        throw new IllegalArgumentException("Failed moving " + file);
+                } catch (Throwable ex) {
+                    Log.e(ex);
+                }
     }
 
     File getFile(Context context) {
@@ -527,16 +631,12 @@ public class EntityMessage implements Serializable {
     }
 
     File getFile(Context context, int revision) {
-        File dir = new File(context.getFilesDir(), "revision");
-        if (!dir.exists())
-            dir.mkdir();
+        File dir = Helper.ensureExists(new File(context.getFilesDir(), "revision"));
         return new File(dir, id + "." + revision);
     }
 
     File getRefFile(Context context) {
-        File dir = new File(context.getFilesDir(), "references");
-        if (!dir.exists())
-            dir.mkdir();
+        File dir = Helper.ensureExists(new File(context.getFilesDir(), "references"));
         return new File(dir, id.toString());
     }
 
@@ -545,19 +645,41 @@ public class EntityMessage implements Serializable {
     }
 
     static File getRawFile(Context context, Long id) {
-        File dir = new File(context.getFilesDir(), "raw");
-        if (!dir.exists())
-            dir.mkdir();
+        File dir = Helper.ensureExists(new File(context.getFilesDir(), "raw"));
         return new File(dir, id + ".eml");
     }
 
     static void snooze(Context context, long id, Long wakeup) {
+        if (wakeup != null && wakeup != Long.MAX_VALUE) {
+            /*
+                java.lang.IllegalStateException: Maximum limit of concurrent alarms 500 reached for uid: u0a601, callingPackage: eu.faircode.email
+                    at android.os.Parcel.createExceptionOrNull(Parcel.java:2433)
+                    at android.os.Parcel.createException(Parcel.java:2409)
+                    at android.os.Parcel.readException(Parcel.java:2392)
+                    at android.os.Parcel.readException(Parcel.java:2334)
+                    at android.app.IAlarmManager$Stub$Proxy.set(IAlarmManager.java:359)
+                    at android.app.AlarmManager.setImpl(AlarmManager.java:947)
+                    at android.app.AlarmManager.setImpl(AlarmManager.java:907)
+                    at android.app.AlarmManager.setExactAndAllowWhileIdle(AlarmManager.java:1175)
+                    at androidx.core.app.AlarmManagerCompat$Api23Impl.setExactAndAllowWhileIdle(Unknown Source:0)
+                    at androidx.core.app.AlarmManagerCompat.setExactAndAllowWhileIdle(SourceFile:2)
+                    at eu.faircode.email.AlarmManagerCompatEx.setAndAllowWhileIdle(SourceFile:2)
+                    at eu.faircode.email.EntityMessage.snooze(SourceFile:7)
+             */
+            DB db = DB.getInstance(context);
+            int count = db.message().getSnoozedCount();
+            Log.i("Snoozed=" + count + "/" + MAX_SNOOZED);
+            if (count > MAX_SNOOZED)
+                throw new IllegalArgumentException(
+                        String.format("Due to Android limitations, no more than %d messages can be snoozed or delayed", MAX_SNOOZED));
+        }
+
         Intent snoozed = new Intent(context, ServiceSynchronize.class);
         snoozed.setAction("unsnooze:" + id);
         PendingIntent pi = PendingIntentCompat.getForegroundService(
                 context, ServiceSynchronize.PI_UNSNOOZE, snoozed, PendingIntent.FLAG_UPDATE_CURRENT);
 
-        AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        AlarmManager am = Helper.getSystemService(context, AlarmManager.class);
         if (wakeup == null || wakeup == Long.MAX_VALUE) {
             Log.i("Cancel snooze id=" + id);
             am.cancel(pi);
@@ -565,6 +687,32 @@ public class EntityMessage implements Serializable {
             Log.i("Set snooze id=" + id + " wakeup=" + new Date(wakeup));
             AlarmManagerCompatEx.setAndAllowWhileIdle(context, am, AlarmManager.RTC_WAKEUP, wakeup, pi);
         }
+    }
+
+    static String getSwipeType(Long type) {
+        if (type == null)
+            return "none";
+        if (type > 0)
+            return "folder";
+        if (SWIPE_ACTION_ASK.equals(type))
+            return "ask";
+        if (SWIPE_ACTION_SEEN.equals(type))
+            return "seen";
+        if (SWIPE_ACTION_SNOOZE.equals(type))
+            return "snooze";
+        if (SWIPE_ACTION_HIDE.equals(type))
+            return "hide";
+        if (SWIPE_ACTION_MOVE.equals(type))
+            return "move";
+        if (SWIPE_ACTION_FLAG.equals(type))
+            return "flag";
+        if (SWIPE_ACTION_DELETE.equals(type))
+            return "delete";
+        if (SWIPE_ACTION_JUNK.equals(type))
+            return "junk";
+        if (SWIPE_ACTION_REPLY.equals(type))
+            return "reply";
+        return "???";
     }
 
     @Override
@@ -630,6 +778,7 @@ public class EntityMessage implements Serializable {
                     Objects.equals(this.sent, other.sent) &&
                     this.received.equals(other.received) &&
                     this.stored.equals(other.stored) &&
+                    this.recent.equals(other.recent) &&
                     this.seen.equals(other.seen) &&
                     this.answered.equals(other.answered) &&
                     this.flagged.equals(other.flagged) &&
@@ -646,6 +795,7 @@ public class EntityMessage implements Serializable {
                     this.ui_found.equals(other.ui_found) &&
                     this.ui_ignored.equals(other.ui_ignored) &&
                     this.ui_silent.equals(other.ui_silent) &&
+                    this.ui_local_only.equals(other.ui_local_only) &&
                     this.ui_browsed.equals(other.ui_browsed) &&
                     Objects.equals(this.ui_busy, other.ui_busy) &&
                     Objects.equals(this.ui_snoozed, other.ui_snoozed) &&

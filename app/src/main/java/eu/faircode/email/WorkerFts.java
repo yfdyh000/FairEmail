@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.os.Process.THREAD_PRIORITY_BACKGROUND;
@@ -24,6 +24,8 @@ import static android.os.Process.THREAD_PRIORITY_BACKGROUND;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteException;
 
 import androidx.annotation.NonNull;
 import androidx.preference.PreferenceManager;
@@ -37,8 +39,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-
-import io.requery.android.database.sqlite.SQLiteDatabase;
 
 public class WorkerFts extends Worker {
     private static final int INDEX_DELAY = 30; // seconds
@@ -59,57 +59,64 @@ public class WorkerFts extends Worker {
             Context context = getApplicationContext();
 
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-            boolean checkpoints = prefs.getBoolean("checkpoints", true);
+            boolean checkpoints = prefs.getBoolean("sqlite_checkpoints", true);
 
             int indexed = 0;
             List<Long> ids = new ArrayList<>(INDEX_BATCH_SIZE);
             DB db = DB.getInstance(context);
 
-            SQLiteDatabase sdb = FtsDbHelper.getInstance(context);
+            SQLiteDatabase sdb = Fts4DbHelper.getInstance(context);
 
-            Cursor cursor = db.message().getMessageFts();
-            while (cursor != null && cursor.moveToNext())
-                try {
-                    long id = cursor.getLong(0);
-                    Log.i("FTS index=" + id);
-
-                    ids.add(id);
-
-                    EntityMessage message = db.message().getMessage(id);
-                    if (message == null) {
-                        Log.i("FTS gone");
-                        continue;
-                    }
-
-                    File file = message.getFile(context);
-                    String text = HtmlHelper.getFullText(file);
-                    if (text == null)
-                        text = "";
-
-                    boolean fts = prefs.getBoolean("fts", false);
-                    if (!fts)
-                        break;
-
+            try (Cursor cursor = db.message().getMessageFts()) {
+                while (cursor != null && cursor.moveToNext())
                     try {
-                        sdb.beginTransaction();
-                        FtsDbHelper.insert(sdb, message, text);
-                        sdb.setTransactionSuccessful();
-                    } finally {
-                        sdb.endTransaction();
+                        long id = cursor.getLong(0);
+                        Log.i("FTS index=" + id);
+
+                        ids.add(id);
+
+                        EntityMessage message = db.message().getMessage(id);
+                        if (message == null) {
+                            Log.i("FTS gone");
+                            continue;
+                        }
+
+                        String text = null;
+                        if (message.content) {
+                            File file = message.getFile(context);
+                            text = HtmlHelper.getFullText(file);
+                        }
+
+                        try {
+                            sdb.beginTransaction();
+                            Fts4DbHelper.insert(sdb, message, text);
+                            sdb.setTransactionSuccessful();
+                        } catch (SQLiteException ex) {
+                            Log.w(ex);
+                            break;
+                        } finally {
+                            sdb.endTransaction();
+                        }
+
+                        indexed++;
+
+                        if (ids.size() >= INDEX_BATCH_SIZE)
+                            markIndexed(db, ids);
+
+                        boolean fts = prefs.getBoolean("fts", false);
+                        if (!fts)
+                            break;
+                    } catch (Throwable ex) {
+                        Log.e(ex);
                     }
-
-                    indexed++;
-
-                    if (ids.size() > INDEX_BATCH_SIZE)
-                        markIndexed(db, ids);
-                } catch (Throwable ex) {
-                    Log.e(ex);
-                }
+            }
 
             markIndexed(db, ids);
 
-            if (checkpoints)
+            if (checkpoints) {
                 DB.checkpoint(context);
+                Helper.sync();
+            }
 
             Log.i("FTS indexed=" + indexed);
             return Result.success();
@@ -150,7 +157,7 @@ public class WorkerFts extends Worker {
                 Log.i("Queued " + getName());
             } else if (immediately)
                 cancel(context);
-        } catch (IllegalStateException ex) {
+        } catch (Throwable ex) {
             // https://issuetracker.google.com/issues/138465476
             Log.w(ex);
         }

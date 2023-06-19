@@ -16,9 +16,12 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
+import android.content.ClipData;
+import android.content.ClipDescription;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
@@ -47,6 +50,7 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.AppCompatMultiAutoCompleteTextView;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.ColorUtils;
 import androidx.preference.PreferenceManager;
 
@@ -56,7 +60,10 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
+import javax.mail.Address;
 import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
 
@@ -66,6 +73,13 @@ public class EditTextMultiAutoComplete extends AppCompatMultiAutoCompleteTextVie
     private int colorAccent;
     private ContextThemeWrapper ctx;
     private Tokenizer tokenizer;
+    private Map<String, Integer> encryption = new ConcurrentHashMap<>();
+
+    private static int[] icons = new int[]{
+            R.drawable.twotone_vpn_key_24_p,
+            R.drawable.twotone_vpn_key_24_s,
+            R.drawable.twotone_vpn_key_24_b
+    };
 
     public EditTextMultiAutoComplete(@NonNull Context context) {
         super(context);
@@ -109,19 +123,27 @@ public class EditTextMultiAutoComplete extends AppCompatMultiAutoCompleteTextVie
 
             @Override
             public void afterTextChanged(Editable edit) {
-                if (backspace != null) {
-                    ClipImageSpan[] spans = edit.getSpans(backspace, backspace, ClipImageSpan.class);
-                    if (spans.length == 1) {
-                        int start = edit.getSpanStart(spans[0]);
-                        int end = edit.getSpanEnd(spans[0]);
-                        edit.delete(start, end);
-                    }
-                }
+                if (backspace != null)
+                    post(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                if (edit == null || backspace == null || !hasFocus())
+                                    return;
+                                ClipImageSpan[] spans = edit.getSpans(backspace, backspace, ClipImageSpan.class);
+                                if (spans.length == 1) {
+                                    int start = edit.getSpanStart(spans[0]);
+                                    int end = edit.getSpanEnd(spans[0]);
+                                    if (backspace > start)
+                                        edit.delete(start, end);
+                                }
+                            } catch (Throwable ex) {
+                                Log.e(ex);
+                            }
+                        }
+                    });
 
-                if (getWidth() == 0)
-                    post(update);
-                else
-                    update.run();
+                post(update);
             }
         });
     }
@@ -202,6 +224,32 @@ public class EditTextMultiAutoComplete extends AppCompatMultiAutoCompleteTextVie
         setSelection(edit.length());
     }
 
+    @Override
+    public boolean onTextContextMenuItem(int id) {
+        try {
+            if (id == android.R.id.paste) {
+                Context context = getContext();
+                ClipboardManager cbm = Helper.getSystemService(context, ClipboardManager.class);
+                if (cbm != null && cbm.hasPrimaryClip()) {
+                    ClipData data = cbm.getPrimaryClip();
+                    ClipDescription description = (data == null ? null : data.getDescription());
+                    ClipData.Item item = (data == null ? null : data.getItemAt(0));
+                    CharSequence text = (item == null ? null : item.coerceToText(context));
+                    if (text != null) {
+                        CharSequence label = (description == null ? "coerced_plain_text" : description.getLabel());
+                        data = ClipData.newPlainText(label, text.toString());
+                        cbm.setPrimaryClip(data);
+                    }
+                }
+            }
+
+            return super.onTextContextMenuItem(id);
+        } catch (Throwable ex) {
+            Log.e(ex);
+            return false;
+        }
+    }
+
     private final Runnable update = new Runnable() {
         @Override
         public void run() {
@@ -245,8 +293,8 @@ public class EditTextMultiAutoComplete extends AppCompatMultiAutoCompleteTextVie
                                 int s = edit.getSpanStart(span);
                                 int e = edit.getSpanEnd(span);
                                 if (s == start && e == i + 1) {
-                                    found = true;
-                                    if (!(focus && overlap(start, i, selStart, selEnd)))
+                                    found = !span.needsUpdate();
+                                    if (found && !(focus && overlap(start, i, selStart, selEnd)))
                                         tbd.remove(span);
                                     break;
                                 }
@@ -309,17 +357,48 @@ public class EditTextMultiAutoComplete extends AppCompatMultiAutoCompleteTextVie
                                         }
                                     cd.setText(text);
                                     cd.setChipBackgroundColor(ColorStateList.valueOf(colorAccent));
-                                    cd.setMaxWidth(getWidth());
-                                    cd.setBounds(0, 0, cd.getIntrinsicWidth(), cd.getIntrinsicHeight());
 
                                     ClipImageSpan is = new ClipImageSpan(cd);
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
                                         is.setContentDescription(email);
+
+                                    Integer has = encryption.get(email);
+                                    if (has == null) {
+                                        final List<Address> recipient = Arrays.asList(new Address[]{parsed[0]});
+                                        Helper.getUIExecutor().submit(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                try {
+                                                    int has = 0;
+                                                    if (PgpHelper.hasPgpKey(context, recipient, true))
+                                                        has |= 1;
+                                                    if (SmimeHelper.hasSmimeKey(context, recipient, true))
+                                                        has |= 2;
+                                                    encryption.put(email, has);
+
+                                                    if (has != 0) {
+                                                        is.invalidate();
+                                                        post(update);
+                                                    }
+                                                } catch (Throwable ex) {
+                                                    Log.w(ex);
+                                                }
+                                            }
+                                        });
+                                    } else if (has != 0) {
+                                        cd.setCloseIcon(ContextCompat.getDrawable(context, icons[has - 1]));
+                                        cd.setCloseIconVisible(true);
+                                    }
+
+                                    cd.setMaxWidth(getWidth());
+                                    cd.setBounds(0, 0, cd.getIntrinsicWidth(), cd.getIntrinsicHeight());
+
                                     edit.setSpan(is, start, i + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
                                     if (kar == ',' &&
                                             (i + 1 == edit.length() || edit.charAt(i + 1) != ' '))
                                         edit.insert(++i, " ");
+
                                     added = true;
                                 }
                             }
@@ -333,8 +412,10 @@ public class EditTextMultiAutoComplete extends AppCompatMultiAutoCompleteTextVie
                 for (ClipImageSpan span : tbd)
                     edit.removeSpan(span);
 
-                if (tbd.size() > 0 || added)
-                    invalidate();
+                if (tbd.size() > 0 || added) {
+                    setText(edit);
+                    setSelection(selStart, selEnd);
+                }
             } catch (Throwable ex) {
                 Log.e(ex);
             }
@@ -346,8 +427,18 @@ public class EditTextMultiAutoComplete extends AppCompatMultiAutoCompleteTextVie
     }
 
     private static class ClipImageSpan extends ImageSpan {
+        private boolean update;
+
         public ClipImageSpan(@NonNull Drawable drawable) {
             super(drawable, DynamicDrawableSpan.ALIGN_BOTTOM);
+        }
+
+        void invalidate() {
+            update = true;
+        }
+
+        boolean needsUpdate() {
+            return update;
         }
     }
 }

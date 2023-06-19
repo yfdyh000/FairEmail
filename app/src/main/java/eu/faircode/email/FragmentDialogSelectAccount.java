@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.app.Activity.RESULT_OK;
@@ -25,11 +25,7 @@ import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.text.SpannableStringBuilder;
-import android.text.style.ImageSpan;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
@@ -39,6 +35,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class FragmentDialogSelectAccount extends FragmentDialogBase {
@@ -48,31 +45,23 @@ public class FragmentDialogSelectAccount extends FragmentDialogBase {
         final Context context = getContext();
 
         final int dp6 = Helper.dp2pixels(context, 6);
-        final int iconSize = context.getResources().getDimensionPixelSize(R.dimen.menu_item_icon_size);
+        final int dp12 = Helper.dp2pixels(context, 12);
 
-        final ArrayAdapter<EntityAccount> adapter = new ArrayAdapter<EntityAccount>(context, R.layout.spinner_item1, android.R.id.text1) {
-
+        final ArrayAdapter<EntityAccount> adapter = new ArrayAdapter<EntityAccount>(context, R.layout.spinner_account, android.R.id.text1) {
             @NonNull
             @Override
             public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
                 View view = super.getView(position, convertView, parent);
+                EntityAccount account = (EntityAccount) getItem(position);
 
-                if (getCount() > 10)
-                    view.setPadding(dp6, dp6, dp6, dp6);
-
+                View vwColor = view.findViewById(R.id.vwColor);
                 TextView tv = view.findViewById(android.R.id.text1);
 
-                EntityAccount account = (EntityAccount) getItem(position);
-                SpannableStringBuilder ssb = new SpannableStringBuilderEx(account.name);
+                int vpad = (getCount() > 10 ? dp6 : dp12);
+                tv.setPadding(0, vpad, 0, vpad);
 
-                Drawable d = new ColorDrawable(account.color == null ? Color.TRANSPARENT : account.color);
-                d.setBounds(0, 0, iconSize / 4, iconSize);
-
-                ImageSpan imageSpan = new CenteredImageSpan(d);
-                ssb.insert(0, "\uFFFC\u2002"); // object replacement character, en space
-                ssb.setSpan(imageSpan, 0, 1, 0);
-
-                tv.setText(ssb);
+                vwColor.setBackgroundColor(account.color == null ? Color.TRANSPARENT : account.color);
+                tv.setText(account.name);
 
                 return view;
             }
@@ -83,15 +72,20 @@ public class FragmentDialogSelectAccount extends FragmentDialogBase {
             @Override
             protected List<EntityAccount> onExecute(Context context, Bundle args) {
                 boolean all = (args != null && args.getBoolean("all"));
+                Integer type = (args == null || !args.containsKey("type") ? null : args.getInt("type"));
 
                 DB db = DB.getInstance(context);
                 return (all
                         ? db.account().getAccounts()
-                        : db.account().getSynchronizingAccounts(null));
+                        : db.account().getSynchronizingAccounts(type));
             }
 
             @Override
             protected void onExecuted(Bundle args, List<EntityAccount> accounts) {
+                if ("outlook".equals(args.getString("filter")))
+                    for (EntityAccount account : new ArrayList<>(accounts))
+                        if (!account.isOutlook())
+                            accounts.remove(account);
                 adapter.addAll(accounts);
             }
 
@@ -99,7 +93,7 @@ public class FragmentDialogSelectAccount extends FragmentDialogBase {
             protected void onException(Bundle args, Throwable ex) {
                 Log.unexpectedError(getParentFragmentManager(), ex);
             }
-        }.execute(this, getArguments(), "messages:accounts");
+        }.execute(this, getArguments(), "select:account");
 
         return new AlertDialog.Builder(context)
                 .setIcon(R.drawable.twotone_account_circle_24)
@@ -110,7 +104,9 @@ public class FragmentDialogSelectAccount extends FragmentDialogBase {
                         EntityAccount account = adapter.getItem(which);
                         Bundle args = getArguments();
                         args.putLong("account", account.id);
+                        args.putInt("protocol", account.protocol);
                         args.putString("name", account.name);
+                        args.putString("user", account.user);
                         sendResult(RESULT_OK);
                     }
                 })

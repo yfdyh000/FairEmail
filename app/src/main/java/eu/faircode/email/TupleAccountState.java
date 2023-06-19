@@ -16,10 +16,8 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
-
-import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
 
 import java.util.Objects;
 
@@ -32,12 +30,14 @@ public class TupleAccountState extends EntityAccount {
     public boolean equals(Object obj) {
         if (obj instanceof TupleAccountState) {
             TupleAccountState other = (TupleAccountState) obj;
-            return (this.host.equals(other.host) &&
+            return (Objects.equals(this.provider, other.provider) &&
+                    this.host.equals(other.host) &&
                     this.encryption.equals(other.encryption) &&
                     this.insecure.equals(other.insecure) &&
                     this.port.equals(other.port) &&
                     this.user.equals(other.user) &&
-                    (auth_type != AUTH_TYPE_PASSWORD || this.password.equals(other.password)) &&
+                    Objects.equals(this.auth_type, other.auth_type) &&
+                    this.password.equals(other.password) &&
                     Objects.equals(this.certificate_alias, other.certificate_alias) &&
                     Objects.equals(this.realm, other.realm) &&
                     Objects.equals(this.fingerprint, other.fingerprint) &&
@@ -45,11 +45,15 @@ public class TupleAccountState extends EntityAccount {
                     this.leave_on_server == other.leave_on_server &&
                     this.leave_on_device == other.leave_on_device &&
                     Objects.equals(this.max_messages, other.max_messages) &&
+                    this.keep_alive_noop.equals(other.keep_alive_noop) &&
                     this.poll_interval.equals(other.poll_interval) &&
+                    this.poll_exempted.equals(other.poll_exempted) &&
                     this.partial_fetch.equals(other.partial_fetch) &&
+                    this.raw_fetch.equals(other.raw_fetch) &&
                     this.ignore_size.equals(other.ignore_size) &&
                     this.use_date.equals(other.use_date) &&
                     this.use_received.equals(other.use_received) &&
+                    Objects.equals(this.conditions, other.conditions) &&
                     this.folders == other.folders &&
                     Objects.equals(this.tbd, other.tbd));
         } else

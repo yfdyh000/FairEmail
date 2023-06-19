@@ -18,6 +18,7 @@ import com.bugsnag.android.EventPayload
 import com.bugsnag.android.Logger
 import com.bugsnag.android.ManifestConfigLoader.Companion.BUILD_UUID
 import com.bugsnag.android.NoopLogger
+import com.bugsnag.android.Telemetry
 import com.bugsnag.android.ThreadSendPolicy
 import com.bugsnag.android.errorApiHeaders
 import com.bugsnag.android.safeUnrollCauses
@@ -34,6 +35,7 @@ data class ImmutableConfig(
     val enabledReleaseStages: Collection<String>?,
     val projectPackages: Collection<String>,
     val enabledBreadcrumbTypes: Set<BreadcrumbType>?,
+    val telemetry: Set<Telemetry>,
     val releaseStage: String?,
     val buildUuid: String?,
     val appVersion: String?,
@@ -47,8 +49,10 @@ data class ImmutableConfig(
     val maxBreadcrumbs: Int,
     val maxPersistedEvents: Int,
     val maxPersistedSessions: Int,
+    val maxReportedThreads: Int,
     val persistenceDirectory: Lazy<File>,
     val sendLaunchCrashesSynchronously: Boolean,
+    val attemptDeliveryOnCrash: Boolean,
 
     // results cached here to avoid unnecessary lookups in Client.
     val packageInfo: PackageInfo?,
@@ -159,9 +163,12 @@ internal fun convertToImmutableConfig(
         maxBreadcrumbs = config.maxBreadcrumbs,
         maxPersistedEvents = config.maxPersistedEvents,
         maxPersistedSessions = config.maxPersistedSessions,
+        maxReportedThreads = config.maxReportedThreads,
         enabledBreadcrumbTypes = config.enabledBreadcrumbTypes?.toSet(),
+        telemetry = config.telemetry.toSet(),
         persistenceDirectory = persistenceDir,
         sendLaunchCrashesSynchronously = config.sendLaunchCrashesSynchronously,
+        attemptDeliveryOnCrash = config.isAttemptDeliveryOnCrash,
         packageInfo = packageInfo,
         appInfo = appInfo,
         redactedKeys = config.redactedKeys.toSet()
@@ -215,7 +222,12 @@ internal fun sanitiseConfiguration(
 
     @Suppress("SENSELESS_COMPARISON")
     if (configuration.delivery == null) {
-        configuration.delivery = DefaultDelivery(connectivity, configuration.logger!!)
+        configuration.delivery = DefaultDelivery(
+            connectivity,
+            configuration.apiKey,
+            configuration.maxStringValueLength,
+            configuration.logger!!
+        )
     }
     return convertToImmutableConfig(
         configuration,

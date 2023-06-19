@@ -16,16 +16,13 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.annotation.TargetApi;
-import android.content.Intent;
 import android.graphics.drawable.Icon;
 import android.os.Build;
-import android.os.IBinder;
 import android.service.quicksettings.Tile;
-import android.service.quicksettings.TileService;
 
 import androidx.lifecycle.Observer;
 
@@ -33,7 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @TargetApi(Build.VERSION_CODES.N)
-public class ServiceTileUnseen extends TileService {
+public class ServiceTileUnseen extends ServiceTileBase {
     private TwoStateOwner owner = new TwoStateOwner("ServiceTileUnseen");
 
     @Override
@@ -41,6 +38,9 @@ public class ServiceTileUnseen extends TileService {
         super.onCreate();
 
         DB db = DB.getInstance(this);
+
+        Icon iconSeen = Icon.createWithResource(this, R.drawable.twotone_mail_outline_24);
+        Icon iconUnseen = Icon.createWithResource(this, R.drawable.twotone_mail_24);
 
         db.message().liveUnseenNotify().observe(owner, new Observer<List<TupleMessageEx>>() {
             @Override
@@ -59,10 +59,14 @@ public class ServiceTileUnseen extends TileService {
                 if (tile != null)
                     try {
                         tile.setState(unseen > 0 ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE);
-                        tile.setIcon(Icon.createWithResource(ServiceTileUnseen.this,
-                                unseen > 0 ? R.drawable.twotone_mail_24 : R.drawable.twotone_mail_outline_24));
-                        tile.setLabel(getResources().getQuantityString(
-                                R.plurals.title_tile_unseen, unseen, unseen));
+                        tile.setIcon(unseen > 0 ? iconUnseen : iconSeen);
+                        String status = getResources().getQuantityString(
+                                R.plurals.title_tile_unseen, unseen, unseen);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            tile.setLabel(getString(R.string.app_name));
+                            tile.setSubtitle(status);
+                        } else
+                            tile.setLabel(status);
                         tile.updateTile();
                     } catch (Throwable ex) {
                         Log.w(ex);
@@ -70,16 +74,6 @@ public class ServiceTileUnseen extends TileService {
                     }
             }
         });
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        return super.onBind(intent);
-    }
-
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        return super.onStartCommand(intent, flags, startId);
     }
 
     @Override

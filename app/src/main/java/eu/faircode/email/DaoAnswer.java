@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import androidx.lifecycle.LiveData;
@@ -41,6 +41,12 @@ public interface DaoAnswer {
     List<EntityAnswer> getAnswersByFavorite(boolean favorite);
 
     @Query("SELECT * FROM answer" +
+            " WHERE snippet" +
+            " AND NOT hide" +
+            " ORDER BY name COLLATE NOCASE")
+    List<EntityAnswer> getSnippets();
+
+    @Query("SELECT * FROM answer" +
             " WHERE external" +
             " AND NOT hide" +
             " ORDER BY name COLLATE NOCASE")
@@ -48,6 +54,12 @@ public interface DaoAnswer {
 
     @Query("SELECT * FROM answer WHERE id = :id")
     EntityAnswer getAnswer(long id);
+
+    @Query("SELECT * FROM answer WHERE uuid = :uuid")
+    EntityAnswer getAnswerByUUID(String uuid);
+
+    @Query("SELECT * FROM answer WHERE name = :name")
+    List<EntityAnswer> getAnswerByName(String name);
 
     @Query("SELECT * FROM answer" +
             " WHERE standard AND NOT hide")
@@ -57,14 +69,18 @@ public interface DaoAnswer {
             " WHERE receipt AND NOT hide")
     EntityAnswer getReceiptAnswer();
 
-    @Query("SELECT * FROM answer" +
-            " ORDER BY `group`, -favorite, name COLLATE NOCASE")
+    @Query("SELECT * FROM answer")
     LiveData<List<EntityAnswer>> liveAnswers();
 
     @Query("SELECT COUNT(*) FROM answer" +
             " WHERE NOT hide" +
             " AND (:favorite OR NOT favorite)")
     Integer getAnswerCount(boolean favorite);
+
+    @Query("SELECT DISTINCT `group` FROM answer" +
+            " WHERE NOT `group` IS NULL" +
+            " ORDER by `group` COLLATE NOCASE")
+    List<String> getGroups();
 
     @Insert
     long insertAnswer(EntityAnswer answer);

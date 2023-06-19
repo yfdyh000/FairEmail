@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import androidx.lifecycle.LiveData;
@@ -33,7 +33,7 @@ public interface DaoIdentity {
     LiveData<List<TupleIdentityView>> liveIdentityView();
 
     @Query("SELECT identity.*" +
-            ", account.name AS accountName, account.category AS accountCategory, account.synchronize AS accountSynchronize" +
+            ", account.name AS accountName, account.category AS accountCategory, account.color AS accountColor, account.synchronize AS accountSynchronize" +
             ", folder.id AS drafts" +
             " FROM identity" +
             " JOIN account ON account.id = identity.account" +
@@ -41,7 +41,7 @@ public interface DaoIdentity {
     LiveData<List<TupleIdentityEx>> liveIdentities();
 
     @Query("SELECT identity.*" +
-            ", account.name AS accountName, account.category AS accountCategory, account.synchronize AS accountSynchronize" +
+            ", account.name AS accountName, account.category AS accountCategory, account.color AS accountColor, account.synchronize AS accountSynchronize" +
             ", folder.id AS drafts" +
             " FROM identity" +
             " JOIN account ON account.id = identity.account" +
@@ -51,7 +51,7 @@ public interface DaoIdentity {
     LiveData<List<TupleIdentityEx>> liveComposableIdentities();
 
     @Query("SELECT identity.*" +
-            ", account.name AS accountName, account.category AS accountCategory, account.synchronize AS accountSynchronize" +
+            ", account.name AS accountName, account.category AS accountCategory, account.color AS accountColor, account.synchronize AS accountSynchronize" +
             ", folder.id AS drafts" +
             " FROM identity" +
             " JOIN account ON account.id = identity.account" +
@@ -86,6 +86,19 @@ public interface DaoIdentity {
     @Query("SELECT * FROM identity WHERE id = :id")
     EntityIdentity getIdentity(long id);
 
+    @Query("SELECT identity.* FROM identity" +
+            " JOIN account ON account.id = identity.account" +
+            " JOIN folder ON folder.account = identity.account AND folder.type = '" + EntityFolder.DRAFTS + "'" +
+            " WHERE account.`primary` AND account.synchronize" +
+            " AND identity.`primary` AND identity.synchronize")
+    EntityIdentity getPrimaryIdentity();
+
+    @Query("SELECT * FROM identity WHERE uuid = :uuid")
+    EntityIdentity getIdentityByUUID(String uuid);
+
+    @Query("SELECT * FROM identity WHERE display = :display")
+    List<EntityIdentity> getIdentityByDisplayName(String display);
+
     @Insert
     long insertIdentity(EntityIdentity identity);
 
@@ -113,12 +126,18 @@ public interface DaoIdentity {
     int setIdentityPassword(long account, String user, String password, int auth_type, String domain);
 
     @Query("UPDATE identity" +
-            " SET password = :password, auth_type = :new_auth_type" +
+            " SET password = :password, auth_type = :new_auth_type, provider = :provider" +
             " WHERE account = :account" +
             " AND user = :user" +
-            " AND auth_type = :auth_type" +
-            " AND NOT (password IS :password AND auth_type IS :new_auth_type)")
-    int setIdentityPassword(long account, String user, String password, int auth_type, int new_auth_type);
+            " AND (auth_type = :auth_type OR :auth_type IS NULL)" +
+            " AND NOT (password IS :password AND auth_type IS :new_auth_type AND provider = :provider)")
+    int setIdentityPassword(long account, String user, String password, Integer auth_type, int new_auth_type, String provider);
+
+    @Query("UPDATE identity" +
+            " SET fingerprint = :fingerprint" +
+            " WHERE account = :account" +
+            " AND NOT (fingerprint IS :fingerprint)")
+    int setIdentityFingerprint(long account, String fingerprint);
 
     @Query("UPDATE identity SET last_connected = :last_connected WHERE id = :id AND NOT (last_connected IS :last_connected)")
     int setIdentityConnected(long id, long last_connected);
@@ -126,20 +145,34 @@ public interface DaoIdentity {
     @Query("UPDATE identity SET encrypt = :encrypt WHERE id = :id AND NOT (encrypt IS :encrypt)")
     int setIdentityEncrypt(long id, int encrypt);
 
+    @Query("UPDATE identity SET sign_default = 0, encrypt_default = 0 WHERE encrypt = 0")
+    int resetIdentityPGP();
+
     @Query("UPDATE identity SET sign_key = :sign_key WHERE id = :id AND NOT (sign_key IS :sign_key)")
     int setIdentitySignKey(long id, Long sign_key);
 
     @Query("UPDATE identity SET sign_key_alias = :alias WHERE id = :id AND NOT (sign_key_alias IS :alias)")
     int setIdentitySignKeyAlias(long id, String alias);
 
+    @Query("UPDATE identity SET sign_key_alias = NULL")
+    int clearIdentitySignKeyAliases();
+
     @Query("UPDATE identity SET max_size = :max_size WHERE id = :id AND NOT (max_size IS :max_size)")
     int setIdentityMaxSize(long id, Long max_size);
+
+    @Query("UPDATE identity SET signature = :hmtl WHERE id = :id AND NOT (signature IS :hmtl)")
+    int setIdentitySignature(long id, String hmtl);
 
     @Query("UPDATE identity SET error = :error WHERE id = :id AND NOT (error IS :error)")
     int setIdentityError(long id, String error);
 
     @Query("UPDATE identity SET `primary` = 0 WHERE account = :account AND NOT (`primary` IS 0)")
     void resetPrimary(long account);
+
+    @Query("UPDATE identity" +
+            " SET last_modified = :last_modified" +
+            " WHERE id = :id")
+    int setIdentityLastModified(long id, Long last_modified);
 
     @Query("DELETE FROM identity WHERE id = :id")
     int deleteIdentity(long id);

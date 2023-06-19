@@ -29,6 +29,7 @@ public class FragmentDialogTheme extends FragmentDialogBase {
     private RadioGroup rgTheme;
     private SwitchCompat swReverse;
     private RadioButton rbThemeYou;
+    private RadioButton rbThemeYouMono;
     private TextView tvYou;
     private RadioGroup rgThemeOptions;
     private TextView tvSystem;
@@ -44,14 +45,15 @@ public class FragmentDialogTheme extends FragmentDialogBase {
         boolean grey = (checkedId == R.id.rbThemeGrey);
         boolean bw = (checkedId == R.id.rbThemeBlackOrWhite);
         boolean solarized = (checkedId == R.id.rbThemeSolarized);
-        boolean you = (checkedId == R.id.rbThemeYou);
+        boolean mono = (checkedId == R.id.rbThemeYouMono);
+        boolean you = (checkedId == R.id.rbThemeYou || mono);
         boolean colored = (grey || bw || solarized || you ||
                 checkedId == R.id.rbThemeBlueOrange ||
                 checkedId == R.id.rbThemeRedGreen ||
                 checkedId == R.id.rbThemeYellowPurple);
         int optionId = rgThemeOptions.getCheckedRadioButtonId();
 
-        swReverse.setEnabled(colored && !grey && !bw && !solarized);
+        swReverse.setEnabled(colored && !grey && !bw && !solarized && !mono);
 
         rgThemeOptions.setEnabled(colored);
         for (int i = 0; i < rgThemeOptions.getChildCount(); i++)
@@ -81,6 +83,7 @@ public class FragmentDialogTheme extends FragmentDialogBase {
         View dview = LayoutInflater.from(context).inflate(R.layout.dialog_theme, null);
         rgTheme = dview.findViewById(R.id.rgTheme);
         rbThemeYou = dview.findViewById(R.id.rbThemeYou);
+        rbThemeYouMono = dview.findViewById(R.id.rbThemeYouMono);
         tvYou = dview.findViewById(R.id.tvYou);
         swReverse = dview.findViewById(R.id.swReverse);
         rgThemeOptions = dview.findViewById(R.id.rgThemeOptions);
@@ -100,6 +103,7 @@ public class FragmentDialogTheme extends FragmentDialogBase {
         });
 
         rbThemeYou.setVisibility(Build.VERSION.SDK_INT < Build.VERSION_CODES.S ? View.GONE : View.VISIBLE);
+        rbThemeYouMono.setVisibility(Build.VERSION.SDK_INT < Build.VERSION_CODES.S ? View.GONE : View.VISIBLE);
         tvYou.setVisibility(Build.VERSION.SDK_INT < Build.VERSION_CODES.S ? View.GONE : View.VISIBLE);
 
         tvYou.setOnClickListener(new View.OnClickListener() {
@@ -214,6 +218,7 @@ public class FragmentDialogTheme extends FragmentDialogBase {
             case "black_and_white":
                 rgTheme.check(R.id.rbThemeBlackAndWhite);
                 break;
+
             case "you_light":
             case "you_dark":
             case "you_black":
@@ -225,6 +230,19 @@ public class FragmentDialogTheme extends FragmentDialogBase {
             case "you_reversed_system":
             case "you_reversed_system_black":
                 rgTheme.check(R.id.rbThemeYou);
+                break;
+
+            case "you_mono_light":
+            case "you_mono_dark":
+            case "you_mono_black":
+            case "you_mono_system":
+            case "you_mono_system_black":
+            case "you_mono_reversed_light":
+            case "you_mono_reversed_dark":
+            case "you_mono_reversed_black":
+            case "you_mono_reversed_system":
+            case "you_mono_reversed_system_black":
+                rgTheme.check(R.id.rbThemeYouMono);
                 break;
         }
 
@@ -323,6 +341,15 @@ public class FragmentDialogTheme extends FragmentDialogBase {
                                 editor.putString("theme",
                                         (reverse ? "you_reversed" : "you") +
                                                 (black ? "_black" : dark ? "_dark" : "_light")).apply();
+                        } else if (checkedRadioButtonId == R.id.rbThemeYouMono) {
+                            if (system)
+                                editor.putString("theme",
+                                        (reverse ? "you_mono_reversed_system" : "you_mono_system") +
+                                                (black ? "_black" : "")).apply();
+                            else
+                                editor.putString("theme",
+                                        (reverse ? "you_mono_reversed" : "you_mono") +
+                                                (black ? "_black" : dark ? "_dark" : "_light")).apply();
                         }
 
                         editor.putBoolean("default_light", swHtmlLight.isChecked());
@@ -335,17 +362,16 @@ public class FragmentDialogTheme extends FragmentDialogBase {
                 .create();
     }
 
-    static int getTheme(ActivityBase activity) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+    static int getTheme(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         String theme = prefs.getString("theme", "blue_orange_system");
         boolean composer_light = prefs.getBoolean("composer_light", false);
 
-        boolean night = Helper.isNight(activity);
-        boolean light = (composer_light && activity instanceof ActivityCompose);
+        boolean night = Helper.isNight(context);
+        boolean light = (composer_light && context instanceof ActivityCompose);
         if (light)
             night = false;
-        EntityLog.log(activity, "Activity theme=" + theme +
-                "light = " + light + " night=" + night);
+        EntityLog.log(context, "Activity theme=" + theme + " light=" + light + " night=" + night);
 
         switch (theme) {
             // Light
@@ -518,6 +544,8 @@ public class FragmentDialogTheme extends FragmentDialogBase {
                 return (night
                         ? R.style.AppThemeBlack : R.style.AppThemeWhite);
 
+            // Material You
+
             case "you_light":
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
                     return R.style.AppThemeYouLight;
@@ -550,8 +578,42 @@ public class FragmentDialogTheme extends FragmentDialogBase {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
                     return (night ? R.style.AppThemeYouReversedBlack : R.style.AppThemeYouReversedLight);
 
+                // Material You monochrome
+
+            case "you_mono_light":
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                    return R.style.AppThemeYouMonoLight;
+            case "you_mono_dark":
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                    return (light ? R.style.AppThemeYouMonoLight : R.style.AppThemeYouMonoDark);
+            case "you_mono_black":
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                    return (light ? R.style.AppThemeYouMonoLight : R.style.AppThemeYouMonoBlack);
+            case "you_mono_system":
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                    return (night ? R.style.AppThemeYouMonoDark : R.style.AppThemeYouMonoLight);
+            case "you_mono_system_black":
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                    return (night ? R.style.AppThemeYouMonoBlack : R.style.AppThemeYouMonoLight);
+
+            case "you_mono_reversed_light":
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                    return R.style.AppThemeYouMonoReversedLight;
+            case "you_mono_reversed_dark":
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                    return (light ? R.style.AppThemeYouMonoReversedLight : R.style.AppThemeYouMonoReversedDark);
+            case "you_mono_reversed_black":
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                    return (light ? R.style.AppThemeYouMonoReversedLight : R.style.AppThemeYouMonoReversedBlack);
+            case "you_mono_reversed_system":
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                    return (night ? R.style.AppThemeYouMonoReversedDark : R.style.AppThemeYouMonoReversedLight);
+            case "you_mono_reversed_system_black":
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                    return (night ? R.style.AppThemeYouMonoReversedBlack : R.style.AppThemeYouMonoReversedLight);
+
             default:
-                if (!theme.startsWith("you_"))
+                if (!theme.startsWith("you_") && !theme.startsWith("you_mono_"))
                     Log.e("Unknown theme=" + theme);
                 return R.style.AppThemeBlueOrangeLight;
         }

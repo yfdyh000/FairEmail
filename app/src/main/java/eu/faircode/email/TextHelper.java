@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.app.Person;
@@ -34,6 +34,8 @@ import android.view.textclassifier.TextClassifier;
 import androidx.annotation.RequiresApi;
 import androidx.preference.PreferenceManager;
 
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -50,7 +52,15 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Source;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
+
 public class TextHelper {
+    private static final int MIN_WORDS = 7;
     private static final int MAX_DETECT_SAMPLE_SIZE = 8192;
     private static final float MIN_DETECT_PROBABILITY = 0.80f;
     private static final String TRANSLITERATOR = "Any-Latin; Latin-ASCII";
@@ -58,7 +68,7 @@ public class TextHelper {
     private static final long MAX_CONVERSATION_DURATION = 3000; // milliseconds
 
     private static final ExecutorService executor =
-            Helper.getBackgroundExecutor(0, "text");
+            Helper.getBackgroundExecutor(1, "text");
 
     static {
         System.loadLibrary("fairemail");
@@ -71,6 +81,9 @@ public class TextHelper {
         // https://developers.google.com/ml-kit/terms
 
         if (TextUtils.isEmpty(text))
+            return null;
+
+        if (text.split("\\s+").length < MIN_WORDS)
             return null;
 
         byte[] octets = text.getBytes();
@@ -138,8 +151,7 @@ public class TextHelper {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
             return null;
 
-        TextClassificationManager tcm =
-                (TextClassificationManager) context.getSystemService(Context.TEXT_CLASSIFICATION_SERVICE);
+        TextClassificationManager tcm = Helper.getSystemService(context, TextClassificationManager.class);
         if (tcm == null)
             return null;
 
@@ -204,6 +216,24 @@ public class TextHelper {
         } catch (Throwable ex) {
             Log.e(ex);
             return null;
+        }
+    }
+
+    public static String formatXml(String xml, int indent) {
+        try {
+            Source source = new StreamSource(new StringReader(xml));
+            StringWriter writer = new StringWriter();
+            StreamResult result = new StreamResult(writer);
+            TransformerFactory factory = TransformerFactory.newInstance();
+            Transformer transformer = factory.newTransformer();
+            transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", Integer.toString(indent));
+            transformer.transform(source, result);
+            return result.getWriter().toString();
+        } catch (Throwable ex) {
+            Log.e(ex);
+            return xml;
         }
     }
 

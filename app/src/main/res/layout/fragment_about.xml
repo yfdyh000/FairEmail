@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     tools:context="eu.faircode.email.ActivityView">
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/tvVersion"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -20,7 +20,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/tvRelease"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -35,7 +35,7 @@
         app:layout_constraintStart_toEndOf="@id/tvVersion"
         app:layout_constraintTop_toTopOf="@id/tvVersion" />
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/tvDownloaded"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -46,7 +46,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tvRelease" />
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/tvUpdated"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -60,7 +60,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tvDownloaded" />
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/tvCopyright"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -94,7 +94,7 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
-            <eu.faircode.email.FixedTextView
+            <TextView
                 android:id="@+id/tvContributors"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

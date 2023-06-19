@@ -16,12 +16,13 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
@@ -31,9 +32,9 @@ import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.Editable;
-import android.text.Html;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
+import android.text.TextUtils;
 import android.text.style.QuoteSpan;
 import android.text.style.StyleSpan;
 import android.util.AttributeSet;
@@ -44,16 +45,24 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputConnectionWrapper;
+import android.widget.EditText;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.inputmethod.EditorInfoCompat;
 import androidx.core.view.inputmethod.InputConnectionCompat;
 import androidx.core.view.inputmethod.InputContentInfoCompat;
 import androidx.preference.PreferenceManager;
 
+import org.github.DetectHtml;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 
-import java.util.concurrent.ExecutorService;
+import java.util.List;
+
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
 
 public class EditTextCompose extends FixedEditText {
     private boolean raw = false;
@@ -62,10 +71,12 @@ public class EditTextCompose extends FixedEditText {
 
     private Boolean canUndo = null;
     private Boolean canRedo = null;
-    private boolean checkKeyEvent = false;
+    private List<EntityAnswer> snippets;
 
-    private static final ExecutorService executor =
-            Helper.getBackgroundExecutor(1, "paste");
+    private int colorPrimary;
+    private int colorBlockquote;
+    private int quoteGap;
+    private int quoteStripe;
 
     public EditTextCompose(Context context) {
         super(context);
@@ -85,21 +96,158 @@ public class EditTextCompose extends FixedEditText {
     void init(Context context) {
         Helper.setKeyboardIncognitoMode(this, context);
 
+        colorPrimary = Helper.resolveColor(context, R.attr.colorPrimary);
+        colorBlockquote = Helper.resolveColor(context, R.attr.colorBlockquote, colorPrimary);
+        quoteGap = context.getResources().getDimensionPixelSize(R.dimen.quote_gap_size);
+        quoteStripe = context.getResources().getDimensionPixelSize(R.dimen.quote_stripe_width);
+
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean undo_manager = prefs.getBoolean("undo_manager", false);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            setCustomSelectionActionModeCallback(new ActionMode.Callback() {
+                @Override
+                public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+                    try {
+                        int order = 1000;
+                        menu.add(Menu.CATEGORY_SECONDARY, R.string.title_insert_brackets,
+                                order++, context.getString(R.string.title_insert_brackets));
+                        menu.add(Menu.CATEGORY_SECONDARY, R.string.title_insert_quotes,
+                                order++, context.getString(R.string.title_insert_quotes));
+                        menu.add(Menu.CATEGORY_SECONDARY, R.string.title_lt_add,
+                                order++, context.getString(R.string.title_lt_add));
+                        menu.add(Menu.CATEGORY_SECONDARY, R.string.title_lt_delete,
+                                order++, context.getString(R.string.title_lt_delete));
+                    } catch (Throwable ex) {
+                        Log.e(ex);
+                    }
+                    return true;
+                }
+
+                @Override
+                public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+                    int start = getSelectionStart();
+                    int end = getSelectionEnd();
+                    boolean selection = (start >= 0 && start < end);
+                    Context context = getContext();
+                    Editable edit = getText();
+                    boolean dictionary = (selection &&
+                            context instanceof AppCompatActivity &&
+                            LanguageTool.isPremium(context) &&
+                            edit != null &&
+                            edit.subSequence(start, end).toString().indexOf(' ') < 0);
+                    menu.findItem(R.string.title_insert_brackets).setVisible(selection);
+                    menu.findItem(R.string.title_insert_quotes).setVisible(selection);
+                    menu.findItem(R.string.title_lt_add).setVisible(dictionary);
+                    menu.findItem(R.string.title_lt_delete).setVisible(dictionary);
+                    return false;
+                }
+
+                @Override
+                public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+                    if (item.getGroupId() == Menu.CATEGORY_SECONDARY) {
+                        int id = item.getItemId();
+                        if (id == R.string.title_insert_brackets)
+                            return surround("(", ")");
+                        else if (id == R.string.title_insert_quotes)
+                            return surround("\"", "\"");
+                        else if (id == R.string.title_lt_add)
+                            return modifyDictionary(true);
+                        else if (id == R.string.title_lt_delete)
+                            return modifyDictionary(false);
+                    }
+                    return false;
+                }
+
+                @Override
+                public void onDestroyActionMode(ActionMode mode) {
+                    // Do nothing
+                }
+
+                private boolean surround(String before, String after) {
+                    Editable edit = getText();
+                    int start = getSelectionStart();
+                    int end = getSelectionEnd();
+                    boolean selection = (edit != null && start >= 0 && start < end);
+                    if (selection) {
+                        int s = start - before.length();
+                        int e = end + after.length();
+                        if (s >= 0 && e < length() &&
+                                edit.subSequence(s, start).toString().equals(before) &&
+                                edit.subSequence(end, e).toString().equals(after)) {
+                            edit.delete(end, e);
+                            edit.delete(s, start);
+                        } else {
+                            edit.insert(end, after);
+                            edit.insert(start, before);
+                        }
+                    }
+                    return selection;
+                }
+
+                private boolean modifyDictionary(boolean add) {
+                    int start = getSelectionStart();
+                    int end = getSelectionEnd();
+                    if (start < 0 || start >= end)
+                        return false;
+
+                    final Context context = getContext();
+                    if (!(context instanceof AppCompatActivity))
+                        return false;
+                    AppCompatActivity activity = (AppCompatActivity) getContext();
+
+                    Editable edit = getText();
+                    if (edit == null)
+                        return false;
+
+                    String word = edit.subSequence(start, end).toString();
+
+                    Bundle args = new Bundle();
+                    args.putString("word", word);
+                    args.putBoolean("add", add);
+
+                    new SimpleTask<Void>() {
+                        @Override
+                        protected Void onExecute(Context context, Bundle args) throws Throwable {
+                            String word = args.getString("word");
+                            boolean add = args.getBoolean("add");
+                            LanguageTool.modifyDictionary(context, word, null, add);
+                            return null;
+                        }
+
+                        @Override
+                        protected void onExecuted(Bundle args, Void data) {
+                            setSelection(end);
+                        }
+
+                        @Override
+                        protected void onException(Bundle args, Throwable ex) {
+                            ToastEx.makeText(getContext(), ex.toString(), Toast.LENGTH_LONG).show();
+                        }
+                    }.execute(activity, args, "dictionary:modify");
+
+                    return true;
+                }
+            });
+
             setCustomInsertionActionModeCallback(new ActionMode.Callback() {
                 @Override
                 public boolean onCreateActionMode(ActionMode mode, Menu menu) {
                     try {
+                        int order = 1000;
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
+                            menu.add(Menu.CATEGORY_SECONDARY, android.R.id.pasteAsPlainText, order++, getTitle(R.string.title_paste_plain));
                         if (undo_manager && can(android.R.id.undo))
-                            menu.add(Menu.CATEGORY_SECONDARY, R.string.title_undo, 1001, getTitle(R.string.title_undo));
+                            menu.add(Menu.CATEGORY_SECONDARY, R.string.title_undo, order++, getTitle(R.string.title_undo));
                         if (undo_manager && can(android.R.id.redo))
-                            menu.add(Menu.CATEGORY_SECONDARY, R.string.title_redo, 1002, getTitle(R.string.title_redo));
-                        menu.add(Menu.CATEGORY_SECONDARY, R.string.title_insert_line, 1003, R.string.title_insert_line);
-                        if (BuildConfig.DEBUG)
-                            menu.add(Menu.CATEGORY_SECONDARY, R.string.title_insert_arrow, 1004, R.string.title_insert_arrow);
+                            menu.add(Menu.CATEGORY_SECONDARY, R.string.title_redo, order++, getTitle(R.string.title_redo));
+                        menu.add(Menu.CATEGORY_SECONDARY, R.string.title_insert_line, order++, context.getString(R.string.title_insert_line));
+                        if (snippets != null)
+                            for (EntityAnswer snippet : snippets) {
+                                menu.add(Menu.CATEGORY_SECONDARY, order, order, snippet.name).
+                                        setIntent(new Intent().putExtra("id", snippet.id));
+                                order++;
+                            }
                     } catch (Throwable ex) {
                         Log.e(ex);
                     }
@@ -121,14 +269,20 @@ public class EditTextCompose extends FixedEditText {
                 public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
                     if (item.getGroupId() == Menu.CATEGORY_SECONDARY) {
                         int id = item.getItemId();
-                        if (id == R.string.title_undo)
+                        if (id == android.R.id.pasteAsPlainText)
+                            return insertPlain();
+                        else if (id == R.string.title_undo)
                             return EditTextCompose.super.onTextContextMenuItem(android.R.id.undo);
                         else if (id == R.string.title_redo)
                             return EditTextCompose.super.onTextContextMenuItem(android.R.id.redo);
                         else if (id == R.string.title_insert_line)
                             return insertLine();
-                        else if (id == R.string.title_insert_arrow)
-                            return insertArrow();
+                        else {
+                            Intent intent = item.getIntent();
+                            if (intent == null)
+                                return false;
+                            return insertSnippet(intent.getLongExtra("id", -1L));
+                        }
                     }
                     return false;
                 }
@@ -138,51 +292,107 @@ public class EditTextCompose extends FixedEditText {
                     // Do nothing
                 }
 
-                private boolean insertLine() {
-                    try {
-                        int start = getSelectionStart();
-                        if (start < 0)
-                            return false;
-
-                        Editable edit = getText();
-                        if (edit == null)
-                            return false;
-
-                        if (start == 0 || edit.charAt(start - 1) != '\n')
-                            edit.insert(start++, "\n");
-                        if (start == edit.length() || edit.charAt(start) != '\n')
-                            edit.insert(start, "\n");
-
-                        edit.insert(start, "\uFFFC"); // Object replacement character
-
-                        int colorSeparator = Helper.resolveColor(getContext(), R.attr.colorSeparator);
-                        float stroke = context.getResources().getDisplayMetrics().density;
-                        edit.setSpan(
-                                new LineSpan(colorSeparator, stroke, 0f),
-                                start, start + 1,
-                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-
-                        setSelection(start + 2);
-
+                private boolean insertPlain() {
+                    ClipboardManager cbm = Helper.getSystemService(context, ClipboardManager.class);
+                    if (!cbm.hasPrimaryClip())
                         return true;
-                    } catch (Throwable ex) {
-                        Log.e(ex);
-                        ToastEx.makeText(context, Log.formatThrowable(ex), Toast.LENGTH_LONG).show();
-                        return false;
-                    }
-                }
 
-                private boolean insertArrow() {
+                    ClipData clip = cbm.getPrimaryClip();
+                    if (clip == null || clip.getItemCount() < 1)
+                        return true;
+
+                    ClipData.Item item = clip.getItemAt(0);
+                    if (item == null)
+                        return true;
+
+                    CharSequence text = item.getText();
+                    if (TextUtils.isEmpty(text))
+                        return true;
+
                     int start = getSelectionStart();
                     if (start < 0)
-                        return false;
+                        start = 0;
+                    getText().insert(start, text.toString());
 
-                    Editable edit = getText();
-                    if (edit == null)
-                        return false;
-
-                    edit.insert(start, " \u27f6 ");
                     return true;
+                }
+
+                private boolean insertLine() {
+                    return StyleHelper.apply(R.id.menu_style_insert_line, null, null, EditTextCompose.this);
+                }
+
+                private boolean insertSnippet(long id) {
+                    if (snippets == null)
+                        return false;
+
+                    InternetAddress[] to = null;
+                    try {
+                        View root = getRootView();
+                        EditText etTo = (root == null ? null : root.findViewById(R.id.etTo));
+                        if (etTo != null)
+                            to = MessageHelper.parseAddresses(getContext(), etTo.getText().toString());
+                    } catch (AddressException ignored) {
+                    }
+
+                    for (EntityAnswer snippet : snippets)
+                        if (snippet.id.equals(id)) {
+                            String html = snippet.getHtml(context, to);
+
+                            Helper.getUIExecutor().submit(new Runnable() {
+                                @Override
+                                public void run() {
+                                    try {
+                                        SpannableStringBuilder ssb = getSpanned(context, html);
+                                        int len = ssb.length();
+                                        if (len > 0 && ssb.charAt(len - 1) == '\n')
+                                            ssb.replace(len - 1, len, " ");
+
+                                        EditTextCompose.this.post(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                try {
+                                                    int start = getSelectionStart();
+                                                    if (start < 0)
+                                                        start = 0;
+
+                                                    Editable edit = getText();
+
+                                                    if (start > 0) {
+                                                        char kar = edit.charAt(start - 1);
+                                                        if (!(kar == '\n' || kar == ' '))
+                                                            edit.insert(start++, " ");
+                                                    }
+
+                                                    edit.insert(start, ssb);
+
+                                                    setSelection(start + ssb.length());
+                                                } catch (Throwable ex) {
+                                                    Log.e(ex);
+                                                }
+                                            }
+                                        });
+                                    } catch (Throwable ex) {
+                                        Log.e(ex);
+                                    }
+                                }
+                            });
+
+                            return true;
+                        }
+
+                    return false;
+                }
+            });
+
+            DB db = DB.getInstance(context);
+            Helper.getUIExecutor().submit(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        snippets = db.answer().getSnippets();
+                    } catch (Throwable ex) {
+                        Log.e(ex);
+                    }
                 }
             });
         }
@@ -193,7 +403,6 @@ public class EditTextCompose extends FixedEditText {
         canRedo = null;
 
         try {
-            checkKeyEvent = true;
             int meta = KeyEvent.META_CTRL_ON;
             if (what == android.R.id.redo)
                 meta = meta | KeyEvent.META_SHIFT_ON;
@@ -201,8 +410,6 @@ public class EditTextCompose extends FixedEditText {
             onKeyShortcut(KeyEvent.KEYCODE_Z, ke);
         } catch (Throwable ex) {
             Log.e(ex);
-        } finally {
-            checkKeyEvent = false;
         }
 
         return Boolean.TRUE.equals(what == android.R.id.redo ? canRedo : canUndo);
@@ -258,7 +465,7 @@ public class EditTextCompose extends FixedEditText {
                 }
 
                 Context context = getContext();
-                ClipboardManager cbm = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipboardManager cbm = Helper.getSystemService(context, ClipboardManager.class);
                 if (start != end && cbm != null) {
                     CharSequence selected = getEditableText().subSequence(start, end);
                     if (selected instanceof Spanned) {
@@ -271,64 +478,43 @@ public class EditTextCompose extends FixedEditText {
             } else if (id == android.R.id.paste) {
                 final Context context = getContext();
 
-                ClipboardManager cbm = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipboardManager cbm = Helper.getSystemService(context, ClipboardManager.class);
                 if (cbm == null || !cbm.hasPrimaryClip())
                     return false;
 
                 ClipData.Item item = cbm.getPrimaryClip().getItemAt(0);
 
                 final String html;
-                String h = (raw ? null : item.getHtmlText());
+                String h = null;
+                if (raw) {
+                    CharSequence text = item.getText();
+                    if (text != null && DetectHtml.isHtml(text.toString())) {
+                        Log.i("Paste: raw HTML");
+                        h = text.toString();
+                    }
+                }
+                if (h == null)
+                    h = item.getHtmlText();
                 if (h == null) {
                     CharSequence text = item.getText();
                     if (text == null)
                         return false;
-                    if (raw)
-                        html = text.toString();
-                    else
-                        html = "<div>" + HtmlHelper.formatPlainText(text.toString(), false) + "</div>";
-                } else
+                    Log.i("Paste: using plain text");
+                    html = "<div>" + HtmlHelper.formatPlainText(text.toString(), false) + "</div>";
+                } else {
+                    Log.i("Paste: using HTML");
                     html = h;
+                }
 
-                final int colorPrimary = Helper.resolveColor(context, R.attr.colorPrimary);
-                final int colorBlockquote = Helper.resolveColor(context, R.attr.colorBlockquote, colorPrimary);
-                final int quoteGap = context.getResources().getDimensionPixelSize(R.dimen.quote_gap_size);
-                final int quoteStripe = context.getResources().getDimensionPixelSize(R.dimen.quote_stripe_width);
-
-                executor.submit(new Runnable() {
+                Helper.getUIExecutor().submit(new Runnable() {
                     @Override
                     public void run() {
                         try {
-                            SpannableStringBuilder ssb;
-                            if (raw)
-                                ssb = new SpannableStringBuilderEx(html);
-                            else {
-                                Document document = HtmlHelper.sanitizeCompose(context, html, false);
-                                Spanned paste = HtmlHelper.fromDocument(context, document, new Html.ImageGetter() {
-                                    @Override
-                                    public Drawable getDrawable(String source) {
-                                        return ImageHelper.decodeImage(context,
-                                                -1, source, true, 0, 1.0f, EditTextCompose.this);
-                                    }
-                                }, null);
+                            SpannableStringBuilder ssb = (raw
+                                    ? new SpannableStringBuilderEx(html)
+                                    : getSpanned(context, html));
 
-                                ssb = new SpannableStringBuilderEx(paste);
-                                QuoteSpan[] spans = ssb.getSpans(0, ssb.length(), QuoteSpan.class);
-                                for (QuoteSpan span : spans) {
-                                    QuoteSpan q;
-                                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P)
-                                        q = new QuoteSpan(colorBlockquote);
-                                    else
-                                        q = new QuoteSpan(colorBlockquote, quoteStripe, quoteGap);
-                                    ssb.setSpan(q,
-                                            ssb.getSpanStart(span),
-                                            ssb.getSpanEnd(span),
-                                            ssb.getSpanFlags(span));
-                                    ssb.removeSpan(span);
-                                }
-                            }
-
-                            ApplicationEx.getMainHandler().post(new Runnable() {
+                            EditTextCompose.this.post(new Runnable() {
                                 @Override
                                 public void run() {
                                     try {
@@ -387,12 +573,75 @@ public class EditTextCompose extends FixedEditText {
         }
     }
 
+    private SpannableStringBuilder getSpanned(Context context, String html) {
+        Document document = HtmlHelper.sanitizeCompose(context, html, false);
+        Spanned paste = HtmlHelper.fromDocument(context, document, new HtmlHelper.ImageGetterEx() {
+            @Override
+            public Drawable getDrawable(Element element) {
+                return ImageHelper.decodeImage(context,
+                        -1, element, true, 0, 1.0f, EditTextCompose.this);
+            }
+        }, null);
+
+        SpannableStringBuilder ssb = new SpannableStringBuilderEx(paste);
+        QuoteSpan[] spans = ssb.getSpans(0, ssb.length(), QuoteSpan.class);
+        for (QuoteSpan span : spans) {
+            QuoteSpan q;
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P)
+                q = new QuoteSpan(colorBlockquote);
+            else
+                q = new QuoteSpan(colorBlockquote, quoteStripe, quoteGap);
+            ssb.setSpan(q,
+                    ssb.getSpanStart(span),
+                    ssb.getSpanEnd(span),
+                    ssb.getSpanFlags(span));
+            ssb.removeSpan(span);
+        }
+
+        return ssb;
+    }
+
     @Override
     public InputConnection onCreateInputConnection(EditorInfo editorInfo) {
         //https://developer.android.com/guide/topics/text/image-keyboard
         InputConnection ic = super.onCreateInputConnection(editorInfo);
         if (ic == null)
             return null;
+
+        ic = new InputConnectionWrapper(ic, false) {
+            @Override
+            public boolean deleteSurroundingText(int beforeLength, int afterLength) {
+                try {
+                    return super.deleteSurroundingText(beforeLength, afterLength);
+                } catch (Throwable ex) {
+                    Log.w(ex);
+                    return true;
+                    /*
+                        java.lang.IndexOutOfBoundsException: replace (107 ... -2147483542) has end before start
+                                at android.text.SpannableStringBuilder.checkRange(SpannableStringBuilder.java:1318)
+                                at android.text.SpannableStringBuilder.replace(SpannableStringBuilder.java:513)
+                                at androidx.emoji2.text.SpannableBuilder.replace(SourceFile:7)
+                                at android.text.SpannableStringBuilder.delete(SpannableStringBuilder.java:230)
+                                at androidx.emoji2.text.SpannableBuilder.delete(SourceFile:2)
+                                at androidx.emoji2.text.SpannableBuilder.delete(SourceFile:1)
+                                at android.view.inputmethod.BaseInputConnection.deleteSurroundingText(BaseInputConnection.java:276)
+                                at android.view.inputmethod.InputConnectionWrapper.deleteSurroundingText(InputConnectionWrapper.java:133)
+                                at androidx.emoji2.viewsintegration.EmojiInputConnection.deleteSurroundingText(SourceFile:17)
+                                at android.view.inputmethod.InputConnectionWrapper.deleteSurroundingText(InputConnectionWrapper.java:133)
+                     */
+                }
+            }
+
+            @Override
+            public boolean deleteSurroundingTextInCodePoints(int beforeLength, int afterLength) {
+                try {
+                    return super.deleteSurroundingTextInCodePoints(beforeLength, afterLength);
+                } catch (Throwable ex) {
+                    Log.w(ex);
+                    return true;
+                }
+            }
+        };
 
         EditorInfoCompat.setContentMimeTypes(editorInfo, new String[]{"image/*"});
 
@@ -408,7 +657,11 @@ public class EditTextCompose extends FixedEditText {
                             (flags & InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION) != 0)
                         info.requestPermission();
 
-                    inputContentListener.onInputContent(info.getContentUri());
+                    String type = null;
+                    if (info.getDescription().getMimeTypeCount() > 0)
+                        type = info.getDescription().getMimeType(0);
+
+                    inputContentListener.onInputContent(info.getContentUri(), type);
                     return true;
                 } catch (Throwable ex) {
                     Log.w(ex);
@@ -423,7 +676,7 @@ public class EditTextCompose extends FixedEditText {
     }
 
     interface IInputContentListener {
-        void onInputContent(Uri uri);
+        void onInputContent(Uri uri, String type);
     }
 
     void setSelectionListener(ISelection listener) {

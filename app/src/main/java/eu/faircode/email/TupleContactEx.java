@@ -16,18 +16,22 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
+
+import java.util.Objects;
 
 public class TupleContactEx extends EntityContact {
     public String accountName;
+    public String identityEmail;
 
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof TupleContactEx) {
             TupleContactEx other = (TupleContactEx) obj;
             return (super.equals(obj) &&
-                    accountName.equals(other.accountName));
+                    accountName.equals(other.accountName) &&
+                    Objects.equals(this.identityEmail, other.identityEmail));
         } else
             return false;
     }

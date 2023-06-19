@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import androidx.lifecycle.LiveData;
@@ -37,8 +37,9 @@ public interface DaoRule {
     @Query("SELECT * FROM rule" +
             " WHERE folder = :folder" +
             " AND enabled" +
+            " AND (:daily IS NULL OR daily = :daily)" +
             " ORDER BY `order`, name COLLATE NOCASE")
-    List<EntityRule> getEnabledRules(long folder);
+    List<EntityRule> getEnabledRules(long folder, Boolean daily);
 
     @Query("SELECT rule.*, folder.account, folder.name AS folderName, account.name AS accountName FROM rule" +
             " JOIN folder ON folder.id = rule.folder" +
@@ -46,12 +47,25 @@ public interface DaoRule {
             " WHERE rule.id = :id")
     TupleRuleEx getRule(long id);
 
+    @Query("SELECT rule.* FROM rule" +
+            " JOIN folder ON folder.id = rule.folder" +
+            " WHERE folder.account = :account" +
+            " AND rule.name = :name")
+    List<EntityRule> getRuleByName(long account, String name);
+
+    @Query("SELECT * FROM rule WHERE uuid = :uuid")
+    EntityRule getRuleByUUID(String uuid);
+
     @Query("SELECT rule.*, folder.account, folder.name AS folderName, account.name AS accountName FROM rule" +
             " JOIN folder ON folder.id = rule.folder" +
             " JOIN account ON account.id = folder.account" +
-            " WHERE rule.folder = :folder" +
-            " ORDER BY `order`, name COLLATE NOCASE")
+            " WHERE rule.folder = :folder")
     LiveData<List<TupleRuleEx>> liveRules(long folder);
+
+    @Query("SELECT DISTINCT `group` FROM rule" +
+            " WHERE NOT `group` IS NULL" +
+            " ORDER by `group` COLLATE NOCASE")
+    List<String> getGroups();
 
     @Query("SELECT COUNT(*) FROM rule")
     int countTotal();
@@ -71,6 +85,11 @@ public interface DaoRule {
             " SET enabled = :enabled" +
             " WHERE id = :id AND NOT (enabled IS :enabled)")
     int setRuleEnabled(long id, boolean enabled);
+
+    @Query("UPDATE rule" +
+            " SET `group` = :group" +
+            " WHERE id = :id AND NOT (`group` IS :group)")
+    int setRuleGroup(long id, String group);
 
     @Query("UPDATE rule" +
             " SET applied = applied + 1, last_applied = :time" +

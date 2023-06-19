@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import androidx.lifecycle.LiveData;
@@ -40,6 +40,7 @@ public interface DaoOperation {
             // Other operations: seen, answered, flag, keyword, label, subscribe, send, rule
             " WHEN operation.name = '" + EntityOperation.SYNC + "' AND folder.account IS NOT NULL THEN 1" +
             " WHEN operation.name = '" + EntityOperation.FETCH + "' THEN 2" +
+            " WHEN operation.name = '" + EntityOperation.DOWNLOAD + "' THEN 3" +
             " WHEN operation.name = '" + EntityOperation.EXISTS + "' THEN 3" +
             " WHEN operation.name = '" + EntityOperation.REPORT + "' THEN 3" +
             " WHEN operation.name = '" + EntityOperation.COPY + "' THEN 4" +
@@ -53,7 +54,8 @@ public interface DaoOperation {
     @Transaction
     @Query("SELECT operation.*" +
             ", " + priority + " AS priority" +
-            ", account.name AS accountName, folder.name AS folderName" +
+            ", account.name AS accountName" +
+            ", folder.name AS folderName, folder.type AS folderType" +
             ", (account.synchronize IS NULL OR account.synchronize) AS synchronize" +
             " FROM operation" +
             " JOIN folder ON folder.id = operation.folder" +
@@ -64,7 +66,8 @@ public interface DaoOperation {
     @Transaction
     @Query("SELECT operation.*" +
             ", " + priority + " AS priority" +
-            ", account.name AS accountName, folder.name AS folderName" +
+            ", account.name AS accountName" +
+            ", folder.name AS folderName, folder.type AS folderType" +
             ", account.synchronize" +
             " FROM operation" +
             " JOIN folder ON folder.id = operation.folder" +
@@ -167,5 +170,5 @@ public interface DaoOperation {
     int deleteOperation(long id);
 
     @Query("DELETE FROM operation WHERE folder = :folder AND name = :name")
-    int deleteOperation(long folder, String name);
+    int deleteOperations(long folder, String name);
 }

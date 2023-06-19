@@ -16,10 +16,11 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.ClipData;
+import android.content.ClipDescription;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.util.AttributeSet;
@@ -123,13 +124,15 @@ public class EditTextPlain extends FixedEditText {
         try {
             if (id == android.R.id.paste) {
                 Context context = getContext();
-                ClipboardManager cbm = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipboardManager cbm = Helper.getSystemService(context, ClipboardManager.class);
                 if (cbm != null && cbm.hasPrimaryClip()) {
                     ClipData data = cbm.getPrimaryClip();
+                    ClipDescription description = (data == null ? null : data.getDescription());
                     ClipData.Item item = (data == null ? null : data.getItemAt(0));
                     CharSequence text = (item == null ? null : item.coerceToText(context));
                     if (text != null) {
-                        data = ClipData.newPlainText("coerced_plain_text", text.toString());
+                        CharSequence label = (description == null ? "coerced_plain_text" : description.getLabel());
+                        data = ClipData.newPlainText(label, text.toString());
                         cbm.setPrimaryClip(data);
                     }
                 }

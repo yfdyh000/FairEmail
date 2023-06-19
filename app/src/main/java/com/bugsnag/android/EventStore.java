@@ -7,10 +7,13 @@ import androidx.annotation.Nullable;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
@@ -119,7 +122,7 @@ class EventStore extends FileStore {
         List<File> launchCrashes = new ArrayList<>();
 
         for (File file : storedFiles) {
-            EventFilenameInfo filenameInfo = EventFilenameInfo.Companion.fromFile(file, config);
+            EventFilenameInfo filenameInfo = EventFilenameInfo.fromFile(file, config);
             if (filenameInfo.isLaunchCrashReport()) {
                 launchCrashes.add(file);
             }
@@ -128,6 +131,26 @@ class EventStore extends FileStore {
         // sort to get most recent timestamp
         Collections.sort(launchCrashes, EVENT_COMPARATOR);
         return launchCrashes.isEmpty() ? null : launchCrashes.get(launchCrashes.size() - 1);
+    }
+
+    @Nullable
+    Future<String> writeAndDeliver(@NonNull final JsonStream.Streamable streamable) {
+        final String filename = write(streamable);
+
+        if (filename != null) {
+            try {
+                return bgTaskSevice.submitTask(TaskType.ERROR_REQUEST, new Callable<String>() {
+                    public String call() {
+                        flushEventFile(new File(filename));
+                        return filename;
+                    }
+                });
+            } catch (RejectedExecutionException exception) {
+                logger.w("Failed to flush all on-disk errors, retaining unsent errors for later.");
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -161,9 +184,9 @@ class EventStore extends FileStore {
         }
     }
 
-    private void flushEventFile(File eventFile) {
+    void flushEventFile(File eventFile) {
         try {
-            EventFilenameInfo eventInfo = EventFilenameInfo.Companion.fromFile(eventFile, config);
+            EventFilenameInfo eventInfo = EventFilenameInfo.fromFile(eventFile, config);
             String apiKey = eventInfo.getApiKey();
             EventPayload payload = createEventPayload(eventFile, apiKey);
 
@@ -188,9 +211,21 @@ class EventStore extends FileStore {
                 logger.i("Deleting sent error file " + eventFile.getName());
                 break;
             case UNDELIVERED:
-                cancelQueuedFiles(Collections.singleton(eventFile));
-                logger.w("Could not send previously saved error(s)"
-                        + " to Bugsnag, will try again later");
+                if (isTooBig(eventFile)) {
+                    logger.w("Discarding over-sized event ("
+                            + eventFile.length()
+                            + ") after failed delivery");
+                    deleteStoredFiles(Collections.singleton(eventFile));
+                } else if (isTooOld(eventFile)) {
+                    logger.w("Discarding historical event (from "
+                            + getCreationDate(eventFile)
+                            + ") after failed delivery");
+                    deleteStoredFiles(Collections.singleton(eventFile));
+                } else {
+                    cancelQueuedFiles(Collections.singleton(eventFile));
+                    logger.w("Could not send previously saved error(s)"
+                            + " to Bugsnag, will try again later");
+                }
                 break;
             case FAILURE:
                 Exception exc = new RuntimeException("Failed to deliver event payload");
@@ -234,13 +269,29 @@ class EventStore extends FileStore {
     @Override
     String getFilename(Object object) {
         EventFilenameInfo eventInfo
-                = EventFilenameInfo.Companion.fromEvent(object, null, config);
+                = EventFilenameInfo.fromEvent(object, null, config);
         return eventInfo.encode();
     }
 
     String getNdkFilename(Object object, String apiKey) {
         EventFilenameInfo eventInfo
-                = EventFilenameInfo.Companion.fromEvent(object, apiKey, config);
+                = EventFilenameInfo.fromEvent(object, apiKey, config);
         return eventInfo.encode();
+    }
+
+    private static long oneMegabyte = 1024 * 1024;
+
+    public boolean isTooBig(File file) {
+        return file.length() > oneMegabyte;
+    }
+
+    public boolean isTooOld(File file) {
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.DATE, -60);
+        return EventFilenameInfo.findTimestampInFilename(file) < cal.getTimeInMillis();
+    }
+
+    public Date getCreationDate(File file) {
+        return new Date(EventFilenameInfo.findTimestampInFilename(file));
     }
 }

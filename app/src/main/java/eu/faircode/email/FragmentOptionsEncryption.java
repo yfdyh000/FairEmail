@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.app.Activity.RESULT_OK;
@@ -79,12 +79,17 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 
-public class FragmentOptionsEncryption extends FragmentBase implements SharedPreferences.OnSharedPreferenceChangeListener {
+public class FragmentOptionsEncryption extends FragmentBase
+        implements SharedPreferences.OnSharedPreferenceChangeListener, OpenPgpServiceConnection.OnBound {
+    private View view;
+    private ImageButton ibHelp;
     private ImageButton ibInfo;
     private SwitchCompat swSign;
     private SwitchCompat swEncrypt;
+    private SwitchCompat swEncryptAuto;
     private SwitchCompat swAutoDecrypt;
     private SwitchCompat swAutoUndoDecrypt;
+    private Button btnReset;
 
     private Spinner spOpenPgp;
     private ImageButton ibOpenKeychain;
@@ -92,6 +97,7 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
     private SwitchCompat swAutocrypt;
     private SwitchCompat swAutocryptMutual;
     private SwitchCompat swEncryptSubject;
+    private Button btnImportPgp;
 
     private Spinner spSignAlgoSmime;
     private Spinner spEncryptAlgoSmime;
@@ -111,7 +117,8 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
     static final int REQUEST_IMPORT_CERTIFICATE = 1;
 
     private final static String[] RESET_OPTIONS = new String[]{
-            "sign_default", "encrypt_default", "auto_decrypt", "auto_undecrypt",
+            "sign_default", "encrypt_default", "encrypt_auto",
+            "auto_decrypt", "auto_undecrypt",
             "openpgp_provider", "autocrypt", "autocrypt_mutual", "encrypt_subject",
             "sign_algo_smime", "encrypt_algo_smime", "check_certificate"
     };
@@ -123,14 +130,18 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
         setHasOptionsMenu(true);
 
         PackageManager pm = getContext().getPackageManager();
-        View view = inflater.inflate(R.layout.fragment_options_encryption, container, false);
+        view = inflater.inflate(R.layout.fragment_options_encryption, container, false);
 
         // Get controls
+
+        ibHelp = view.findViewById(R.id.ibHelp);
         ibInfo = view.findViewById(R.id.ibInfo);
         swSign = view.findViewById(R.id.swSign);
         swEncrypt = view.findViewById(R.id.swEncrypt);
+        swEncryptAuto = view.findViewById(R.id.swEncryptAuto);
         swAutoDecrypt = view.findViewById(R.id.swAutoDecrypt);
         swAutoUndoDecrypt = view.findViewById(R.id.swAutoUndoDecrypt);
+        btnReset = view.findViewById(R.id.btnReset);
 
         spOpenPgp = view.findViewById(R.id.spOpenPgp);
         ibOpenKeychain = view.findViewById(R.id.ibOpenKeychain);
@@ -138,6 +149,7 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
         swAutocrypt = view.findViewById(R.id.swAutocrypt);
         swAutocryptMutual = view.findViewById(R.id.swAutocryptMutual);
         swEncryptSubject = view.findViewById(R.id.swEncryptSubject);
+        btnImportPgp = view.findViewById(R.id.btnImportPgp);
 
         spSignAlgoSmime = view.findViewById(R.id.spSignAlgoSmime);
         spEncryptAlgoSmime = view.findViewById(R.id.spEncryptAlgoSmime);
@@ -177,6 +189,13 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
 
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
 
+        ibHelp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Helper.view(v.getContext(), Helper.getSupportUri(v.getContext(), "Options:encryption"), false);
+            }
+        });
+
         ibInfo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -199,6 +218,13 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
             }
         });
 
+        swEncryptAuto.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("encrypt_auto", checked).apply();
+            }
+        });
+
         swAutoDecrypt.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
@@ -210,6 +236,30 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("auto_undecrypt", checked).apply();
+            }
+        });
+
+        btnReset.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                new SimpleTask<Void>() {
+                    @Override
+                    protected Void onExecute(Context context, Bundle args) throws Throwable {
+                        DB db = DB.getInstance(context);
+                        db.identity().clearIdentitySignKeyAliases();
+                        return null;
+                    }
+
+                    @Override
+                    protected void onExecuted(Bundle args, Void data) {
+                        ToastEx.makeText(v.getContext(), R.string.title_completed, Toast.LENGTH_LONG).show();
+                    }
+
+                    @Override
+                    protected void onException(Bundle args, Throwable ex) {
+                        Log.unexpectedError(getParentFragmentManager(), ex);
+                    }
+                }.execute(FragmentOptionsEncryption.this, new Bundle(), "encryption:reset");
             }
         });
 
@@ -276,6 +326,24 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
             }
         });
 
+        btnImportPgp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String provider = prefs.getString("openpgp_provider", Helper.PGP_OPENKEYCHAIN_PACKAGE);
+
+                PackageManager pm = v.getContext().getPackageManager();
+                Intent intent = pm.getLaunchIntentForPackage(provider);
+                if (intent == null)
+                    if (TextUtils.isEmpty(BuildConfig.FDROID))
+                        intent = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + provider));
+                    else
+                        intent = new Intent(Intent.ACTION_VIEW, Uri.parse(String.format(BuildConfig.FDROID, provider)));
+                else
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                v.getContext().startActivity(intent);
+            }
+        });
+
         // S/MIME
 
         spSignAlgoSmime.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
@@ -329,6 +397,7 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
                 PackageManager pm = context.getPackageManager();
                 Intent open = new Intent(Intent.ACTION_GET_CONTENT);
                 open.addCategory(Intent.CATEGORY_OPENABLE);
+                open.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 open.setType("*/*");
                 if (open.resolveActivity(pm) == null)  // system whitelisted
                     ToastEx.makeText(context, R.string.title_no_saf, Toast.LENGTH_LONG).show();
@@ -478,11 +547,11 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
     public void onDestroyView() {
         PreferenceManager.getDefaultSharedPreferences(getContext()).unregisterOnSharedPreferenceChangeListener(this);
 
-        if (pgpService != null && pgpService.isBound()) {
+        if (pgpService != null) {
             Log.i("PGP unbinding");
             pgpService.unbindFromService();
+            pgpService = null;
         }
-        pgpService = null;
 
         super.onDestroyView();
     }
@@ -519,6 +588,8 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
                         throw new FileNotFoundException();
 
                     try (InputStream is = context.getContentResolver().openInputStream(uri)) {
+                        if (is == null)
+                            throw new FileNotFoundException(uri.toString());
                         return Helper.readBytes(is);
                     }
                 }
@@ -544,8 +615,7 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
 
     @Override
     public void onSharedPreferenceChanged(SharedPreferences prefs, String key) {
-        if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-            setOptions();
+        setOptions();
     }
 
     @Override
@@ -564,79 +634,90 @@ public class FragmentOptionsEncryption extends FragmentBase implements SharedPre
     }
 
     private void setOptions() {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+        try {
+            if (view == null || getContext() == null)
+                return;
 
-        swSign.setChecked(prefs.getBoolean("sign_default", false));
-        swEncrypt.setChecked(prefs.getBoolean("encrypt_default", false));
-        swSign.setEnabled(!swEncrypt.isChecked());
-        swAutoDecrypt.setChecked(prefs.getBoolean("auto_decrypt", false));
-        swAutoUndoDecrypt.setChecked(prefs.getBoolean("auto_undecrypt", false));
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
 
-        String provider = prefs.getString("openpgp_provider", "org.sufficientlysecure.keychain");
-        spOpenPgp.setTag(provider);
-        for (int pos = 0; pos < openPgpProvider.size(); pos++)
-            if (provider.equals(openPgpProvider.get(pos))) {
-                spOpenPgp.setSelection(pos);
-                break;
-            }
-        testOpenPgp(provider);
+            swSign.setChecked(prefs.getBoolean("sign_default", false));
+            swEncrypt.setChecked(prefs.getBoolean("encrypt_default", false));
+            swSign.setEnabled(!swEncrypt.isChecked());
+            swEncryptAuto.setChecked(prefs.getBoolean("encrypt_auto", false));
+            swAutoDecrypt.setChecked(prefs.getBoolean("auto_decrypt", false));
+            swAutoUndoDecrypt.setChecked(prefs.getBoolean("auto_undecrypt", false));
 
-        swAutocrypt.setChecked(prefs.getBoolean("autocrypt", true));
-        swAutocryptMutual.setChecked(prefs.getBoolean("autocrypt_mutual", true));
-        swAutocryptMutual.setEnabled(swAutocrypt.isChecked());
-        swEncryptSubject.setChecked(prefs.getBoolean("encrypt_subject", false));
+            String provider = prefs.getString("openpgp_provider", Helper.PGP_OPENKEYCHAIN_PACKAGE);
+            spOpenPgp.setTag(provider);
+            for (int pos = 0; pos < openPgpProvider.size(); pos++)
+                if (provider.equals(openPgpProvider.get(pos))) {
+                    spOpenPgp.setSelection(pos);
+                    break;
+                }
+            testOpenPgp(provider);
 
-        String signAlgorithm = prefs.getString("sign_algo_smime", "SHA-256");
-        String[] smimeSignAlgo = getResources().getStringArray(R.array.smimeSignAlgo);
-        for (int pos = 0; pos < smimeSignAlgo.length; pos++)
-            if (smimeSignAlgo[pos].equals(signAlgorithm)) {
-                spSignAlgoSmime.setSelection(pos);
-                break;
-            }
+            swAutocrypt.setChecked(prefs.getBoolean("autocrypt", true));
+            swAutocryptMutual.setChecked(prefs.getBoolean("autocrypt_mutual", true));
+            swAutocryptMutual.setEnabled(swAutocrypt.isChecked());
+            swEncryptSubject.setChecked(prefs.getBoolean("encrypt_subject", false));
 
-        String encryptAlgorithm = prefs.getString("encrypt_algo_smime", "AES-128");
-        String[] smimeEncryptAlgo = getResources().getStringArray(R.array.smimeEncryptAlgo);
-        for (int pos = 0; pos < smimeEncryptAlgo.length; pos++)
-            if (smimeEncryptAlgo[pos].equals(encryptAlgorithm)) {
-                spEncryptAlgoSmime.setSelection(pos);
-                break;
-            }
+            String signAlgorithm = prefs.getString("sign_algo_smime", "SHA-256");
+            String[] smimeSignAlgo = getResources().getStringArray(R.array.smimeSignAlgo);
+            for (int pos = 0; pos < smimeSignAlgo.length; pos++)
+                if (smimeSignAlgo[pos].equals(signAlgorithm)) {
+                    spSignAlgoSmime.setSelection(pos);
+                    break;
+                }
 
-        swCheckCertificate.setChecked(prefs.getBoolean("check_certificate", true));
+            String encryptAlgorithm = prefs.getString("encrypt_algo_smime", "AES-128");
+            String[] smimeEncryptAlgo = getResources().getStringArray(R.array.smimeEncryptAlgo);
+            for (int pos = 0; pos < smimeEncryptAlgo.length; pos++)
+                if (smimeEncryptAlgo[pos].equals(encryptAlgorithm)) {
+                    spEncryptAlgoSmime.setSelection(pos);
+                    break;
+                }
+
+            swCheckCertificate.setChecked(prefs.getBoolean("check_certificate", true));
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
     }
 
     private void testOpenPgp(String pkg) {
         Log.i("Testing OpenPGP pkg=" + pkg);
         try {
-            if (pgpService != null && pgpService.isBound())
+            if (pgpService != null) {
                 pgpService.unbindFromService();
+                pgpService = null;
+            }
 
-            tvOpenPgpStatus.setText("Connecting to " + pkg);
-            pgpService = new OpenPgpServiceConnection(getContext(), pkg, new OpenPgpServiceConnection.OnBound() {
-                @Override
-                public void onBound(IOpenPgpService2 service) {
-                    if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-                        return;
-
-                    tvOpenPgpStatus.setText("Connected to " + pkg);
-                }
-
-                @Override
-                public void onError(Exception ex) {
-                    if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-                        return;
-
-                    if ("bindService() returned false!".equals(ex.getMessage()))
-                        tvOpenPgpStatus.setText("Not connected");
-                    else {
-                        Log.e(ex);
-                        tvOpenPgpStatus.setText(ex.toString());
-                    }
-                }
-            });
+            tvOpenPgpStatus.setText("Connecting");
+            pgpService = new OpenPgpServiceConnection(getContext(), pkg, this);
             pgpService.bindToService();
         } catch (Throwable ex) {
             Log.e(ex);
+            tvOpenPgpStatus.setText(Log.formatThrowable(ex, false));
+        }
+    }
+
+    @Override
+    public void onBound(IOpenPgpService2 service) {
+        if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+            return;
+
+        tvOpenPgpStatus.setText("Connected");
+    }
+
+    @Override
+    public void onError(Exception ex) {
+        if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+            return;
+
+        if ("bindService() returned false!".equals(ex.getMessage()))
+            tvOpenPgpStatus.setText("Not connected");
+        else {
+            Log.e(ex);
+            tvOpenPgpStatus.setText(ex.toString());
         }
     }
 }

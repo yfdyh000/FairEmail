@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_search">Поиск по FairEmail</string>
+    <string name="app_send_self">Siųsti sau</string>
+    <string name="app_changelog">Pakeitimų sąrašas</string>
+    <string name="app_welcome">FairEmail - tai atviro kodo el. pašto programėlė, kurioje ypatingas dėmesys skiriamas saugumui bei privatumui. Del šios priežasties kai kurios funkcijos gali veikti kiek kitaip nei įprastai.</string>
+    <string name="app_limitations">Pavyzdžiui, pagal nutylėjimą, žinutės performatuojamos dėl aiškesnio skaitomumo ir nesaugių elementų pašalinimo. Taip pat reikalingas patvirtinimas nuorodų atidarymui. Šios funkcijos gali būti išjungtos pagal pageidavimą.</string>
     <string name="shortcut_refresh">Atnaujinti</string>
     <string name="shortcut_setup">Nustatymai</string>
     <string name="title_junk_clear">Valyti</string>
@@ -16,6 +21,7 @@
     <string name="title_setup_options">Nustatymai</string>
     <string name="title_advanced_hint_message">        You are navigating to the more advanced options.        All options have commonly used standard values, which you do not need to change unless you have a different preference.
     </string>
+    <string name="title_advanced_section_backup">Atsarginė kopija</string>
     <string name="title_advanced_caption_general">Bendra</string>
     <string name="title_advanced_notify_action_delete">Ištrinti</string>
     <string name="title_advanced_manage_keys_hint">        This will open to the Android security settings.        Keys and certificates can generally be found under Advanced - Encryption and credentials.
@@ -27,7 +33,10 @@
     <string name="title_copy_btn">Kopijuoti</string>
     <string name="title_ask_review_rationale">        You have been using FairEmail for a while.        It would be appreciated if you could rate FairEmail in the Play Store.
     </string>
+    <string name="title_rule_keyword_add">Pridėti</string>
+    <string name="title_rule_keyword_delete">Ištrinti</string>
     <string name="title_rule_enabled">Įjungta</string>
+    <string name="title_legend_not_junk">Raktas: title_legend_not_junk title_legend_not_junk Legenda „ne šlamštas“ piktogramos / mygtuko pavadinimas Failas: strings.xml</string>
     <string name="title_legend_delete">Ištrinti</string>
     <string name="title_add">Pridėti</string>
     <string name="title_enabled">Įjungta</string>
@@ -47,4 +56,17 @@
     <!-- https://www.bouncycastle.org/specifications.html -->
     <!-- https://datatracker.ietf.org/doc/html/rfc5751#page-29 -->
     <!-- https://datatracker.ietf.org/doc/html/rfc5751#section-2.7 -->
+    <string-array name="contactTypes">
+        <item>Recipient</item>
+        <item>Sender</item>
+        <item>Užblokuota</item>
+        <item>Not blocked</item>
+    </string-array>
+    <string-array name="contactGroupTypes">
+        <item>Any</item>
+        <item>Home</item>
+        <item>Work</item>
+        <item>Kita</item>
+        <item>Mobile</item>
+    </string-array>
 </resources>

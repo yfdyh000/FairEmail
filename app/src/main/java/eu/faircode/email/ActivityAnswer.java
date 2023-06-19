@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.ClipData;
@@ -37,10 +37,8 @@ import androidx.constraintlayout.widget.Group;
 
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 
 public class ActivityAnswer extends ActivityBase {
-    private static ExecutorService executor = Helper.getBackgroundExecutor(1, "answer");
 
     @Override
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -71,7 +69,7 @@ public class ActivityAnswer extends ActivityBase {
                 final Context context = adapterView.getContext();
                 EntityAnswer answer = (EntityAnswer) adapterView.getAdapter().getItem(pos);
 
-                executor.submit(new Runnable() {
+                Helper.getParallelExecutor().submit(new Runnable() {
                     @Override
                     public void run() {
                         try {
@@ -83,12 +81,14 @@ public class ActivityAnswer extends ActivityBase {
                     }
                 });
 
-                String html = answer.getHtml(null);
+                String html = answer.getHtml(context, null);
                 String text = HtmlHelper.getText(context, html);
 
-                ClipboardManager cbm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipboardManager cbm = Helper.getSystemService(ActivityAnswer.this, ClipboardManager.class);
                 cbm.setPrimaryClip(ClipData.newHtmlText(getString(R.string.app_name), text, html));
-                ToastEx.makeText(context, R.string.title_clipboard_copied, Toast.LENGTH_LONG).show();
+
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)
+                    ToastEx.makeText(context, R.string.title_clipboard_copied, Toast.LENGTH_LONG).show();
 
                 if (!readonly) {
                     Intent result = new Intent();

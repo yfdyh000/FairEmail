@@ -16,10 +16,14 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_GRAPH;
+
+import android.Manifest;
 import android.app.AlarmManager;
+import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
@@ -31,6 +35,7 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.Uri;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.text.TextUtils;
@@ -43,6 +48,8 @@ import androidx.preference.PreferenceManager;
 
 import com.sun.mail.smtp.SMTPSendFailedException;
 import com.sun.mail.util.TraceOutputStream;
+
+import org.json.JSONException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -67,6 +74,11 @@ import javax.mail.Session;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 
+import biweekly.Biweekly;
+import biweekly.ICalendar;
+import biweekly.component.VEvent;
+import biweekly.property.Method;
+
 public class ServiceSend extends ServiceBase implements SharedPreferences.OnSharedPreferenceChangeListener {
     private TupleUnsent lastUnsent = null;
     private Network lastActive = null;
@@ -77,24 +89,25 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
     private PowerManager.WakeLock wlOutbox;
     private List<Long> handling = new ArrayList<>();
 
-    private static ExecutorService executor = Helper.getBackgroundExecutor(1, "send");
+    private static final ExecutorService executor =
+            Helper.getBackgroundExecutor(1, "send");
 
     private static final int RETRY_MAX = 3;
     private static final int CONNECTIVITY_DELAY = 5000; // milliseconds
     private static final int PROGRESS_UPDATE_INTERVAL = 1000; // milliseconds
 
     static final int PI_SEND = 1;
+    static final int PI_FIX = 2;
 
     @Override
     public void onCreate() {
         EntityLog.log(this, "Service send create");
         super.onCreate();
-        startForeground(NotificationHelper.NOTIFICATION_SEND,
-                getNotificationService().build());
+        startForeground(NotificationHelper.NOTIFICATION_SEND, getNotificationService(false));
 
         owner = new TwoStateOwner(this, "send");
 
-        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        PowerManager pm = Helper.getSystemService(this, PowerManager.class);
         wlOutbox = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, BuildConfig.APPLICATION_ID + ":send");
 
         // Observe unsent count
@@ -108,9 +121,9 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
 
                     try {
                         NotificationManager nm =
-                                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                        nm.notify(NotificationHelper.NOTIFICATION_SEND,
-                                getNotificationService().build());
+                                Helper.getSystemService(ServiceSend.this, NotificationManager.class);
+                        if (NotificationHelper.areNotificationsEnabled(nm))
+                            nm.notify(NotificationHelper.NOTIFICATION_SEND, getNotificationService(false));
                     } catch (Throwable ex) {
                         Log.w(ex);
                     }
@@ -157,7 +170,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
         if (lastSuitable)
             owner.start();
 
-        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager cm = Helper.getSystemService(this, ConnectivityManager.class);
         NetworkRequest.Builder builder = new NetworkRequest.Builder();
         builder.addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
         cm.registerNetworkCallback(builder.build(), networkCallback);
@@ -178,7 +191,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
 
         unregisterReceiver(connectionChangedReceiver);
 
-        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager cm = Helper.getSystemService(this, ConnectivityManager.class);
         cm.unregisterNetworkCallback(networkCallback);
 
         getMainHandler().removeCallbacks(_checkConnectivity);
@@ -188,11 +201,11 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
 
         stopForeground(true);
 
-        NotificationManager nm =
-                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationManager nm = Helper.getSystemService(this, NotificationManager.class);
         nm.cancel(NotificationHelper.NOTIFICATION_SEND);
 
         super.onDestroy();
+        CoalMine.watch(this, this.getClass().getName() + "#onDestroy");
     }
 
     @Override
@@ -204,8 +217,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         super.onStartCommand(intent, flags, startId);
-        startForeground(NotificationHelper.NOTIFICATION_SEND,
-                getNotificationService().build());
+        startForeground(NotificationHelper.NOTIFICATION_SEND, getNotificationService(false));
 
         Log.i("Send intent=" + intent);
         Log.logExtras(intent);
@@ -213,7 +225,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
         return START_STICKY;
     }
 
-    NotificationCompat.Builder getNotificationService() {
+    private Notification getNotificationService(boolean alert) {
         NotificationCompat.Builder builder =
                 new NotificationCompat.Builder(this, "send")
                         .setSmallIcon(R.drawable.baseline_send_white_24)
@@ -221,12 +233,13 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                         .setContentIntent(getPendingIntent(this))
                         .setAutoCancel(false)
                         .setShowWhen(true)
-                        .setOnlyAlertOnce(true)
+                        .setOnlyAlertOnce(!alert)
                         .setDefaults(0) // disable sound on pre Android 8
-                        .setLocalOnly(true)
                         .setPriority(NotificationCompat.PRIORITY_MIN)
                         .setCategory(NotificationCompat.CATEGORY_SERVICE)
-                        .setVisibility(NotificationCompat.VISIBILITY_SECRET);
+                        .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+                        .setLocalOnly(true)
+                        .setOngoing(true);
 
         if (lastUnsent != null && lastUnsent.count != null)
             builder.setContentText(getResources().getQuantityString(
@@ -238,7 +251,23 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
         if (lastProgress >= 0)
             builder.setProgress(100, lastProgress, false);
 
-        return builder;
+        if (!lastSuitable) {
+            Intent manage = new Intent(this, ActivitySetup.class)
+                    .setAction("connection")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    .putExtra("tab", "connection");
+            PendingIntent piManage = PendingIntentCompat.getActivity(
+                    this, ActivitySetup.PI_CONNECTION, manage, PendingIntent.FLAG_UPDATE_CURRENT);
+            NotificationCompat.Action.Builder actionManage = new NotificationCompat.Action.Builder(
+                    R.drawable.twotone_settings_24,
+                    getString(R.string.title_setup_manage),
+                    piManage);
+            builder.addAction(actionManage.build());
+        }
+
+        Notification notification = builder.build();
+        notification.flags |= Notification.FLAG_NO_CLEAR;
+        return notification;
     }
 
     NotificationCompat.Builder getNotificationError(String recipient, Throwable ex, int tries_left) {
@@ -270,7 +299,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
     private static PendingIntent getPendingIntent(Context context) {
         Intent intent = new Intent(context, ActivityView.class);
         intent.setAction("outbox");
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         return PendingIntentCompat.getActivity(
                 context, ActivityView.PI_OUTBOX, intent, PendingIntent.FLAG_UPDATE_CURRENT);
     }
@@ -332,9 +361,9 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
 
                 try {
                     NotificationManager nm =
-                            (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                    nm.notify(NotificationHelper.NOTIFICATION_SEND,
-                            getNotificationService().build());
+                            Helper.getSystemService(ServiceSend.this, NotificationManager.class);
+                    if (NotificationHelper.areNotificationsEnabled(nm))
+                        nm.notify(NotificationHelper.NOTIFICATION_SEND, getNotificationService(false));
                 } catch (Throwable ex) {
                     Log.w(ex);
                 }
@@ -350,8 +379,9 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
     };
 
     private void processOperations(List<EntityOperation> ops) {
+        long start = new Date().getTime();
         try {
-            wlOutbox.acquire();
+            wlOutbox.acquire(Helper.WAKELOCK_MAX);
 
             DB db = DB.getInstance(this);
             EntityFolder outbox = db.folder().getOutbox();
@@ -366,6 +396,10 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                         break;
 
                     EntityOperation op = ops.get(0);
+                    if (db.operation().getOperation(op.id) == null) {
+                        ops.remove(op);
+                        continue;
+                    }
 
                     EntityMessage message = null;
                     if (op.message != null)
@@ -391,7 +425,6 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                         crumb.put("folder", op.folder + ":outbox");
                         if (op.message != null)
                             crumb.put("message", Long.toString(op.message));
-                        crumb.put("free", Integer.toString(Log.getFreeMemMb()));
                         Log.breadcrumb("operation", crumb);
 
                         switch (op.name) {
@@ -432,11 +465,48 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
 
                             try {
                                 int tries_left = (unrecoverable ? 0 : RETRY_MAX - op.tries);
-                                NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                                nm.notify("send:" + message.id,
-                                        NotificationHelper.NOTIFICATION_TAGGED,
-                                        getNotificationError(
-                                                MessageHelper.formatAddressesShort(message.to), ex, tries_left).build());
+                                NotificationManager nm = Helper.getSystemService(this, NotificationManager.class);
+                                if (NotificationHelper.areNotificationsEnabled(nm)) {
+                                    NotificationCompat.Builder builder = getNotificationError(
+                                            MessageHelper.formatAddressesShort(message.to), ex, tries_left);
+
+                                    if (ex instanceof AuthenticationFailedException &&
+                                            ex.getMessage() != null &&
+                                            ex.getMessage().contains("535 5.7.3 Authentication unsuccessful")) {
+                                        EntityIdentity identity = db.identity().getIdentity(message.identity);
+                                        if (identity == null) {
+                                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(Helper.SUPPORT_URI))
+                                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                            PendingIntent piFix = PendingIntentCompat.getActivity(
+                                                    this, PI_FIX, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+                                            builder.setContentIntent(piFix);
+                                        } else {
+                                            EntityAccount account = db.account().getAccount(identity.account);
+                                            int protocol = (account == null ? -1 : account.protocol);
+
+                                            Intent intent = new Intent(this, ActivityError.class);
+                                            intent.setAction("535:" + identity.id);
+                                            intent.putExtra("title", ex.getMessage());
+                                            intent.putExtra("message", Log.formatThrowable(ex, "\n", false));
+                                            intent.putExtra("provider", "outlookgraph");
+                                            intent.putExtra("account", identity.account);
+                                            intent.putExtra("protocol", protocol);
+                                            intent.putExtra("identity", identity.id);
+                                            intent.putExtra("authorize", true);
+                                            intent.putExtra("personal", identity.name);
+                                            intent.putExtra("address", identity.user);
+                                            intent.putExtra("faq", 14);
+                                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                            PendingIntent pi = PendingIntentCompat.getActivity(
+                                                    this, ActivityError.PI_ERROR, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+                                            builder.setContentIntent(pi);
+                                        }
+                                    }
+
+                                    nm.notify("send:" + message.id,
+                                            NotificationHelper.NOTIFICATION_TAGGED,
+                                            builder.build());
+                                }
                             } catch (Throwable ex1) {
                                 Log.w(ex1);
                             }
@@ -462,12 +532,15 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                 db.folder().setFolderSyncState(outbox.id, null);
             }
         } finally {
-            wlOutbox.release();
+            if (wlOutbox.isHeld())
+                wlOutbox.release();
+            else
+                Log.i("send release elapse=" + (new Date().getTime() - start));
         }
     }
 
     private void onSync(EntityFolder outbox) {
-        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationManager nm = Helper.getSystemService(this, NotificationManager.class);
 
         DB db = DB.getInstance(this);
         try {
@@ -488,6 +561,8 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                     db.operation().deleteOperation(op.id);
                 }
 
+                EntityLog.log(this, "Send restore id=" + message.id);
+
                 db.message().setMessageError(message.id, null);
                 nm.cancel("send:" + message.id, NotificationHelper.NOTIFICATION_TAGGED);
 
@@ -498,6 +573,8 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
             }
 
             db.setTransactionSuccessful();
+        } catch (IllegalArgumentException ex) {
+            Log.w(ex);
         } finally {
             db.endTransaction();
         }
@@ -505,7 +582,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
         ServiceSend.start(this);
     }
 
-    private void onSend(EntityMessage message) throws MessagingException, IOException {
+    private void onSend(EntityMessage message) throws JSONException, MessagingException, IOException {
         DB db = DB.getInstance(this);
 
         // Check if cancelled by user or by errors
@@ -519,25 +596,28 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
             db.message().setMessageLastAttempt(message.id, message.last_attempt);
         }
 
-        NotificationManager nm =
-                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationManager nm = Helper.getSystemService(this, NotificationManager.class);
+        if (NotificationHelper.areNotificationsEnabled(nm))
+            nm.notify(NotificationHelper.NOTIFICATION_SEND, getNotificationService(true));
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         boolean reply_move = prefs.getBoolean("reply_move", false);
+        boolean reply_move_inbox = prefs.getBoolean("reply_move_inbox", true);
         boolean protocol = prefs.getBoolean("protocol", false);
         boolean debug = (prefs.getBoolean("debug", false) || BuildConfig.DEBUG);
 
         if (message.identity == null)
             throw new IllegalArgumentException("Send without identity");
+        if (!message.content)
+            throw new IllegalArgumentException("Message body missing");
+
+        EntityAccount account = db.account().getAccount(message.account);
 
         EntityIdentity ident = db.identity().getIdentity(message.identity);
         if (ident == null)
             throw new IllegalArgumentException("Identity not found");
         if (!ident.synchronize)
             throw new IllegalArgumentException("Identity is disabled");
-
-        if (!message.content)
-            throw new IllegalArgumentException("Message body missing");
 
         // Update message ID
         if (message.from != null && message.from.length > 0) {
@@ -552,10 +632,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
         db.message().setMessageSent(message.id, message.sent);
 
         // Create message
-        Properties props = MessageHelper.getSessionProperties();
-        // https://javaee.github.io/javamail/docs/api/javax/mail/internet/package-summary.html
-        if (ident.unicode)
-            props.put("mail.mime.allowutf8", "true");
+        Properties props = MessageHelper.getSessionProperties(ident.unicode);
         Session isession = Session.getInstance(props, null);
         MimeMessage imessage = MessageHelper.from(this, message, ident, isession, true);
 
@@ -570,7 +647,8 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                     if (!m.ui_hide) {
                         EntityFolder folder = db.folder().getFolder(m.folder);
                         if (folder != null &&
-                                (EntityFolder.INBOX.equals(folder.type) ||
+                                ((EntityFolder.INBOX.equals(folder.type) && reply_move_inbox) ||
+                                        EntityFolder.ARCHIVE.equals(folder.type) ||
                                         EntityFolder.USER.equals(folder.type))) {
                             sent = folder;
                             break;
@@ -610,7 +688,8 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
 
                 message.id = null;
                 message.folder = sent.id;
-                message.identity = null;
+                if (account != null && account.protocol == EntityAccount.TYPE_IMAP)
+                    message.identity = null;
                 message.from = helper.getFrom();
                 message.cc = helper.getCc();
                 message.bcc = helper.getBcc();
@@ -618,7 +697,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                 message.subject = helper.getSubject(); // Subject encryption
                 message.encrypt = parts.getEncryption();
                 message.ui_encrypt = message.encrypt;
-                message.received = new Date().getTime();
+                message.received = message.sent; // now
                 message.seen = true;
                 message.ui_seen = true;
                 message.ui_hide = true;
@@ -662,121 +741,129 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
         // Create transport
         long start, end;
         Long max_size = null;
-        EmailService iservice = new EmailService(
-                this, ident.getProtocol(), ident.realm, ident.encryption, ident.insecure, debug);
-        try {
-            iservice.setUseIp(ident.use_ip, ident.ehlo);
-            iservice.setUnicode(ident.unicode);
+        if (ident.auth_type == AUTH_TYPE_GRAPH) {
+            start = new Date().getTime();
+            MicrosoftGraph.send(ServiceSend.this, ident, imessage);
+            end = new Date().getTime();
+        } else {
+            EmailService iservice = new EmailService(
+                    this, ident.getProtocol(), ident.realm, ident.encryption, ident.insecure, ident.unicode, debug);
+            try {
+                iservice.setUseIp(ident.use_ip, ident.ehlo);
+                if (!message.isSigned() && !message.isEncrypted())
+                    iservice.set8BitMime(ident.octetmime);
 
-            // 0=Read receipt
-            // 1=Delivery receipt
-            // 2=Read+delivery receipt
+                // 0=Read receipt
+                // 1=Delivery receipt
+                // 2=Read+delivery receipt
 
-            if (message.receipt_request != null && message.receipt_request) {
-                int receipt_type = prefs.getInt("receipt_type", 2);
-                if (receipt_type == 1 || receipt_type == 2) // Delivery receipt
-                    iservice.setDsnNotify("SUCCESS,FAILURE,DELAY");
-            }
+                if (message.receipt_request != null && message.receipt_request) {
+                    int receipt_type = prefs.getInt("receipt_type", 2);
+                    if (receipt_type == 1 || receipt_type == 2) // Delivery receipt
+                        iservice.setDsnNotify("SUCCESS,FAILURE,DELAY");
+                }
 
-            // Connect transport
-            db.identity().setIdentityState(ident.id, "connecting");
-            iservice.connect(ident);
-            if (BuildConfig.DEBUG && false)
-                throw new IOException("Test");
-            db.identity().setIdentityState(ident.id, "connected");
+                // Connect transport
+                db.identity().setIdentityState(ident.id, "connecting");
+                iservice.connect(ident);
+                if (BuildConfig.DEBUG && false)
+                    throw new IOException("Test");
+                db.identity().setIdentityState(ident.id, "connected");
 
-            if (ident.max_size == null)
                 max_size = iservice.getMaxSize();
 
-            List<Address> recipients = new ArrayList<>();
-            if (message.headers == null || !Boolean.TRUE.equals(message.resend)) {
-                Address[] all = imessage.getAllRecipients();
-                if (all != null)
-                    recipients.addAll(Arrays.asList(all));
-            } else {
-                String to = imessage.getHeader("Resent-To", ",");
-                if (to != null)
-                    for (Address a : InternetAddress.parse(to))
-                        recipients.add(a);
+                List<Address> recipients = new ArrayList<>();
+                if (message.headers == null || !Boolean.TRUE.equals(message.resend)) {
+                    Address[] all = imessage.getAllRecipients();
+                    if (all != null)
+                        recipients.addAll(Arrays.asList(all));
+                } else {
+                    String to = imessage.getHeader("Resent-To", ",");
+                    if (to != null)
+                        for (Address a : InternetAddress.parse(to))
+                            recipients.add(a);
 
-                String cc = imessage.getHeader("Resent-Cc", ",");
-                if (cc != null)
-                    for (Address a : InternetAddress.parse(cc))
-                        recipients.add(a);
+                    String cc = imessage.getHeader("Resent-Cc", ",");
+                    if (cc != null)
+                        for (Address a : InternetAddress.parse(cc))
+                            recipients.add(a);
 
-                String bcc = imessage.getHeader("Resent-Bcc", ",");
-                if (bcc != null)
-                    for (Address a : InternetAddress.parse(bcc))
-                        recipients.add(a);
-            }
+                    String bcc = imessage.getHeader("Resent-Bcc", ",");
+                    if (bcc != null)
+                        for (Address a : InternetAddress.parse(bcc))
+                            recipients.add(a);
+                }
 
-            if (protocol && BuildConfig.DEBUG) {
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                imessage.writeTo(bos);
-                for (String line : bos.toString().split("\n"))
-                    EntityLog.log(this, line);
-            }
+                if (protocol && BuildConfig.DEBUG) {
+                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                    imessage.writeTo(bos);
+                    for (String line : bos.toString().split("\n"))
+                        EntityLog.log(this, line);
+                }
 
-            String via = "via " + ident.host + "/" + ident.user +
-                    " recipients=" + TextUtils.join(", ", recipients);
+                String via = "via " + ident.host + "/" + ident.user +
+                        " recipients=" + TextUtils.join(", ", recipients);
 
-            iservice.setReporter(new TraceOutputStream.IReport() {
-                private int progress = -1;
-                private long last = SystemClock.elapsedRealtime();
+                iservice.setReporter(new TraceOutputStream.IReport() {
+                    private int progress = -1;
+                    private long last = SystemClock.elapsedRealtime();
 
-                @Override
-                public void report(int pos, int total) {
-                    int p = (total == 0 ? 0 : 100 * pos / total);
-                    if (p > progress) {
-                        progress = p;
-                        long now = SystemClock.elapsedRealtime();
-                        if (now > last + PROGRESS_UPDATE_INTERVAL) {
-                            last = now;
-                            lastProgress = progress;
-                            nm.notify(NotificationHelper.NOTIFICATION_SEND, getNotificationService().build());
+                    @Override
+                    public void report(int pos, int total) {
+                        int p = (total == 0 ? 0 : 100 * pos / total);
+                        if (p > progress) {
+                            progress = p;
+                            long now = SystemClock.elapsedRealtime();
+                            if (now > last + PROGRESS_UPDATE_INTERVAL) {
+                                last = now;
+                                lastProgress = progress;
+                                if (NotificationHelper.areNotificationsEnabled(nm))
+                                    nm.notify(NotificationHelper.NOTIFICATION_SEND, getNotificationService(false));
+                            }
                         }
                     }
+                });
+
+                // Send message
+                EntityLog.log(this, "Sending " + via);
+                start = new Date().getTime();
+                iservice.getTransport().sendMessage(imessage, recipients.toArray(new Address[0]));
+                end = new Date().getTime();
+                EntityLog.log(this, "Sent " + via + " elapse=" + (end - start) + " ms");
+            } catch (MessagingException ex) {
+                iservice.dump(ident.email);
+                Log.e(ex);
+
+                if (ex instanceof SMTPSendFailedException) {
+                    SMTPSendFailedException sem = (SMTPSendFailedException) ex;
+                    ex = new SMTPSendFailedException(
+                            sem.getCommand(),
+                            sem.getReturnCode(),
+                            getString(R.string.title_service_auth, sem.getMessage()),
+                            sem.getNextException(),
+                            sem.getValidSentAddresses(),
+                            sem.getValidUnsentAddresses(),
+                            sem.getInvalidAddresses());
                 }
-            });
 
-            // Send message
-            EntityLog.log(this, "Sending " + via);
-            start = new Date().getTime();
-            iservice.getTransport().sendMessage(imessage, recipients.toArray(new Address[0]));
-            end = new Date().getTime();
-            EntityLog.log(this, "Sent " + via + " elapse=" + (end - start) + " ms");
-        } catch (MessagingException ex) {
-            iservice.dump();
-            Log.e(ex);
+                if (sid != null)
+                    db.message().deleteMessage(sid);
 
-            if (ex instanceof SMTPSendFailedException) {
-                SMTPSendFailedException sem = (SMTPSendFailedException) ex;
-                ex = new SMTPSendFailedException(
-                        sem.getCommand(),
-                        sem.getReturnCode(),
-                        getString(R.string.title_service_auth, sem.getMessage()),
-                        sem.getNextException(),
-                        sem.getValidSentAddresses(),
-                        sem.getValidUnsentAddresses(),
-                        sem.getInvalidAddresses());
+                db.identity().setIdentityError(ident.id, Log.formatThrowable(ex));
+
+                throw ex;
+            } catch (Throwable ex) {
+                iservice.dump(ident.email);
+                throw ex;
+            } finally {
+                iservice.close();
+                if (lastProgress >= 0) {
+                    lastProgress = -1;
+                    if (NotificationHelper.areNotificationsEnabled(nm))
+                        nm.notify(NotificationHelper.NOTIFICATION_SEND, getNotificationService(false));
+                }
+                db.identity().setIdentityState(ident.id, null);
             }
-
-            if (sid != null)
-                db.message().deleteMessage(sid);
-
-            db.identity().setIdentityError(ident.id, Log.formatThrowable(ex));
-
-            throw ex;
-        } catch (Throwable ex) {
-            iservice.dump();
-            throw ex;
-        } finally {
-            iservice.close();
-            if (lastProgress >= 0) {
-                lastProgress = -1;
-                nm.notify(NotificationHelper.NOTIFICATION_SEND, getNotificationService().build());
-            }
-            db.identity().setIdentityState(ident.id, null);
         }
 
         try {
@@ -813,8 +900,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
             }
 
             // Update identity
-            if (max_size != null)
-                db.identity().setIdentityMaxSize(ident.id, max_size);
+            db.identity().setIdentityMaxSize(ident.id, max_size);
             db.identity().setIdentityConnected(ident.id, new Date().getTime());
             db.identity().setIdentityError(ident.id, null);
 
@@ -825,6 +911,11 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
 
         nm.cancel("send:" + message.id, NotificationHelper.NOTIFICATION_TAGGED);
 
+        // Play sent sound
+        String sound = prefs.getString("sound_sent", null);
+        if (!TextUtils.isEmpty(sound))
+            MediaPlayerHelper.queue(ServiceSend.this, sound);
+
         // Check sent message
         if (sid != null) {
             try {
@@ -833,19 +924,54 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                 // Message could have been deleted
                 EntityMessage orphan = db.message().getMessage(sid);
                 if (orphan != null)
-                    EntityOperation.queue(this, orphan, EntityOperation.EXISTS);
+                    if (account == null || account.protocol == EntityAccount.TYPE_IMAP)
+                        EntityOperation.queue(this, orphan, EntityOperation.EXISTS);
+                    else if (sent != null)
+                        EntityContact.received(this, account, sent, message);
 
                 db.setTransactionSuccessful();
             } finally {
                 db.endTransaction();
             }
+
+            checkICalendar(sid);
         }
 
         ServiceSynchronize.eval(this, "sent");
     }
 
+    private void checkICalendar(long sid) {
+        boolean permission = Helper.hasPermission(this, Manifest.permission.WRITE_CALENDAR);
+        if (!permission)
+            return;
+
+        DB db = DB.getInstance(this);
+        List<EntityAttachment> attachments = db.attachment().getAttachments(sid);
+        if (attachments == null || attachments.size() == 0)
+            return;
+
+        for (EntityAttachment attachment : attachments)
+            if ("text/calendar".equals(attachment.type))
+                try {
+                    File ics = attachment.getFile(this);
+                    ICalendar icalendar = Biweekly.parse(ics).first();
+
+                    Method method = icalendar.getMethod();
+                    if (method == null || !method.isReply())
+                        return;
+
+                    VEvent event = icalendar.getEvents().get(0);
+                    EntityMessage message = db.message().getMessage(sid);
+                    CalendarHelper.update(this, event, message);
+
+                    break;
+                } catch (Throwable ex) {
+                    Log.e(ex);
+                }
+    }
+
     static void boot(final Context context) {
-        executor.submit(new Runnable() {
+        Helper.getSerialExecutor().submit(new Runnable() {
             @Override
             public void run() {
                 try {
@@ -888,7 +1014,7 @@ public class ServiceSend extends ServiceBase implements SharedPreferences.OnShar
                 context, PI_SEND, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
         long trigger = System.currentTimeMillis() + delay;
-        AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        AlarmManager am = Helper.getSystemService(context, AlarmManager.class);
         am.cancel(pi);
         AlarmManagerCompatEx.setAndAllowWhileIdle(context, am, AlarmManager.RTC_WAKEUP, trigger, pi);
     }

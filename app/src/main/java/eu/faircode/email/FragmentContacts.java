@@ -16,16 +16,13 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.app.Activity.RESULT_OK;
 
-import android.Manifest;
-import android.app.Dialog;
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -41,7 +38,6 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.SearchView;
 import androidx.constraintlayout.widget.Group;
 import androidx.lifecycle.Lifecycle;
@@ -51,13 +47,14 @@ import androidx.lifecycle.OnLifecycleEvent;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
 import java.io.BufferedInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -70,42 +67,56 @@ import ezvcard.io.text.VCardReader;
 import ezvcard.io.text.VCardWriter;
 import ezvcard.property.Email;
 import ezvcard.property.FormattedName;
+import ezvcard.property.RawProperty;
 
 public class FragmentContacts extends FragmentBase {
+    private View view;
     private RecyclerView rvContacts;
     private ContentLoadingProgressBar pbWait;
     private Group grpReady;
+    private FloatingActionButton fabAdd;
 
-    private long account;
+    private Long account = null;
     private boolean junk = false;
     private String searching = null;
+    private long selected_account;
+
     private AdapterContact adapter;
 
-    private static final int REQUEST_ACCOUNT = 1;
-    private static final int REQUEST_IMPORT = 2;
-    private static final int REQUEST_EXPORT = 3;
-    static final int REQUEST_EDIT_NAME = 4;
+    private static final int REQUEST_FILTER = 1;
+    private static final int REQUEST_ACCOUNT = 2;
+    private static final int REQUEST_IMPORT = 3;
+    private static final int REQUEST_EXPORT = 4;
+    static final int REQUEST_EDIT_ACCOUNT = 5;
+    static final int REQUEST_EDIT_CONTACT = 6;
+
+    private static final String VCF_TYPE = "X-FAIREMAIL-TYPE";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         Bundle args = getArguments();
-        this.junk = (args != null && args.getBoolean("junk"));
+        if (args == null)
+            args = new Bundle();
+
+        this.account = (args.containsKey("account") ? args.getLong("account") : null);
+        this.junk = args.getBoolean("junk");
     }
 
     @Override
     @Nullable
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        setSubtitle(junk ? R.string.title_block_sender : R.string.menu_contacts);
+        setSubtitle(junk ? R.string.title_blocked_senders : R.string.menu_contacts);
         setHasOptionsMenu(true);
 
-        View view = inflater.inflate(R.layout.fragment_contacts, container, false);
+        view = inflater.inflate(R.layout.fragment_contacts, container, false);
 
         // Get controls
         rvContacts = view.findViewById(R.id.rvContacts);
         pbWait = view.findViewById(R.id.pbWait);
         grpReady = view.findViewById(R.id.grpReady);
+        fabAdd = view.findViewById(R.id.fabAdd);
 
         // Wire controls
 
@@ -125,9 +136,10 @@ public class FragmentContacts extends FragmentBase {
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
-        outState.putLong("fair:account", account);
+        outState.putLong("fair:account", account == null ? -1L : account);
         outState.putBoolean("fair:junk", junk);
         outState.putString("fair:searching", searching);
+        outState.putLong("fair:selected_account", selected_account);
         super.onSaveInstanceState(outState);
     }
 
@@ -139,12 +151,32 @@ public class FragmentContacts extends FragmentBase {
             account = savedInstanceState.getLong("fair:account");
             junk = savedInstanceState.getBoolean("fair:junk");
             searching = savedInstanceState.getString("fair:searching");
+            selected_account = savedInstanceState.getLong("fair:selected_account");
+
+            if (account < 0)
+                account = null;
         }
-        onMenuJunk(junk);
+
+        adapter.filter(account, junk);
         adapter.search(searching);
 
-        DB db = DB.getInstance(getContext());
-        db.contact().liveContacts().observe(getViewLifecycleOwner(), new Observer<List<TupleContactEx>>() {
+        fabAdd.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (account == null) {
+                    FragmentDialogSelectAccount fragment = new FragmentDialogSelectAccount();
+                    fragment.setArguments(new Bundle());
+                    fragment.setTargetFragment(FragmentContacts.this, REQUEST_EDIT_ACCOUNT);
+                    fragment.show(getParentFragmentManager(), "contact:account");
+                } else
+                    onAdd(account);
+            }
+        });
+
+        final Context context = getContext();
+        DB db = DB.getInstance(context);
+
+        db.contact().liveContacts(null).observe(getViewLifecycleOwner(), new Observer<List<TupleContactEx>>() {
             @Override
             public void onChanged(List<TupleContactEx> contacts) {
                 if (contacts == null)
@@ -157,7 +189,7 @@ public class FragmentContacts extends FragmentBase {
             }
         });
 
-        Shortcuts.update(getContext(), getViewLifecycleOwner());
+        Shortcuts.update(context, getViewLifecycleOwner());
     }
 
     @Override
@@ -168,10 +200,21 @@ public class FragmentContacts extends FragmentBase {
         SearchView searchView = (SearchView) menuSearch.getActionView();
         searchView.setQueryHint(getString(R.string.title_search));
 
-        if (!TextUtils.isEmpty(searching)) {
-            menuSearch.expandActionView();
-            searchView.setQuery(searching, true);
-        }
+        final String search = searching;
+        view.post(new RunnableEx("contacts:search") {
+            @Override
+            public void delegate() {
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                    return;
+
+                if (TextUtils.isEmpty(search))
+                    menuSearch.collapseActionView();
+                else {
+                    menuSearch.expandActionView();
+                    searchView.setQuery(search, true);
+                }
+            }
+        });
 
         getViewLifecycleOwner().getLifecycle().addObserver(new LifecycleObserver() {
             @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
@@ -184,7 +227,7 @@ public class FragmentContacts extends FragmentBase {
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextChange(String newText) {
-                if (getView() != null) {
+                if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
                     searching = newText;
                     adapter.search(newText);
                 }
@@ -193,8 +236,10 @@ public class FragmentContacts extends FragmentBase {
 
             @Override
             public boolean onQueryTextSubmit(String query) {
-                searching = query;
-                adapter.search(query);
+                if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
+                    searching = query;
+                    adapter.search(query);
+                }
                 return true;
             }
         });
@@ -218,6 +263,9 @@ public class FragmentContacts extends FragmentBase {
             item.setChecked(!item.isChecked());
             onMenuJunk(item.isChecked());
             return true;
+        } else if (itemId == R.id.menu_account) {
+            onMenuAccount();
+            return true;
         } else if (itemId == R.id.menu_import) {
             onMenuVcard(false);
             return true;
@@ -237,24 +285,50 @@ public class FragmentContacts extends FragmentBase {
 
     private void onMenuJunk(boolean junk) {
         this.junk = junk;
-        setSubtitle(junk ? R.string.title_block_sender : R.string.menu_contacts);
-        adapter.filter(junk
-                ? Arrays.asList(EntityContact.TYPE_JUNK, EntityContact.TYPE_NO_JUNK)
-                : new ArrayList<>());
+        setSubtitle(junk ? R.string.title_blocked_senders : R.string.menu_contacts);
+        adapter.filter(account, junk);
+    }
+
+    private void onMenuAccount() {
+        FragmentDialogSelectAccount fragment = new FragmentDialogSelectAccount();
+        fragment.setArguments(new Bundle());
+        fragment.setTargetFragment(this, REQUEST_FILTER);
+        fragment.show(getParentFragmentManager(), "contacts:select");
     }
 
     private void onMenuVcard(boolean export) {
         Bundle args = new Bundle();
         args.putBoolean("export", export);
-
-        FragmentDialogSelectAccount fragment = new FragmentDialogSelectAccount();
-        fragment.setArguments(args);
-        fragment.setTargetFragment(this, REQUEST_ACCOUNT);
-        fragment.show(getParentFragmentManager(), "messages:accounts");
+        if (account == null) {
+            FragmentDialogSelectAccount fragment = new FragmentDialogSelectAccount();
+            fragment.setArguments(args);
+            fragment.setTargetFragment(this, REQUEST_ACCOUNT);
+            fragment.show(getParentFragmentManager(), "contacts:vcard");
+        } else {
+            args.putLong("account", account);
+            onAccountSelected(args);
+        }
     }
 
     private void onMenuDeleteAll() {
-        new FragmentDelete().show(getParentFragmentManager(), "contacts:delete");
+        Bundle args = new Bundle();
+        args.putLong("account", account == null ? -1L : account);
+        args.putBoolean("junk", junk);
+
+        FragmentDialogContactDelete fragment = new FragmentDialogContactDelete();
+        fragment.setArguments(args);
+        fragment.show(getParentFragmentManager(), "contacts:delete");
+    }
+
+    private void onAdd(long account) {
+        Bundle args = new Bundle();
+        args.putInt("type", junk ? EntityContact.TYPE_JUNK : EntityContact.TYPE_TO);
+        args.putLong("account", account);
+
+        FragmentDialogContactEdit fragment = new FragmentDialogContactEdit();
+        fragment.setArguments(args);
+        fragment.setTargetFragment(this, REQUEST_EDIT_CONTACT);
+        fragment.show(getParentFragmentManager(), "contacts:add");
     }
 
     @Override
@@ -263,6 +337,10 @@ public class FragmentContacts extends FragmentBase {
 
         try {
             switch (requestCode) {
+                case REQUEST_FILTER:
+                    if (resultCode == RESULT_OK && data != null)
+                        onAccountFilter(data.getBundleExtra("args"));
+                    break;
                 case REQUEST_ACCOUNT:
                     if (resultCode == RESULT_OK && data != null)
                         onAccountSelected(data.getBundleExtra("args"));
@@ -275,9 +353,13 @@ public class FragmentContacts extends FragmentBase {
                     if (resultCode == RESULT_OK && data != null)
                         handleExport(data);
                     break;
-                case REQUEST_EDIT_NAME:
+                case REQUEST_EDIT_ACCOUNT:
                     if (resultCode == RESULT_OK && data != null)
-                        onEditName(data.getBundleExtra("args"));
+                        onAdd(data.getBundleExtra("args").getLong("account"));
+                    break;
+                case REQUEST_EDIT_CONTACT:
+                    if (resultCode == RESULT_OK && data != null)
+                        onEditContact(data.getBundleExtra("args"));
                     break;
             }
         } catch (Throwable ex) {
@@ -285,8 +367,13 @@ public class FragmentContacts extends FragmentBase {
         }
     }
 
-    private void onAccountSelected(Bundle args) {
+    private void onAccountFilter(Bundle args) {
         account = args.getLong("account");
+        adapter.filter(account, junk);
+    }
+
+    private void onAccountSelected(Bundle args) {
+        selected_account = args.getLong("account");
         boolean export = args.getBoolean("export");
 
         final Context context = getContext();
@@ -295,13 +382,15 @@ public class FragmentContacts extends FragmentBase {
         if (export) {
             Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
             intent.setType("*/*");
             intent.putExtra(Intent.EXTRA_TITLE, "fairemail.vcf");
-            Helper.openAdvanced(intent);
+            Helper.openAdvanced(context, intent);
             startActivityForResult(Helper.getChooser(context, intent), REQUEST_EXPORT);
         } else {
             Intent open = new Intent(Intent.ACTION_GET_CONTENT);
             open.addCategory(Intent.CATEGORY_OPENABLE);
+            open.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             open.setType("*/*");
             if (open.resolveActivity(pm) == null)  // system whitelisted
                 ToastEx.makeText(context, R.string.title_no_saf, Toast.LENGTH_LONG).show();
@@ -315,12 +404,21 @@ public class FragmentContacts extends FragmentBase {
 
         Bundle args = new Bundle();
         args.putParcelable("uri", uri);
-        args.putLong("account", account);
+        args.putLong("account", selected_account);
 
         new SimpleTask<Void>() {
+            private Toast toast = null;
+
             @Override
             protected void onPreExecute(Bundle args) {
-                ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG).show();
+                toast = ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG);
+                toast.show();
+            }
+
+            @Override
+            protected void onPostExecute(Bundle args) {
+                if (toast != null)
+                    toast.cancel();
             }
 
             @Override
@@ -328,29 +426,40 @@ public class FragmentContacts extends FragmentBase {
                 Uri uri = args.getParcelable("uri");
                 long account = args.getLong("account");
 
-                if (uri == null)
-                    throw new FileNotFoundException();
-
-                if (!"content".equals(uri.getScheme()) &&
-                        !Helper.hasPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE)) {
-                    Log.w("Import uri=" + uri);
-                    throw new IllegalArgumentException(context.getString(R.string.title_no_stream));
-                }
+                NoStreamException.check(uri, context);
 
                 long now = new Date().getTime();
 
-                Log.i("Reading URI=" + uri);
+                EntityLog.log(context, "Importing " + uri +
+                        " junk=" + junk + " account=" + account);
+
+                int count = 0;
                 ContentResolver resolver = context.getContentResolver();
-                try (InputStream is = new BufferedInputStream(resolver.openInputStream(uri))) {
-                    VCardReader reader = new VCardReader(is);
+                InputStream is = resolver.openInputStream(uri);
+                if (is == null)
+                    throw new FileNotFoundException(uri.toString());
+                try (InputStream bis = new BufferedInputStream(is)) {
+                    VCardReader reader = new VCardReader(bis);
                     VCard vcard;
                     while ((vcard = reader.readNext()) != null) {
+                        Integer type = null;
+                        RawProperty xtype = vcard.getExtendedProperty(VCF_TYPE);
+                        if (xtype != null)
+                            type = Helper.parseInt(xtype.getValue());
+                        if (type == null)
+                            type = EntityContact.TYPE_TO;
+
                         List<Email> emails = vcard.getEmails();
                         if (emails == null)
                             continue;
 
                         FormattedName fn = vcard.getFormattedName();
-                        String name = (fn == null) ? null : fn.getValue();
+                        String name = (fn == null ? null : fn.getValue());
+
+                        List<String> categories = new ArrayList<>();
+                        if (vcard.getCategories() != null)
+                            categories.addAll(vcard.getCategories().getValues());
+                        String group = (categories.size() < 1 ? null : categories.get(0));
 
                         List<Address> addresses = new ArrayList<>();
                         for (Email email : emails) {
@@ -362,13 +471,17 @@ public class FragmentContacts extends FragmentBase {
 
                         EntityContact.update(context,
                                 account,
+                                null,
                                 addresses.toArray(new Address[0]),
-                                EntityContact.TYPE_TO,
+                                group,
+                                type,
                                 now);
+
+                        count += addresses.size();
                     }
                 }
 
-                Log.i("Imported contacts");
+                Log.i("Imported contacts=" + count);
 
                 return null;
             }
@@ -379,35 +492,68 @@ public class FragmentContacts extends FragmentBase {
             }
 
             @Override
-            protected void onException(Bundle args, Throwable ex) {
-                Log.unexpectedError(getParentFragmentManager(), ex);
+            protected void onDestroyed(Bundle args) {
+                if (toast != null) {
+                    toast.cancel();
+                    toast = null;
+                }
             }
-        }.execute(this, args, "setup:import");
+
+            @Override
+            protected void onException(Bundle args, Throwable ex) {
+                if (ex instanceof NoStreamException)
+                    ((NoStreamException) ex).report(getActivity());
+                else
+                    Log.unexpectedError(getParentFragmentManager(), ex);
+            }
+        }.execute(this, args, "contacts:import");
     }
 
     private void handleExport(Intent data) {
         Bundle args = new Bundle();
         args.putParcelable("uri", data.getData());
-        args.putLong("account", account);
+        args.putBoolean("junk", junk);
+        args.putLong("account", selected_account);
 
         new SimpleTask<Void>() {
+            private Toast toast = null;
+
             @Override
             protected void onPreExecute(Bundle args) {
-                ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG).show();
+                toast = ToastEx.makeText(getContext(), R.string.title_executing, Toast.LENGTH_LONG);
+                toast.show();
+            }
+
+            @Override
+            protected void onPostExecute(Bundle args) {
+                if (toast != null)
+                    toast.cancel();
             }
 
             @Override
             protected Void onExecute(Context context, Bundle args) throws Throwable {
                 Uri uri = args.getParcelable("uri");
+                boolean junk = args.getBoolean("junk");
+                long account = args.getLong("account");
 
                 if (uri == null)
                     throw new FileNotFoundException();
 
-                EntityLog.log(context, "Exporting " + uri);
+                EntityLog.log(context, "Exporting " + uri +
+                        " junk=" + junk + " account=" + account);
 
                 if (!"content".equals(uri.getScheme())) {
                     Log.w("Export uri=" + uri);
                     throw new IllegalArgumentException(context.getString(R.string.title_no_stream));
+                }
+
+                List<Integer> types = new ArrayList<>();
+                if (junk) {
+                    types.add(EntityContact.TYPE_JUNK);
+                    types.add(EntityContact.TYPE_NO_JUNK);
+                } else {
+                    types.add(EntityContact.TYPE_TO);
+                    types.add(EntityContact.TYPE_FROM);
                 }
 
                 List<VCard> vcards = new ArrayList<>();
@@ -415,23 +561,29 @@ public class FragmentContacts extends FragmentBase {
                 DB db = DB.getInstance(context);
                 List<EntityContact> contacts = db.contact().getContacts(account);
                 for (EntityContact contact : contacts)
-                    if (contact.type == EntityContact.TYPE_TO ||
-                            contact.type == EntityContact.TYPE_FROM) {
+                    if (contact.account.equals(account) &&
+                            types.contains(contact.type)) {
                         VCard vcard = new VCard();
+                        vcard.addExtendedProperty(VCF_TYPE, Integer.toString(contact.type));
                         vcard.addEmail(contact.email);
                         if (!TextUtils.isEmpty(contact.name))
                             vcard.setFormattedName(contact.name);
+                        if (!TextUtils.isEmpty(contact.group))
+                            vcard.setCategories(contact.group);
                         vcards.add(vcard);
                     }
 
                 ContentResolver resolver = context.getContentResolver();
                 try (OutputStream os = resolver.openOutputStream(uri)) {
-                    VCardWriter writer = new VCardWriter(os, VCardVersion.V3_0);
-                    for (VCard vcard : vcards)
-                        writer.write(vcard);
+                    if (os == null)
+                        throw new FileNotFoundException(uri.toString());
+                    try (VCardWriter writer = new VCardWriter(os, VCardVersion.V3_0)) {
+                        for (VCard vcard : vcards)
+                            writer.write(vcard);
+                    }
                 }
 
-                Log.i("Exported data");
+                EntityLog.log(context, "Exported contact=" + vcards.size() + "/" + contacts.size());
 
                 return null;
             }
@@ -442,63 +594,89 @@ public class FragmentContacts extends FragmentBase {
             }
 
             @Override
+            protected void onDestroyed(Bundle args) {
+                if (toast != null) {
+                    toast.cancel();
+                    toast = null;
+                }
+            }
+
+            @Override
             protected void onException(Bundle args, Throwable ex) {
                 Log.unexpectedError(getParentFragmentManager(), ex);
             }
-        }.execute(this, args, "");
+        }.execute(this, args, "contacts:export");
     }
 
-    private void onEditName(Bundle args) {
+    private void onEditContact(Bundle args) {
         new SimpleTask<Void>() {
             @Override
             protected Void onExecute(Context context, Bundle args) {
                 long id = args.getLong("id");
+                long account = args.getLong("account");
+                int type = args.getInt("type");
+                String email = args.getString("email");
                 String name = args.getString("name");
+                String group = args.getString("group");
 
+                if (TextUtils.isEmpty(email))
+                    throw new IllegalArgumentException(context.getString(R.string.title_no_email));
+                if (!Helper.EMAIL_ADDRESS.matcher(email).matches())
+                    throw new IllegalArgumentException(context.getString(R.string.title_email_invalid, email));
                 if (TextUtils.isEmpty(name))
                     name = null;
+                if (TextUtils.isEmpty(group))
+                    group = null;
 
                 DB db = DB.getInstance(context);
-                db.contact().setContactName(id, name);
+                try {
+                    db.beginTransaction();
 
+                    boolean update = false;
+                    EntityContact contact = db.contact().getContact(id);
+                    EntityContact existing = db.contact().getContact(account, type, email);
+
+                    if (contact == null) {
+                        if (existing == null)
+                            contact = new EntityContact();
+                        else {
+                            update = true;
+                            contact = existing;
+                        }
+                    } else {
+                        update = true;
+                        if (existing != null && !existing.id.equals(contact.id))
+                            db.contact().deleteContact(existing.id);
+                    }
+
+                    contact.account = account;
+                    contact.type = type;
+                    contact.email = email;
+                    contact.name = name;
+                    contact.group = group;
+                    contact.times_contacted = 0;
+                    contact.first_contacted = new Date().getTime();
+                    contact.last_contacted = contact.first_contacted;
+
+                    if (update)
+                        db.contact().updateContact(contact);
+                    else
+                        contact.id = db.contact().insertContact(contact);
+
+                    db.setTransactionSuccessful();
+                } finally {
+                    db.endTransaction();
+                }
                 return null;
             }
 
             @Override
             protected void onException(Bundle args, Throwable ex) {
-                Log.unexpectedError(getParentFragmentManager(), ex);
+                if (ex instanceof IllegalArgumentException)
+                    ToastEx.makeText(getContext(), ex.getMessage(), Toast.LENGTH_LONG).show();
+                else
+                    Log.unexpectedError(getParentFragmentManager(), ex);
             }
-        }.execute(this, args, "contact:name");
-    }
-
-    public static class FragmentDelete extends FragmentDialogBase {
-        @NonNull
-        @Override
-        public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-            return new AlertDialog.Builder(getContext())
-                    .setIcon(R.drawable.twotone_warning_24)
-                    .setTitle(getString(R.string.title_delete_contacts))
-                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            new SimpleTask<Void>() {
-                                @Override
-                                protected Void onExecute(Context context, Bundle args) {
-                                    DB db = DB.getInstance(context);
-                                    int count = db.contact().clearContacts();
-                                    Log.i("Cleared contacts=" + count);
-                                    return null;
-                                }
-
-                                @Override
-                                protected void onException(Bundle args, Throwable ex) {
-                                    Log.unexpectedError(getParentFragmentManager(), ex);
-                                }
-                            }.execute(getContext(), getActivity(), new Bundle(), "contacts:delete");
-                        }
-                    })
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .create();
-        }
+        }.execute(this, args, "contacts:name");
     }
 }

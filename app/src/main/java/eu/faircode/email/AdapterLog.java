@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -41,7 +41,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 
 public class AdapterLog extends RecyclerView.Adapter<AdapterLog.ViewHolder> {
     private Fragment parentFragment;
@@ -57,9 +56,6 @@ public class AdapterLog extends RecyclerView.Adapter<AdapterLog.ViewHolder> {
     private List<EntityLog> selected = new ArrayList<>();
 
     private DateFormat TF;
-
-    private static final ExecutorService executor =
-            Helper.getBackgroundExecutor(1, "contacts");
 
     public class ViewHolder extends RecyclerView.ViewHolder {
         private TextView tvTime;
@@ -106,7 +102,8 @@ public class AdapterLog extends RecyclerView.Adapter<AdapterLog.ViewHolder> {
 
     public void set(@NonNull List<EntityLog> logs,
                     Long account, Long folder, Long message,
-                    @NonNull List<EntityLog.Type> types) {
+                    @NonNull List<EntityLog.Type> types,
+                    Runnable callback) {
         Log.i("Set logs=" + logs.size());
 
         this.all = logs;
@@ -159,18 +156,25 @@ public class AdapterLog extends RecyclerView.Adapter<AdapterLog.ViewHolder> {
                         Log.d("Changed @" + position + " #" + count);
                     }
                 });
-                diff.dispatchUpdatesTo(AdapterLog.this);
+
+                try {
+                    diff.dispatchUpdatesTo(AdapterLog.this);
+                    if (callback != null)
+                        callback.run();
+                } catch (Throwable ex) {
+                    Log.e(ex);
+                }
             }
 
             @Override
             protected void onException(Bundle args, Throwable ex) {
                 Log.unexpectedError(parentFragment.getParentFragmentManager(), ex);
             }
-        }.setExecutor(executor).execute(context, owner, new Bundle(), "logs:filter");
+        }.serial().execute(context, owner, new Bundle(), "logs:filter");
     }
 
     public void setTypes(@NonNull List<EntityLog.Type> types) {
-        set(all, account, folder, message, types);
+        set(all, account, folder, message, types, null);
     }
 
     private static class DiffCallback extends DiffUtil.Callback {

@@ -37,10 +37,12 @@ internal class ManifestConfigLoader {
         private const val MAX_BREADCRUMBS = "$BUGSNAG_NS.MAX_BREADCRUMBS"
         private const val MAX_PERSISTED_EVENTS = "$BUGSNAG_NS.MAX_PERSISTED_EVENTS"
         private const val MAX_PERSISTED_SESSIONS = "$BUGSNAG_NS.MAX_PERSISTED_SESSIONS"
+        private const val MAX_REPORTED_THREADS = "$BUGSNAG_NS.MAX_REPORTED_THREADS"
         private const val LAUNCH_CRASH_THRESHOLD_MS = "$BUGSNAG_NS.LAUNCH_CRASH_THRESHOLD_MS"
         private const val LAUNCH_DURATION_MILLIS = "$BUGSNAG_NS.LAUNCH_DURATION_MILLIS"
         private const val SEND_LAUNCH_CRASHES_SYNCHRONOUSLY = "$BUGSNAG_NS.SEND_LAUNCH_CRASHES_SYNCHRONOUSLY"
         private const val APP_TYPE = "$BUGSNAG_NS.APP_TYPE"
+        private const val ATTEMPT_DELIVERY_ON_CRASH = "$BUGSNAG_NS.ATTEMPT_DELIVERY_ON_CRASH"
     }
 
     fun load(ctx: Context, userSuppliedApiKey: String?): Configuration {
@@ -77,6 +79,7 @@ internal class ManifestConfigLoader {
                 maxBreadcrumbs = data.getInt(MAX_BREADCRUMBS, maxBreadcrumbs)
                 maxPersistedEvents = data.getInt(MAX_PERSISTED_EVENTS, maxPersistedEvents)
                 maxPersistedSessions = data.getInt(MAX_PERSISTED_SESSIONS, maxPersistedSessions)
+                maxReportedThreads = data.getInt(MAX_REPORTED_THREADS, maxReportedThreads)
                 launchDurationMillis = data.getInt(
                     LAUNCH_CRASH_THRESHOLD_MS,
                     launchDurationMillis.toInt()
@@ -88,6 +91,10 @@ internal class ManifestConfigLoader {
                 sendLaunchCrashesSynchronously = data.getBoolean(
                     SEND_LAUNCH_CRASHES_SYNCHRONOUSLY,
                     sendLaunchCrashesSynchronously
+                )
+                isAttemptDeliveryOnCrash = data.getBoolean(
+                    ATTEMPT_DELIVERY_ON_CRASH,
+                    isAttemptDeliveryOnCrash
                 )
             }
         }

@@ -19,7 +19,7 @@
             android:focusable="true"
             android:focusableInTouchMode="true">
 
-            <eu.faircode.email.FixedTextView
+            <TextView
                 android:id="@+id/tvFolder"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"

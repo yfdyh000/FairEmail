@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -25,9 +25,11 @@ import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -50,7 +52,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.constraintlayout.widget.Group;
 import androidx.fragment.app.FragmentActivity;
-import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceManager;
 
 import com.flask.colorpicker.ColorPickerView;
@@ -62,36 +63,47 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class FragmentOptionsDisplay extends FragmentBase implements SharedPreferences.OnSharedPreferenceChangeListener {
+    private View view;
+    private ImageButton ibHelp;
     private Button btnTheme;
     private Spinner spStartup;
+    private SwitchCompat swDate;
+    private SwitchCompat swDateWeek;
+    private SwitchCompat swDateFixed;
+    private SwitchCompat swDateBold;
+    private SwitchCompat swDateTime;
+    private SwitchCompat swCategory;
     private SwitchCompat swCards;
     private SwitchCompat swBeige;
     private SwitchCompat swTabularBackground;
     private SwitchCompat swShadow;
+    private SwitchCompat swShadowBorder;
     private SwitchCompat swShadowHighlight;
     private SwitchCompat swTabularDividers;
-    private SwitchCompat swCategory;
-    private SwitchCompat swDate;
-    private SwitchCompat swDateFixed;
-    private SwitchCompat swDateBold;
-    private SwitchCompat swNavBarColorize;
     private SwitchCompat swPortrait2;
     private SwitchCompat swPortrait2c;
     private Spinner spPortraitMinSize;
     private SwitchCompat swLandscape;
     private Spinner spLandscapeMinSize;
     private SwitchCompat swClosePane;
+    private SwitchCompat swOpenPane;
     private TextView tvColumnWidth;
     private SeekBar sbColumnWidth;
+    private SwitchCompat swHideToolbar;
     private SwitchCompat swNavOptions;
+    private SwitchCompat swNavCategories;
+    private SwitchCompat swNavLastSync;
     private SwitchCompat swNavMessageCount;
     private SwitchCompat swNavUnseenDrafts;
+    private SwitchCompat swNavPinnedCount;
+    private SwitchCompat swNavBarColorize;
 
     private SwitchCompat swThreading;
     private SwitchCompat swThreadingUnread;
     private SwitchCompat swIndentation;
     private SwitchCompat swSeekbar;
     private SwitchCompat swActionbar;
+    private SwitchCompat swActionbarSwap;
     private SwitchCompat swActionbarColor;
 
     private SwitchCompat swHighlightUnread;
@@ -104,7 +116,9 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
     private TextView tvBimiUnverified;
     private SwitchCompat swBimi;
     private SwitchCompat swGravatars;
-    private TextView tvGravatarsHint;
+    private TextView tvGravatarPrivacy;
+    private SwitchCompat swLibravatars;
+    private TextView tvLibravatarPrivacy;
     private SwitchCompat swFavicons;
     private SwitchCompat swFaviconsPartial;
     private TextView tvFaviconsHint;
@@ -143,6 +157,7 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
     private SwitchCompat swPreviewItalic;
     private Spinner spPreviewLines;
     private TextView tvPreviewLinesHint;
+    private SwitchCompat swAlignHeader;
 
     private SwitchCompat swAddresses;
     private TextView tvMessageZoom;
@@ -151,51 +166,60 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
     private SwitchCompat swOverrideWidth;
 
     private SwitchCompat swContrast;
+    private SwitchCompat swHyphenation;
+    private TextView tvHyphenationHint;
     private Spinner spDisplayFont;
     private SwitchCompat swMonospacedPre;
-    private SwitchCompat swBackgroundColor;
-    private SwitchCompat swTextColor;
-    private SwitchCompat swTextSize;
-    private SwitchCompat swTextFont;
-    private SwitchCompat swTextAlign;
     private SwitchCompat swTextSeparators;
     private SwitchCompat swCollapseQuotes;
     private SwitchCompat swImagesPlaceholders;
     private SwitchCompat swImagesInline;
     private SwitchCompat swButtonExtra;
+    private SwitchCompat swUnzip;
+    private TextView tvUnzipHint;
     private SwitchCompat swAttachmentsAlt;
     private SwitchCompat swThumbnails;
 
+    private SwitchCompat swListCount;
     private SwitchCompat swBundledFonts;
     private SwitchCompat swParseClasses;
+    private SwitchCompat swBackgroundColor;
+    private SwitchCompat swTextColor;
+    private SwitchCompat swTextSize;
+    private SwitchCompat swTextFont;
+    private SwitchCompat swTextAlign;
+    private SwitchCompat swTextTitles;
     private SwitchCompat swAuthentication;
     private SwitchCompat swAuthenticationIndicator;
 
-    private Group grpGravatars;
+    private Group grpAvatar;
+    private Group grpUnzip;
 
     private NumberFormat NF = NumberFormat.getNumberInstance();
 
     private final static String[] RESET_OPTIONS = new String[]{
             "theme", "startup",
-            "cards", "beige", "tabular_card_bg", "shadow_unread", "shadow_highlight", "dividers",
-            "group_category", "date", "date_fixed", "date_bold",
-            "portrait2", "portrait2c", "landscape", "close_pane", "column_width",
-            "nav_options", "nav_count", "nav_unseen_drafts", "navbar_colorize",
-            "threading", "threading_unread", "indentation", "seekbar", "actionbar", "actionbar_color",
+            "date", "date_week", "date_fixed", "date_bold", "date_time", "group_category",
+            "cards", "beige", "tabular_card_bg", "shadow_unread", "shadow_border", "shadow_highlight", "dividers",
+            "portrait2", "portrait2c", "landscape", "close_pane", "open_pane", "column_width",
+            "hide_toolbar", "nav_options", "nav_categories", "nav_last_sync", "nav_count", "nav_unseen_drafts", "nav_count_pinned", "navbar_colorize",
+            "threading", "threading_unread", "indentation", "seekbar", "actionbar", "actionbar_swap", "actionbar_color",
             "highlight_unread", "highlight_color", "color_stripe", "color_stripe_wide",
-            "avatars", "bimi", "gravatars", "favicons", "favicons_partial", "generated_icons", "identicons",
+            "avatars", "bimi", "gravatars", "libravatars", "favicons", "favicons_partial", "generated_icons", "identicons",
             "circular", "saturation", "brightness", "threshold",
             "email_format", "prefer_contact", "only_contact", "distinguish_contacts", "show_recipients",
             "font_size_sender", "sender_ellipsize",
             "subject_top", "subject_italic", "highlight_subject", "font_size_subject", "subject_ellipsize",
             "keywords_header", "labels_header", "flags", "flags_background",
-            "preview", "preview_italic", "preview_lines",
+            "preview", "preview_italic", "preview_lines", "align_header",
             "addresses",
             "message_zoom", "overview_mode", "override_width",
-            "display_font", "contrast", "monospaced_pre",
-            "background_color", "text_color", "text_size", "text_font", "text_align", "text_separators",
-            "collapse_quotes", "image_placeholders", "inline_images", "button_extra", "attachments_alt", "thumbnails",
-            "bundled_fonts", "parse_classes",
+            "hyphenation", "display_font", "contrast", "monospaced_pre",
+            "text_separators",
+            "collapse_quotes", "image_placeholders", "inline_images", "button_extra",
+            "unzip", "attachments_alt", "thumbnails",
+            "list_count", "bundled_fonts", "parse_classes",
+            "background_color", "text_color", "text_size", "text_font", "text_align", "text_titles",
             "authentication", "authentication_indicator"
     };
 
@@ -205,33 +229,42 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
         setSubtitle(R.string.title_setup);
         setHasOptionsMenu(true);
 
-        View view = inflater.inflate(R.layout.fragment_options_display, container, false);
+        view = inflater.inflate(R.layout.fragment_options_display, container, false);
 
         // Get controls
 
+        ibHelp = view.findViewById(R.id.ibHelp);
         btnTheme = view.findViewById(R.id.btnTheme);
         spStartup = view.findViewById(R.id.spStartup);
+        swDate = view.findViewById(R.id.swDate);
+        swDateWeek = view.findViewById(R.id.swDateWeek);
+        swDateFixed = view.findViewById(R.id.swDateFixed);
+        swDateBold = view.findViewById(R.id.swDateBold);
+        swDateTime = view.findViewById(R.id.swDateTime);
+        swCategory = view.findViewById(R.id.swCategory);
         swCards = view.findViewById(R.id.swCards);
         swBeige = view.findViewById(R.id.swBeige);
         swTabularBackground = view.findViewById(R.id.swTabularCardBackground);
         swShadow = view.findViewById(R.id.swShadow);
+        swShadowBorder = view.findViewById(R.id.swShadowBorder);
         swShadowHighlight = view.findViewById(R.id.swShadowHighlight);
         swTabularDividers = view.findViewById(R.id.swTabularDividers);
-        swCategory = view.findViewById(R.id.swCategory);
-        swDate = view.findViewById(R.id.swDate);
-        swDateFixed = view.findViewById(R.id.swDateFixed);
-        swDateBold = view.findViewById(R.id.swDateBold);
         swPortrait2 = view.findViewById(R.id.swPortrait2);
         swPortrait2c = view.findViewById(R.id.swPortrait2c);
         spPortraitMinSize = view.findViewById(R.id.spPortraitMinSize);
         swLandscape = view.findViewById(R.id.swLandscape);
         spLandscapeMinSize = view.findViewById(R.id.spLandscapeMinSize);
         swClosePane = view.findViewById(R.id.swClosePane);
+        swOpenPane = view.findViewById(R.id.swOpenPane);
         tvColumnWidth = view.findViewById(R.id.tvColumnWidth);
         sbColumnWidth = view.findViewById(R.id.sbColumnWidth);
+        swHideToolbar = view.findViewById(R.id.swHideToolbar);
         swNavOptions = view.findViewById(R.id.swNavOptions);
+        swNavCategories = view.findViewById(R.id.swNavCategories);
+        swNavLastSync = view.findViewById(R.id.swNavLastSync);
         swNavMessageCount = view.findViewById(R.id.swNavMessageCount);
         swNavUnseenDrafts = view.findViewById(R.id.swNavUnseenDrafts);
+        swNavPinnedCount = view.findViewById(R.id.swNavPinnedCount);
         swNavBarColorize = view.findViewById(R.id.swNavBarColorize);
 
         swThreading = view.findViewById(R.id.swThreading);
@@ -239,6 +272,7 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
         swIndentation = view.findViewById(R.id.swIndentation);
         swSeekbar = view.findViewById(R.id.swSeekbar);
         swActionbar = view.findViewById(R.id.swActionbar);
+        swActionbarSwap = view.findViewById(R.id.swActionbarSwap);
         swActionbarColor = view.findViewById(R.id.swActionbarColor);
 
         swHighlightUnread = view.findViewById(R.id.swHighlightUnread);
@@ -251,7 +285,9 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
         tvBimiUnverified = view.findViewById(R.id.tvBimiUnverified);
         ibBimi = view.findViewById(R.id.ibBimi);
         swGravatars = view.findViewById(R.id.swGravatars);
-        tvGravatarsHint = view.findViewById(R.id.tvGravatarsHint);
+        tvGravatarPrivacy = view.findViewById(R.id.tvGravatarPrivacy);
+        swLibravatars = view.findViewById(R.id.swLibravatars);
+        tvLibravatarPrivacy = view.findViewById(R.id.tvLibravatarPrivacy);
         swFavicons = view.findViewById(R.id.swFavicons);
         swFaviconsPartial = view.findViewById(R.id.swFaviconsPartial);
         tvFaviconsHint = view.findViewById(R.id.tvFaviconsHint);
@@ -290,32 +326,41 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
         swPreviewItalic = view.findViewById(R.id.swPreviewItalic);
         spPreviewLines = view.findViewById(R.id.spPreviewLines);
         tvPreviewLinesHint = view.findViewById(R.id.tvPreviewLinesHint);
+        swAlignHeader = view.findViewById(R.id.swAlignHeader);
         swAddresses = view.findViewById(R.id.swAddresses);
         tvMessageZoom = view.findViewById(R.id.tvMessageZoom);
         sbMessageZoom = view.findViewById(R.id.sbMessageZoom);
         swOverviewMode = view.findViewById(R.id.swOverviewMode);
         swOverrideWidth = view.findViewById(R.id.swOverrideWidth);
         swContrast = view.findViewById(R.id.swContrast);
+        swHyphenation = view.findViewById(R.id.swHyphenation);
+        tvHyphenationHint = view.findViewById(R.id.tvHyphenationHint);
         spDisplayFont = view.findViewById(R.id.spDisplayFont);
         swMonospacedPre = view.findViewById(R.id.swMonospacedPre);
-        swBackgroundColor = view.findViewById(R.id.swBackgroundColor);
-        swTextColor = view.findViewById(R.id.swTextColor);
-        swTextSize = view.findViewById(R.id.swTextSize);
-        swTextFont = view.findViewById(R.id.swTextFont);
-        swTextAlign = view.findViewById(R.id.swTextAlign);
         swTextSeparators = view.findViewById(R.id.swTextSeparators);
         swCollapseQuotes = view.findViewById(R.id.swCollapseQuotes);
         swImagesPlaceholders = view.findViewById(R.id.swImagesPlaceholders);
         swImagesInline = view.findViewById(R.id.swImagesInline);
         swButtonExtra = view.findViewById(R.id.swButtonExtra);
+        swUnzip = view.findViewById(R.id.swUnzip);
+        tvUnzipHint = view.findViewById(R.id.tvUnzipHint);
         swAttachmentsAlt = view.findViewById(R.id.swAttachmentsAlt);
         swThumbnails = view.findViewById(R.id.swThumbnails);
+
+        swListCount = view.findViewById(R.id.swListCount);
         swBundledFonts = view.findViewById(R.id.swBundledFonts);
         swParseClasses = view.findViewById(R.id.swParseClasses);
+        swBackgroundColor = view.findViewById(R.id.swBackgroundColor);
+        swTextColor = view.findViewById(R.id.swTextColor);
+        swTextSize = view.findViewById(R.id.swTextSize);
+        swTextFont = view.findViewById(R.id.swTextFont);
+        swTextAlign = view.findViewById(R.id.swTextAlign);
+        swTextTitles = view.findViewById(R.id.swTextTitles);
         swAuthentication = view.findViewById(R.id.swAuthentication);
         swAuthenticationIndicator = view.findViewById(R.id.swAuthenticationIndicator);
 
-        grpGravatars = view.findViewById(R.id.grpGravatars);
+        grpAvatar = view.findViewById(R.id.grpAvatar);
+        grpUnzip = view.findViewById(R.id.grpUnzip);
 
         List<StyleHelper.FontDescriptor> fonts = StyleHelper.getFonts(getContext());
 
@@ -338,6 +383,13 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
         // Wire controls
 
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+
+        ibHelp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Helper.view(v.getContext(), Helper.getSupportUri(v.getContext(), "Options:display"), false);
+            }
+        });
 
         btnTheme.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -363,13 +415,63 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             }
         });
 
+        swDate.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("date", checked).apply();
+                swDateWeek.setEnabled(checked);
+                swDateFixed.setEnabled(!checked);
+                swDateBold.setEnabled(checked || swDateFixed.isChecked());
+            }
+        });
+
+        swDateWeek.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("date_week", checked).apply();
+            }
+        });
+
+        swDateFixed.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("date_fixed", checked).apply();
+                swDateBold.setEnabled(swDate.isChecked() || checked);
+            }
+        });
+
+        swDateBold.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("date_bold", checked).apply();
+            }
+        });
+
+        swDateTime.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("date_time", checked).apply();
+            }
+        });
+
+        swCategory.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("group_category", checked).apply();
+            }
+        });
+
         swCards.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("cards", checked).apply();
+                prefs.edit()
+                        .putBoolean("cards", checked)
+                        .remove("view_padding")
+                        .apply();
                 swBeige.setEnabled(checked);
                 swTabularBackground.setEnabled(!checked);
                 swShadow.setEnabled(checked);
+                swShadowBorder.setEnabled(swShadow.isEnabled() && checked);
                 swShadowHighlight.setEnabled(swShadow.isEnabled() && checked);
                 swTabularDividers.setEnabled(!checked);
                 swIndentation.setEnabled(checked);
@@ -395,7 +497,15 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("shadow_unread", checked).apply();
+                swShadowBorder.setEnabled(swShadow.isEnabled() && checked);
                 swShadowHighlight.setEnabled(swShadow.isEnabled() && checked);
+            }
+        });
+
+        swShadowBorder.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("shadow_border", checked).apply();
             }
         });
 
@@ -410,37 +520,6 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("dividers", checked).apply();
-            }
-        });
-
-        swCategory.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("group_category", checked).apply();
-            }
-        });
-
-        swDate.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("date", checked).apply();
-                swDateFixed.setEnabled(!checked);
-                swDateBold.setEnabled(checked || swDateFixed.isChecked());
-            }
-        });
-
-        swDateFixed.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("date_fixed", checked).apply();
-                swDateBold.setEnabled(swDate.isChecked() || checked);
-            }
-        });
-
-        swDateBold.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("date_bold", checked).apply();
             }
         });
 
@@ -497,6 +576,14 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("close_pane", checked).apply();
+                swOpenPane.setEnabled(!checked);
+            }
+        });
+
+        swOpenPane.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("open_pane", checked).apply();
             }
         });
 
@@ -522,10 +609,24 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             }
         });
 
+        swHideToolbar.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("hide_toolbar", checked).apply();
+            }
+        });
+
         swNavOptions.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("nav_options", checked).apply();
+            }
+        });
+
+        swNavCategories.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("nav_categories", checked).apply();
             }
         });
 
@@ -536,10 +637,24 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             }
         });
 
+        swNavLastSync.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("nav_last_sync", checked).apply();
+            }
+        });
+
         swNavUnseenDrafts.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("nav_unseen_drafts", checked).apply();
+            }
+        });
+
+        swNavPinnedCount.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("nav_count_pinned", checked).apply();
             }
         });
 
@@ -586,7 +701,15 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("actionbar", checked).apply();
+                swActionbarSwap.setEnabled(checked);
                 swActionbarColor.setEnabled(checked);
+            }
+        });
+
+        swActionbarSwap.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("actionbar_swap", checked).apply();
             }
         });
 
@@ -609,7 +732,7 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             public void onClick(View v) {
                 Context context = getContext();
                 int editTextColor = Helper.resolveColor(context, android.R.attr.editTextColor);
-                int highlightColor = prefs.getInt("highlight_color", Helper.resolveColor(context, R.attr.colorAccent));
+                int highlightColor = prefs.getInt("highlight_color", Helper.resolveColor(context, R.attr.colorUnreadHighlight));
 
                 ColorPickerDialogBuilder builder = ColorPickerDialogBuilder
                         .with(context)
@@ -625,13 +748,15 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
                             public void onClick(DialogInterface dialog, int selectedColor, Integer[] allColors) {
                                 prefs.edit().putInt("highlight_color", selectedColor).apply();
                                 btnHighlightColor.setColor(selectedColor);
+                                WidgetUnified.updateData(context);
                             }
                         })
                         .setNegativeButton(R.string.title_reset, new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
                                 prefs.edit().remove("highlight_color").apply();
-                                btnHighlightColor.setColor(Helper.resolveColor(context, R.attr.colorAccent));
+                                btnHighlightColor.setColor(Helper.resolveColor(context, R.attr.colorUnreadHighlight));
+                                WidgetUnified.updateData(context);
                             }
                         });
 
@@ -695,11 +820,27 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             }
         });
 
-        tvGravatarsHint.getPaint().setUnderlineText(true);
-        tvGravatarsHint.setOnClickListener(new View.OnClickListener() {
+        tvGravatarPrivacy.getPaint().setUnderlineText(true);
+        tvGravatarPrivacy.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Helper.view(v.getContext(), Uri.parse(Helper.GRAVATAR_PRIVACY_URI), true);
+                Helper.view(v.getContext(), Uri.parse(Avatar.GRAVATAR_PRIVACY_URI), true);
+            }
+        });
+
+        swLibravatars.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("libravatars", checked).apply();
+                ContactInfo.clearCache(compoundButton.getContext());
+            }
+        });
+
+        tvLibravatarPrivacy.getPaint().setUnderlineText(true);
+        tvLibravatarPrivacy.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Helper.view(v.getContext(), Uri.parse(Avatar.LIBRAVATAR_PRIVACY_URI), true);
             }
         });
 
@@ -830,7 +971,8 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("prefer_contact", checked).apply();
-                WidgetUnified.updateData(getContext());
+                ContactInfo.clearCache(compoundButton.getContext());
+                WidgetUnified.updateData(compoundButton.getContext());
             }
         });
 
@@ -838,7 +980,7 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("only_contact", checked).apply();
-                WidgetUnified.updateData(getContext());
+                WidgetUnified.updateData(compoundButton.getContext());
             }
         });
 
@@ -846,7 +988,8 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("distinguish_contacts", checked).apply();
-                WidgetUnified.updateData(getContext());
+                ContactInfo.clearCache(compoundButton.getContext());
+                WidgetUnified.updateData(compoundButton.getContext());
             }
         });
 
@@ -990,6 +1133,13 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             }
         });
 
+        swAlignHeader.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("align_header", checked).apply();
+            }
+        });
+
         swAddresses.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
@@ -1040,6 +1190,15 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             }
         });
 
+        swHyphenation.setVisibility(Build.VERSION.SDK_INT < Build.VERSION_CODES.M ? View.GONE : View.VISIBLE);
+        tvHyphenationHint.setVisibility(Build.VERSION.SDK_INT < Build.VERSION_CODES.M ? View.GONE : View.VISIBLE);
+        swHyphenation.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("hyphenation", checked).apply();
+            }
+        });
+
         spDisplayFont.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> adapterView, View view, int position, long id) {
@@ -1064,6 +1223,88 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
 
         String theme = prefs.getString("theme", "blue_orange_system");
         boolean bw = "black_and_white".equals(theme);
+
+        swTextSeparators.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("text_separators", checked).apply();
+            }
+        });
+
+        swCollapseQuotes.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("collapse_quotes", checked).apply();
+            }
+        });
+
+        swImagesPlaceholders.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("image_placeholders", checked).apply();
+            }
+        });
+
+        swImagesInline.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("inline_images", checked).apply();
+            }
+        });
+
+        swButtonExtra.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("button_extra", checked).apply();
+            }
+        });
+
+        swUnzip.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("unzip", checked).apply();
+            }
+        });
+
+        tvUnzipHint.setText(getString(R.string.compressed,
+                TextUtils.join(",", MessageHelper.UNZIP_FORMATS),
+                Integer.toString(MessageHelper.MAX_UNZIP_COUNT),
+                Helper.humanReadableByteCount(MessageHelper.MAX_UNZIP_SIZE)));
+
+        swAttachmentsAlt.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("attachments_alt", checked).apply();
+            }
+        });
+
+        swThumbnails.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("thumbnails", checked).apply();
+            }
+        });
+
+        swListCount.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("list_count", checked).apply();
+            }
+        });
+
+        swBundledFonts.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("bundled_fonts", checked).apply();
+            }
+        });
+
+        swParseClasses.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("parse_classes", checked).apply();
+            }
+        });
 
         swBackgroundColor.setEnabled(!bw);
         swBackgroundColor.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
@@ -1102,66 +1343,10 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             }
         });
 
-        swTextSeparators.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+        swTextTitles.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("text_separators", checked).apply();
-            }
-        });
-
-        swCollapseQuotes.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("collapse_quotes", checked).apply();
-            }
-        });
-
-        swImagesPlaceholders.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("image_placeholders", checked).apply();
-            }
-        });
-
-        swImagesInline.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("inline_images", checked).apply();
-            }
-        });
-
-        swButtonExtra.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("button_extra", checked).apply();
-            }
-        });
-
-        swAttachmentsAlt.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("attachments_alt", checked).apply();
-            }
-        });
-
-        swThumbnails.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("thumbnails", checked).apply();
-            }
-        });
-
-        swBundledFonts.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("bundled_fonts", checked).apply();
-            }
-        });
-
-        swParseClasses.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
-                prefs.edit().putBoolean("parse_classes", checked).apply();
+                prefs.edit().putBoolean("text_titles", checked).apply();
             }
         });
 
@@ -1183,8 +1368,9 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
         // Initialize
         FragmentDialogTheme.setBackground(getContext(), view, false);
         swFaviconsPartial.setText(getString(R.string.title_advanced_favicons_partial,
-                Helper.humanReadableByteCount(ContactInfo.FAVICON_READ_BYTES)));
-        grpGravatars.setVisibility(ContactInfo.canGravatars() ? View.VISIBLE : View.GONE);
+                Helper.humanReadableByteCount(ContactInfo.FAVICON_READ_BYTES, false)));
+        grpAvatar.setVisibility(BuildConfig.PLAY_STORE_RELEASE ? View.GONE : View.VISIBLE);
+        grpUnzip.setVisibility(Build.VERSION.SDK_INT < Build.VERSION_CODES.O ? View.GONE : View.VISIBLE);
         tvBimiUnverified.setVisibility(BuildConfig.DEBUG ? View.VISIBLE : View.GONE);
 
         PreferenceManager.getDefaultSharedPreferences(getContext()).registerOnSharedPreferenceChangeListener(this);
@@ -1203,8 +1389,7 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
         if ("message_zoom".equals(key))
             return;
 
-        if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-            setOptions();
+        setOptions();
     }
 
     @Override
@@ -1228,188 +1413,214 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
     }
 
     private void setOptions() {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+        try {
+            if (view == null || getContext() == null)
+                return;
 
-        String startup = prefs.getString("startup", "unified");
-        String[] startupValues = getResources().getStringArray(R.array.startupValues);
-        for (int pos = 0; pos < startupValues.length; pos++)
-            if (startupValues[pos].equals(startup)) {
-                spStartup.setSelection(pos);
-                break;
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+
+            String startup = prefs.getString("startup", "unified");
+            String[] startupValues = getResources().getStringArray(R.array.startupValues);
+            for (int pos = 0; pos < startupValues.length; pos++)
+                if (startupValues[pos].equals(startup)) {
+                    spStartup.setSelection(pos);
+                    break;
+                }
+
+            swDate.setChecked(prefs.getBoolean("date", true));
+            swDateWeek.setChecked(prefs.getBoolean("date_week", false));
+            swDateWeek.setEnabled(swDate.isChecked());
+            swDateFixed.setChecked(prefs.getBoolean("date_fixed", false));
+            swDateFixed.setEnabled(!swDate.isChecked());
+            swDateBold.setChecked(prefs.getBoolean("date_bold", false));
+            swDateBold.setEnabled(swDate.isChecked() || swDateFixed.isChecked());
+            swDateTime.setChecked(prefs.getBoolean("date_time", false));
+            swCategory.setChecked(prefs.getBoolean("group_category", false));
+            swCards.setChecked(prefs.getBoolean("cards", true));
+            swBeige.setChecked(prefs.getBoolean("beige", true));
+            swTabularBackground.setChecked(prefs.getBoolean("tabular_card_bg", false));
+            swShadow.setChecked(prefs.getBoolean("shadow_unread", false));
+            swShadowBorder.setChecked(prefs.getBoolean("shadow_border", true));
+            swShadowHighlight.setChecked(prefs.getBoolean("shadow_highlight", false));
+            swBeige.setEnabled(swCards.isChecked());
+            swTabularBackground.setEnabled(!swCards.isChecked());
+            swShadow.setEnabled(swCards.isChecked());
+            swShadowBorder.setEnabled(swShadow.isEnabled() && swShadow.isChecked());
+            swShadowHighlight.setEnabled(swShadow.isEnabled() && swShadow.isChecked());
+            swTabularDividers.setChecked(prefs.getBoolean("dividers", true));
+            swTabularDividers.setEnabled(!swCards.isChecked());
+            swPortrait2.setChecked(prefs.getBoolean("portrait2", false));
+            swPortrait2c.setChecked(prefs.getBoolean("portrait2c", false) && !swPortrait2.isChecked());
+            spPortraitMinSize.setSelection(prefs.getInt("portrait_min_size", 0));
+            swLandscape.setChecked(prefs.getBoolean("landscape", true));
+            spLandscapeMinSize.setSelection(prefs.getInt("landscape_min_size", 0));
+            swClosePane.setChecked(prefs.getBoolean("close_pane", !Helper.isSurfaceDuo()));
+            swOpenPane.setChecked(prefs.getBoolean("open_pane", false));
+            swOpenPane.setEnabled(!swClosePane.isChecked());
+
+            int column_width = prefs.getInt("column_width", 67);
+            tvColumnWidth.setText(getString(R.string.title_advanced_column_width, NF.format(column_width)));
+            sbColumnWidth.setProgress(column_width);
+
+            swHideToolbar.setChecked(prefs.getBoolean("hide_toolbar", !BuildConfig.PLAY_STORE_RELEASE));
+            swNavOptions.setChecked(prefs.getBoolean("nav_options", true));
+            swNavCategories.setChecked(prefs.getBoolean("nav_categories", false));
+            swNavLastSync.setChecked(prefs.getBoolean("nav_last_sync", true));
+            swNavMessageCount.setChecked(prefs.getBoolean("nav_count", false));
+            swNavUnseenDrafts.setChecked(prefs.getBoolean("nav_unseen_drafts", false));
+            swNavPinnedCount.setChecked(prefs.getBoolean("nav_count_pinned", false));
+            swNavBarColorize.setChecked(prefs.getBoolean("navbar_colorize", false));
+
+            swThreading.setChecked(prefs.getBoolean("threading", true));
+            swThreadingUnread.setChecked(prefs.getBoolean("threading_unread", false));
+            swThreadingUnread.setEnabled(swThreading.isChecked());
+            swIndentation.setChecked(prefs.getBoolean("indentation", false));
+            swIndentation.setEnabled(swCards.isChecked() && swThreading.isChecked());
+            swSeekbar.setChecked(prefs.getBoolean("seekbar", false));
+            swActionbar.setChecked(prefs.getBoolean("actionbar", true));
+            swActionbarSwap.setChecked(prefs.getBoolean("actionbar_swap", false));
+            swActionbarSwap.setEnabled(swActionbar.isChecked());
+            swActionbarColor.setChecked(prefs.getBoolean("actionbar_color", false));
+            swActionbarColor.setEnabled(swActionbar.isChecked());
+
+            swHighlightUnread.setChecked(prefs.getBoolean("highlight_unread", true));
+
+            btnHighlightColor.setColor(prefs.getInt("highlight_color",
+                    Helper.resolveColor(getContext(), R.attr.colorUnreadHighlight)));
+
+            swColorStripe.setChecked(prefs.getBoolean("color_stripe", true));
+            swColorStripeWide.setChecked(prefs.getBoolean("color_stripe_wide", false));
+            //swColorStripeWide.setEnabled(swColorStripe.isChecked());
+            swAvatars.setChecked(prefs.getBoolean("avatars", true));
+            swBimi.setChecked(prefs.getBoolean("bimi", false));
+            swGravatars.setChecked(prefs.getBoolean("gravatars", false));
+            swLibravatars.setChecked(prefs.getBoolean("libravatars", false));
+            swFavicons.setChecked(prefs.getBoolean("favicons", false));
+            swFaviconsPartial.setChecked(prefs.getBoolean("favicons_partial", true));
+            swFaviconsPartial.setEnabled(swFavicons.isChecked());
+            swGeneratedIcons.setChecked(prefs.getBoolean("generated_icons", true));
+            swIdenticons.setChecked(prefs.getBoolean("identicons", false));
+            swIdenticons.setEnabled(swGeneratedIcons.isChecked());
+            swCircular.setChecked(prefs.getBoolean("circular", true));
+
+            int saturation = prefs.getInt("saturation", 100);
+            tvSaturation.setText(getString(R.string.title_advanced_color_saturation, NF.format(saturation)));
+            sbSaturation.setProgress(saturation);
+            sbSaturation.setEnabled(swGeneratedIcons.isChecked());
+
+            int brightness = prefs.getInt("brightness", 100);
+            tvBrightness.setText(getString(R.string.title_advanced_color_value, NF.format(brightness)));
+            sbBrightness.setProgress(brightness);
+            sbBrightness.setEnabled(swGeneratedIcons.isChecked());
+
+            int threshold = prefs.getInt("threshold", 50);
+            tvThreshold.setText(getString(R.string.title_advanced_color_threshold, NF.format(threshold)));
+            sbThreshold.setProgress(threshold);
+            sbThreshold.setEnabled(swGeneratedIcons.isChecked());
+
+            MessageHelper.AddressFormat email_format = MessageHelper.getAddressFormat(getContext());
+            spNameEmail.setSelection(email_format.ordinal());
+            swPreferContact.setChecked(prefs.getBoolean("prefer_contact", false));
+            swOnlyContact.setChecked(prefs.getBoolean("only_contact", false));
+            swDistinguishContacts.setChecked(prefs.getBoolean("distinguish_contacts", false));
+            swShowRecipients.setChecked(prefs.getBoolean("show_recipients", false));
+
+            swSubjectTop.setChecked(prefs.getBoolean("subject_top", false));
+            swSubjectItalic.setChecked(prefs.getBoolean("subject_italic", true));
+            swHighlightSubject.setChecked(prefs.getBoolean("highlight_subject", false));
+
+            int[] fontSizeValues = getResources().getIntArray(R.array.fontSizeValues);
+            String[] ellipsizeValues = getResources().getStringArray(R.array.ellipsizeValues);
+
+            int font_size_sender = prefs.getInt("font_size_sender", -1);
+            for (int pos = 0; pos < fontSizeValues.length; pos++)
+                if (fontSizeValues[pos] == font_size_sender) {
+                    spFontSizeSender.setSelection(pos);
+                    break;
+                }
+
+            int font_size_subject = prefs.getInt("font_size_subject", -1);
+            for (int pos = 0; pos < fontSizeValues.length; pos++)
+                if (fontSizeValues[pos] == font_size_subject) {
+                    spFontSizeSubject.setSelection(pos);
+                    break;
+                }
+
+            String sender_ellipsize = prefs.getString("sender_ellipsize", "end");
+            for (int pos = 0; pos < ellipsizeValues.length; pos++)
+                if (ellipsizeValues[pos].equals(sender_ellipsize)) {
+                    spSenderEllipsize.setSelection(pos);
+                    break;
+                }
+
+            String subject_ellipsize = prefs.getString("subject_ellipsize", "full");
+            for (int pos = 0; pos < ellipsizeValues.length; pos++)
+                if (ellipsizeValues[pos].equals(subject_ellipsize)) {
+                    spSubjectEllipsize.setSelection(pos);
+                    break;
+                }
+
+            swKeywords.setChecked(prefs.getBoolean("keywords_header", false));
+            swLabels.setChecked(prefs.getBoolean("labels_header", true));
+            swFlags.setChecked(prefs.getBoolean("flags", true));
+            swFlagsBackground.setChecked(prefs.getBoolean("flags_background", false));
+            swPreview.setChecked(prefs.getBoolean("preview", false));
+            swPreviewItalic.setChecked(prefs.getBoolean("preview_italic", true));
+            swPreviewItalic.setEnabled(swPreview.isChecked());
+            spPreviewLines.setSelection(prefs.getInt("preview_lines", 1) - 1);
+            spPreviewLines.setEnabled(swPreview.isChecked());
+            swAlignHeader.setChecked(prefs.getBoolean("align_header", false));
+
+            swAddresses.setChecked(prefs.getBoolean("addresses", false));
+
+            int message_zoom = prefs.getInt("message_zoom", 100);
+            tvMessageZoom.setText(getString(R.string.title_advanced_message_text_zoom2, NF.format(message_zoom)));
+            if (message_zoom >= 50 && message_zoom <= 250)
+                sbMessageZoom.setProgress(message_zoom - 50);
+
+            swOverviewMode.setChecked(prefs.getBoolean("overview_mode", false));
+            swOverrideWidth.setChecked(prefs.getBoolean("override_width", false));
+
+            swContrast.setChecked(prefs.getBoolean("contrast", false));
+            swHyphenation.setChecked(prefs.getBoolean("hyphenation", false));
+
+            String display_font = prefs.getString("display_font", "");
+            List<StyleHelper.FontDescriptor> fonts = StyleHelper.getFonts(getContext());
+            for (int pos = 0; pos < fonts.size(); pos++) {
+                StyleHelper.FontDescriptor font = fonts.get(pos);
+                if (font.type.equals(display_font)) {
+                    spDisplayFont.setSelection(pos + 1);
+                    break;
+                }
             }
 
-        swCards.setChecked(prefs.getBoolean("cards", true));
-        swBeige.setChecked(prefs.getBoolean("beige", true));
-        swTabularBackground.setChecked(prefs.getBoolean("tabular_card_bg", false));
-        swShadow.setChecked(prefs.getBoolean("shadow_unread", false));
-        swShadowHighlight.setChecked(prefs.getBoolean("shadow_highlight", false));
-        swBeige.setEnabled(swCards.isChecked());
-        swTabularBackground.setEnabled(!swCards.isChecked());
-        swShadow.setEnabled(swCards.isChecked());
-        swShadowHighlight.setEnabled(swShadow.isEnabled() && swShadow.isChecked());
-        swTabularDividers.setChecked(prefs.getBoolean("dividers", true));
-        swTabularDividers.setEnabled(!swCards.isChecked());
-        swCategory.setChecked(prefs.getBoolean("group_category", false));
-        swDate.setChecked(prefs.getBoolean("date", true));
-        swDateFixed.setChecked(prefs.getBoolean("date_fixed", false));
-        swDateFixed.setEnabled(!swDate.isChecked());
-        swDateBold.setChecked(prefs.getBoolean("date_bold", false));
-        swDateBold.setEnabled(swDate.isChecked() || swDateFixed.isChecked());
-        swPortrait2.setChecked(prefs.getBoolean("portrait2", false));
-        swPortrait2c.setChecked(prefs.getBoolean("portrait2c", false) && !swPortrait2.isChecked());
-        spPortraitMinSize.setSelection(prefs.getInt("portrait_min_size", 0));
-        swLandscape.setChecked(prefs.getBoolean("landscape", true));
-        spLandscapeMinSize.setSelection(prefs.getInt("landscape_min_size", 0));
-        swClosePane.setChecked(prefs.getBoolean("close_pane", !Helper.isSurfaceDuo()));
+            swMonospacedPre.setChecked(prefs.getBoolean("monospaced_pre", false));
+            swTextSeparators.setChecked(prefs.getBoolean("text_separators", true));
+            swCollapseQuotes.setChecked(prefs.getBoolean("collapse_quotes", false));
+            swImagesPlaceholders.setChecked(prefs.getBoolean("image_placeholders", true));
+            swImagesInline.setChecked(prefs.getBoolean("inline_images", false));
+            swButtonExtra.setChecked(prefs.getBoolean("button_extra", false));
+            swUnzip.setChecked(prefs.getBoolean("unzip", !BuildConfig.PLAY_STORE_RELEASE));
+            swAttachmentsAlt.setChecked(prefs.getBoolean("attachments_alt", false));
+            swThumbnails.setChecked(prefs.getBoolean("thumbnails", true));
 
-        int column_width = prefs.getInt("column_width", 67);
-        tvColumnWidth.setText(getString(R.string.title_advanced_column_width, NF.format(column_width)));
-        sbColumnWidth.setProgress(column_width);
+            swListCount.setChecked(prefs.getBoolean("list_count", false));
+            swBundledFonts.setChecked(prefs.getBoolean("bundled_fonts", true));
+            swParseClasses.setChecked(prefs.getBoolean("parse_classes", true));
+            swBackgroundColor.setChecked(prefs.getBoolean("background_color", false));
+            swTextColor.setChecked(prefs.getBoolean("text_color", true));
+            swTextSize.setChecked(prefs.getBoolean("text_size", true));
+            swTextFont.setChecked(prefs.getBoolean("text_font", true));
+            swTextAlign.setChecked(prefs.getBoolean("text_align", true));
+            swTextTitles.setChecked(prefs.getBoolean("text_titles", false));
+            swAuthentication.setChecked(prefs.getBoolean("authentication", true));
+            swAuthenticationIndicator.setChecked(prefs.getBoolean("authentication_indicator", false));
+            swAuthenticationIndicator.setEnabled(swAuthentication.isChecked());
 
-        swNavOptions.setChecked(prefs.getBoolean("nav_options", true));
-        swNavMessageCount.setChecked(prefs.getBoolean("nav_count", false));
-        swNavUnseenDrafts.setChecked(prefs.getBoolean("nav_unseen_drafts", false));
-        swNavBarColorize.setChecked(prefs.getBoolean("navbar_colorize", false));
-
-        swThreading.setChecked(prefs.getBoolean("threading", true));
-        swThreadingUnread.setChecked(prefs.getBoolean("threading_unread", false));
-        swThreadingUnread.setEnabled(swThreading.isChecked());
-        swIndentation.setChecked(prefs.getBoolean("indentation", false));
-        swIndentation.setEnabled(swCards.isChecked() && swThreading.isChecked());
-        swSeekbar.setChecked(prefs.getBoolean("seekbar", false));
-        swActionbar.setChecked(prefs.getBoolean("actionbar", true));
-        swActionbarColor.setChecked(prefs.getBoolean("actionbar_color", false));
-        swActionbarColor.setEnabled(swActionbar.isChecked());
-
-        swHighlightUnread.setChecked(prefs.getBoolean("highlight_unread", true));
-
-        btnHighlightColor.setColor(prefs.getInt("highlight_color",
-                Helper.resolveColor(getContext(), R.attr.colorUnreadHighlight)));
-
-        swColorStripe.setChecked(prefs.getBoolean("color_stripe", true));
-        swColorStripeWide.setChecked(prefs.getBoolean("color_stripe_wide", false));
-        //swColorStripeWide.setEnabled(swColorStripe.isChecked());
-        swAvatars.setChecked(prefs.getBoolean("avatars", true));
-        swBimi.setChecked(prefs.getBoolean("bimi", false));
-        swGravatars.setChecked(prefs.getBoolean("gravatars", false));
-        swFavicons.setChecked(prefs.getBoolean("favicons", false));
-        swFaviconsPartial.setChecked(prefs.getBoolean("favicons_partial", true));
-        swFaviconsPartial.setEnabled(swFavicons.isChecked());
-        swGeneratedIcons.setChecked(prefs.getBoolean("generated_icons", true));
-        swIdenticons.setChecked(prefs.getBoolean("identicons", false));
-        swIdenticons.setEnabled(swGeneratedIcons.isChecked());
-        swCircular.setChecked(prefs.getBoolean("circular", true));
-
-        int saturation = prefs.getInt("saturation", 100);
-        tvSaturation.setText(getString(R.string.title_advanced_color_saturation, NF.format(saturation)));
-        sbSaturation.setProgress(saturation);
-        sbSaturation.setEnabled(swGeneratedIcons.isChecked());
-
-        int brightness = prefs.getInt("brightness", 100);
-        tvBrightness.setText(getString(R.string.title_advanced_color_value, NF.format(brightness)));
-        sbBrightness.setProgress(brightness);
-        sbBrightness.setEnabled(swGeneratedIcons.isChecked());
-
-        int threshold = prefs.getInt("threshold", 50);
-        tvThreshold.setText(getString(R.string.title_advanced_color_threshold, NF.format(threshold)));
-        sbThreshold.setProgress(threshold);
-        sbThreshold.setEnabled(swGeneratedIcons.isChecked());
-
-        MessageHelper.AddressFormat email_format = MessageHelper.getAddressFormat(getContext());
-        spNameEmail.setSelection(email_format.ordinal());
-        swPreferContact.setChecked(prefs.getBoolean("prefer_contact", false));
-        swOnlyContact.setChecked(prefs.getBoolean("only_contact", false));
-        swDistinguishContacts.setChecked(prefs.getBoolean("distinguish_contacts", false));
-        swShowRecipients.setChecked(prefs.getBoolean("show_recipients", false));
-
-        swSubjectTop.setChecked(prefs.getBoolean("subject_top", false));
-        swSubjectItalic.setChecked(prefs.getBoolean("subject_italic", true));
-        swHighlightSubject.setChecked(prefs.getBoolean("highlight_subject", false));
-
-        int[] fontSizeValues = getResources().getIntArray(R.array.fontSizeValues);
-        String[] ellipsizeValues = getResources().getStringArray(R.array.ellipsizeValues);
-
-        int font_size_sender = prefs.getInt("font_size_sender", -1);
-        for (int pos = 0; pos < fontSizeValues.length; pos++)
-            if (fontSizeValues[pos] == font_size_sender) {
-                spFontSizeSender.setSelection(pos);
-                break;
-            }
-
-        int font_size_subject = prefs.getInt("font_size_subject", -1);
-        for (int pos = 0; pos < fontSizeValues.length; pos++)
-            if (fontSizeValues[pos] == font_size_subject) {
-                spFontSizeSubject.setSelection(pos);
-                break;
-            }
-
-        String sender_ellipsize = prefs.getString("sender_ellipsize", "end");
-        for (int pos = 0; pos < ellipsizeValues.length; pos++)
-            if (ellipsizeValues[pos].equals(sender_ellipsize)) {
-                spSenderEllipsize.setSelection(pos);
-                break;
-            }
-
-        String subject_ellipsize = prefs.getString("subject_ellipsize", "full");
-        for (int pos = 0; pos < ellipsizeValues.length; pos++)
-            if (ellipsizeValues[pos].equals(subject_ellipsize)) {
-                spSubjectEllipsize.setSelection(pos);
-                break;
-            }
-
-        swKeywords.setChecked(prefs.getBoolean("keywords_header", false));
-        swLabels.setChecked(prefs.getBoolean("labels_header", true));
-        swFlags.setChecked(prefs.getBoolean("flags", true));
-        swFlagsBackground.setChecked(prefs.getBoolean("flags_background", false));
-        swPreview.setChecked(prefs.getBoolean("preview", false));
-        swPreviewItalic.setChecked(prefs.getBoolean("preview_italic", true));
-        swPreviewItalic.setEnabled(swPreview.isChecked());
-        spPreviewLines.setSelection(prefs.getInt("preview_lines", 2) - 1);
-        spPreviewLines.setEnabled(swPreview.isChecked());
-
-        swAddresses.setChecked(prefs.getBoolean("addresses", false));
-
-        int message_zoom = prefs.getInt("message_zoom", 100);
-        tvMessageZoom.setText(getString(R.string.title_advanced_message_text_zoom2, NF.format(message_zoom)));
-        if (message_zoom >= 50 && message_zoom <= 250)
-            sbMessageZoom.setProgress(message_zoom - 50);
-
-        swOverviewMode.setChecked(prefs.getBoolean("overview_mode", false));
-        swOverrideWidth.setChecked(prefs.getBoolean("override_width", false));
-
-        swContrast.setChecked(prefs.getBoolean("contrast", false));
-
-        String display_font = prefs.getString("display_font", "");
-        List<StyleHelper.FontDescriptor> fonts = StyleHelper.getFonts(getContext());
-        for (int pos = 0; pos < fonts.size(); pos++) {
-            StyleHelper.FontDescriptor font = fonts.get(pos);
-            if (font.type.equals(display_font)) {
-                spDisplayFont.setSelection(pos + 1);
-                break;
-            }
+            updateColor();
+        } catch (Throwable ex) {
+            Log.e(ex);
         }
-
-        swMonospacedPre.setChecked(prefs.getBoolean("monospaced_pre", false));
-        swBackgroundColor.setChecked(prefs.getBoolean("background_color", false));
-        swTextColor.setChecked(prefs.getBoolean("text_color", true));
-        swTextSize.setChecked(prefs.getBoolean("text_size", true));
-        swTextFont.setChecked(prefs.getBoolean("text_font", true));
-        swTextAlign.setChecked(prefs.getBoolean("text_align", true));
-        swTextSeparators.setChecked(prefs.getBoolean("text_separators", true));
-        swCollapseQuotes.setChecked(prefs.getBoolean("collapse_quotes", false));
-        swImagesPlaceholders.setChecked(prefs.getBoolean("image_placeholders", true));
-        swImagesInline.setChecked(prefs.getBoolean("inline_images", false));
-        swButtonExtra.setChecked(prefs.getBoolean("button_extra", false));
-        swAttachmentsAlt.setChecked(prefs.getBoolean("attachments_alt", false));
-        swThumbnails.setChecked(prefs.getBoolean("thumbnails", true));
-
-        swBundledFonts.setChecked(prefs.getBoolean("bundled_fonts", true));
-        swParseClasses.setChecked(prefs.getBoolean("parse_classes", true));
-        swAuthentication.setChecked(prefs.getBoolean("authentication", true));
-        swAuthenticationIndicator.setChecked(prefs.getBoolean("authentication_indicator", false));
-        swAuthenticationIndicator.setEnabled(swAuthentication.isChecked());
-
-        updateColor();
     }
 
     private void setNavigationBarColor(int color) {

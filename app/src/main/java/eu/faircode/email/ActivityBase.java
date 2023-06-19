@@ -16,10 +16,12 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.Manifest;
+import android.animation.Animator;
+import android.animation.ValueAnimator;
 import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -38,31 +40,35 @@ import android.os.PowerManager;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.KeyEvent;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
 import androidx.core.graphics.ColorUtils;
 import androidx.documentfile.provider.DocumentFile;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentResultListener;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.OnLifecycleEvent;
 import androidx.preference.PreferenceManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.lang.reflect.Field;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -70,10 +76,13 @@ import java.util.List;
 import java.util.Map;
 
 abstract class ActivityBase extends AppCompatActivity implements SharedPreferences.OnSharedPreferenceChangeListener {
+    private int themeId;
     private Context originalContext;
     private boolean visible;
     private boolean contacts;
     private List<IKeyPressedListener> keyPressedListeners = new ArrayList<>();
+
+    private static final long ACTIONBAR_ANIMATION_DURATION = 250L;
 
     @Override
     protected void attachBaseContext(Context base) {
@@ -106,7 +115,8 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
 
         if (!this.getClass().equals(ActivityMain.class)) {
-            setTheme(FragmentDialogTheme.getTheme(this));
+            themeId = FragmentDialogTheme.getTheme(this);
+            setTheme(themeId);
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 boolean dark = Helper.isDarkTheme(this);
@@ -118,6 +128,30 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
                 view.setSystemUiVisibility(flags);
             }
         }
+
+        String requestKey = getRequestKey();
+        if (!BuildConfig.PLAY_STORE_RELEASE)
+            EntityLog.log(this, "Listening key=" + requestKey);
+        getSupportFragmentManager().setFragmentResultListener(requestKey, this, new FragmentResultListener() {
+            @Override
+            public void onFragmentResult(@NonNull String requestKey, @NonNull Bundle result) {
+                try {
+                    result.setClassLoader(ApplicationEx.class.getClassLoader());
+                    int requestCode = result.getInt("requestCode");
+                    int resultCode = result.getInt("resultCode");
+
+                    EntityLog.log(ActivityBase.this, "Received key=" + requestKey +
+                            " request=" + requestCode +
+                            " result=" + resultCode);
+
+                    Intent data = new Intent();
+                    data.putExtra("args", result);
+                    onActivityResult(requestCode, resultCode, data);
+                } catch (Throwable ex) {
+                    Log.e(ex);
+                }
+            }
+        });
 
         prefs.registerOnSharedPreferenceChangeListener(this);
 
@@ -154,14 +188,12 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
                 window.setNavigationBarColor(colorPrimaryDark);
         }
 
-        Fragment bfragment = getSupportFragmentManager()
-                .findFragmentByTag("androidx.biometric.BiometricFragment");
+        FragmentManager fm = getSupportFragmentManager();
+
+        Fragment bfragment = fm.findFragmentByTag("androidx.biometric.BiometricFragment");
         if (bfragment != null) {
             Log.e("Orphan BiometricFragment");
-            getSupportFragmentManager()
-                    .beginTransaction()
-                    .remove(bfragment)
-                    .commitNowAllowingStateLoss();
+            fm.beginTransaction().remove(bfragment).commitNowAllowingStateLoss();
             /*
                 java.lang.RuntimeException: Unable to start activity ComponentInfo{eu.faircode.email/eu.faircode.email.ActivitySetup}: androidx.fragment.app.Fragment$InstantiationException: Unable to instantiate fragment androidx.biometric.FingerprintDialogFragment: could not find Fragment constructor
                   at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:2957)
@@ -199,6 +231,12 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
              */
         }
 
+        Fragment ffragment = fm.findFragmentByTag("androidx.biometric.FingerprintDialogFragment");
+        if (ffragment != null) {
+            Log.e("Orphan FingerprintDialogFragment");
+            fm.beginTransaction().remove(ffragment).commitNowAllowingStateLoss();
+        }
+
         checkAuthentication(true);
 
         super.onCreate(savedInstanceState);
@@ -223,7 +261,6 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
         crumb.put("name", this.getClass().getName());
         crumb.put("before", Integer.toString(before));
         crumb.put("after", Integer.toString(after));
-        crumb.put("free", Integer.toString(Log.getFreeMemMb()));
         Log.breadcrumb("onSaveInstanceState", crumb);
 
         for (String key : outState.keySet())
@@ -236,6 +273,11 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
         super.onResume();
 
         visible = true;
+
+        if (!(this instanceof ActivityMain)) {
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+            prefs.edit().putString("last_activity", this.getClass().getName()).apply();
+        }
 
         boolean contacts = hasPermission(Manifest.permission.READ_CONTACTS);
         if (this.contacts != contacts &&
@@ -259,6 +301,37 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
     }
 
     @Override
+    public boolean onPreparePanel(int featureId, @Nullable View view, @NonNull Menu menu) {
+        try {
+            return super.onPreparePanel(featureId, view, menu);
+        } catch (Throwable ex) {
+            /*
+                This should never happen, but ...
+                java.lang.NullPointerException: Attempt to invoke interface method 'android.view.MenuItem android.view.MenuItem.setEnabled(boolean)' on a null object reference
+                    at eu.faircode.email.FragmentCompose.onPrepareOptionsMenu(SourceFile:3)
+                    at androidx.fragment.app.Fragment.performPrepareOptionsMenu(SourceFile:3)
+                    at androidx.fragment.app.FragmentManager.dispatchPrepareOptionsMenu(SourceFile:3)
+                    at androidx.fragment.app.FragmentManager$2.onPrepareMenu(Unknown Source:2)
+                    at androidx.core.view.MenuHostHelper.onPrepareMenu(SourceFile:2)
+                    at androidx.activity.ComponentActivity.onPrepareOptionsMenu(SourceFile:2)
+                    at android.app.Activity.onPreparePanel(Activity.java:3391)
+                    at androidx.appcompat.view.WindowCallbackWrapper.onPreparePanel(Unknown Source:2)
+                    at androidx.appcompat.app.AppCompatDelegateImpl$AppCompatWindowCallback.onPreparePanel(SourceFile:4)
+                    at androidx.appcompat.app.AppCompatDelegateImpl.preparePanel(SourceFile:28)
+                    at androidx.appcompat.app.AppCompatDelegateImpl.doInvalidatePanelMenu(SourceFile:14)
+                    at androidx.appcompat.app.AppCompatDelegateImpl$2.run(SourceFile:2)
+                    at android.view.Choreographer$CallbackRecord.run(Choreographer.java:948)
+                    at android.view.Choreographer.doCallbacks(Choreographer.java:750)
+                    at android.view.Choreographer.doFrame(Choreographer.java:679)
+                    at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:934)
+                    at android.os.Handler.handleCallback(Handler.java:869)
+             */
+            Log.e(ex);
+            return false;
+        }
+    }
+
+    @Override
     public void onConfigurationChanged(Configuration newConfig) {
         Log.d("Config " + this.getClass().getName());
         super.onConfigurationChanged(newConfig);
@@ -277,7 +350,53 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
 
     @Override
     protected void onStop() {
-        super.onStop();
+        try {
+            super.onStop();
+        } catch (Throwable ex) {
+            Log.e(ex);
+            /*
+                Exception java.lang.RuntimeException:
+                  at android.app.ActivityThread.callActivityOnStop (ActivityThread.java:4178)
+                  at android.app.ActivityThread.performStopActivityInner (ActivityThread.java:4148)
+                  at android.app.ActivityThread.handleStopActivity (ActivityThread.java:4223)
+                  at android.app.servertransaction.StopActivityItem.execute (StopActivityItem.java:41)
+                  at android.app.servertransaction.TransactionExecutor.executeLifecycleState (TransactionExecutor.java:145)
+                  at android.app.servertransaction.TransactionExecutor.execute (TransactionExecutor.java:70)
+                  at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1823)
+                  at android.os.Handler.dispatchMessage (Handler.java:107)
+                  at android.os.Looper.loop (Looper.java:198)
+                  at android.app.ActivityThread.main (ActivityThread.java:6729)
+                  at java.lang.reflect.Method.invoke (Method.java)
+                  at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run (RuntimeInit.java:493)
+                  at com.android.internal.os.ZygoteInit.main (ZygoteInit.java:876)
+                Caused by java.lang.RuntimeException: Failed to call observer method
+                  at androidx.lifecycle.ClassesInfoCache$MethodReference.invokeCallback (ClassesInfoCache.java:232)
+                  at androidx.lifecycle.ClassesInfoCache$CallbackInfo.invokeMethodsForEvent (ClassesInfoCache.java:199)
+                  at androidx.lifecycle.ClassesInfoCache$CallbackInfo.invokeCallbacks (ClassesInfoCache.java:191)
+                  at androidx.lifecycle.ReflectiveGenericLifecycleObserver.onStateChanged (ReflectiveGenericLifecycleObserver.java:40)
+                  at androidx.lifecycle.LifecycleRegistry$ObserverWithState.dispatchEvent (LifecycleRegistry.java:360)
+                  at androidx.lifecycle.LifecycleRegistry.backwardPass (LifecycleRegistry.java:290)
+                  at androidx.lifecycle.LifecycleRegistry.sync (LifecycleRegistry.java:308)
+                  at androidx.lifecycle.LifecycleRegistry.moveToState (LifecycleRegistry.java:151)
+                  at androidx.lifecycle.LifecycleRegistry.setCurrentState (LifecycleRegistry.java:121)
+                  at androidx.fragment.app.FragmentViewLifecycleOwner.setCurrentState (FragmentViewLifecycleOwner.java:89)
+                  at androidx.fragment.app.FragmentActivity.markState (FragmentActivity.java:781)
+                  at androidx.fragment.app.FragmentActivity.markFragmentsCreated (FragmentActivity.java:764)
+                  at androidx.fragment.app.FragmentActivity.onStop (FragmentActivity.java:372)
+                  at androidx.appcompat.app.AppCompatActivity.onStop (AppCompatActivity.java:257)
+                  at eu.faircode.email.ActivityBase.onStop (ActivityBase.java:344)
+                  at eu.faircode.email.ActivityView.onStop (ActivityView.java:1064)
+                  at android.app.Instrumentation.callActivityOnStop (Instrumentation.java:1433)
+                  at android.app.Activity.performStop (Activity.java:7367)
+                  at android.app.ActivityThread.callActivityOnStop (ActivityThread.java:4170)
+                Caused by java.lang.NullPointerException:
+                  at androidx.activity.OnBackPressedDispatcher$OnBackPressedCancellable.cancel (OnBackPressedDispatcher.java:273)
+                  at androidx.activity.OnBackPressedCallback.remove (OnBackPressedCallback.java:101)
+                  at eu.faircode.email.FragmentBase$3.onAny (FragmentBase.java:478)
+                  at java.lang.reflect.Method.invoke (Method.java)
+                  at androidx.lifecycle.ClassesInfoCache$MethodReference.invokeCallback (ClassesInfoCache.java:222)
+             */
+        }
 
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         if (pm != null && !pm.isInteractive()) {
@@ -294,7 +413,9 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
         Log.i("Destroy " + this.getClass().getName());
         PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(this);
         try {
+            getSupportFragmentManager().unregisterFragmentLifecycleCallbacks(lifecycleCallbacks);
             super.onDestroy();
+            originalContext = null;
         } catch (Throwable ex) {
             Log.w(ex);
             /*
@@ -353,6 +474,14 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
         }
     }
 
+    public int getThemeId() {
+        return this.themeId;
+    }
+
+    public String getRequestKey() {
+        return this.getClass().getName() + ":activity";
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         EntityLog.log(this, "Result class=" + this.getClass().getSimpleName() +
@@ -406,7 +535,8 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
                 else {
                     ArrayList<Uri> processed = new ArrayList<>();
                     for (Uri uri : uris)
-                        processed.add(processUri(uri));
+                        if (uri != null)
+                            processed.add(processUri(uri));
                     intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, processed);
                 }
             } else {
@@ -436,14 +566,15 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
             if (TextUtils.isEmpty(fname))
                 return uri;
 
-            File dir = new File(getCacheDir(), "shared");
-            if (!dir.exists())
-                dir.mkdir();
-
+            File dir = Helper.ensureExists(new File(getFilesDir(), "shared"));
             File file = new File(dir, fname);
 
             Log.i("Copying shared file to " + file);
-            Helper.copy(getContentResolver().openInputStream(uri), new FileOutputStream(file));
+            InputStream is = getContentResolver().openInputStream(uri);
+            if (is == null)
+                throw new FileNotFoundException(uri.toString());
+
+            Helper.copy(is, new FileOutputStream(file));
 
             return FileProvider.getUriForFile(this, BuildConfig.APPLICATION_ID, file);
         } catch (Throwable ex) {
@@ -459,7 +590,18 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
             Log.logExtras(intent);
             super.startActivity(intent);
         } catch (Throwable ex) {
-            Helper.reportNoViewer(this, intent, ex);
+            if (this instanceof ActivityMain)
+                throw ex;
+            if (intent.getPackage() == null)
+                Helper.reportNoViewer(this, intent, ex);
+            else {
+                intent.setPackage(null);
+                try {
+                    super.startActivity(intent);
+                } catch (Throwable exex) {
+                    Helper.reportNoViewer(this, intent, exex);
+                }
+            }
         }
     }
 
@@ -470,7 +612,16 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
             Log.logExtras(intent);
             super.startActivityForResult(intent, requestCode);
         } catch (Throwable ex) {
-            Helper.reportNoViewer(this, intent, ex);
+            if (intent.getPackage() == null)
+                Helper.reportNoViewer(this, intent, ex);
+            else {
+                intent.setPackage(null);
+                try {
+                    super.startActivityForResult(intent, requestCode);
+                } catch (Throwable exex) {
+                    Helper.reportNoViewer(this, intent, exex);
+                }
+            }
         }
     }
 
@@ -523,13 +674,6 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
                 owner.getLifecycle().removeObserver(this);
             }
         });
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (backHandled())
-            return;
-        super.onBackPressed();
     }
 
     public boolean dispatchKeyEvent(KeyEvent event) {
@@ -681,18 +825,56 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
-            if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-                onBackPressed();
+            // Delegate to fragment first
+            if (super.onOptionsItemSelected(item))
+                return true;
+            performBack();
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
-    protected boolean backHandled() {
-        for (IKeyPressedListener listener : keyPressedListeners)
-            if (listener.onBackPressed())
-                return true;
-        return false;
+    public void performBack() {
+        if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
+            // https://android.googlesource.com/platform/frameworks/base/+/master/core/java/android/app/Activity.java#3896
+            ActionBar ab = getSupportActionBar();
+            if (ab != null && ab.collapseActionView())
+                return;
+            FragmentManager fm = getSupportFragmentManager();
+            if (!fm.isStateSaved() && fm.popBackStackImmediate())
+                return;
+        }
+        finish();
+    }
+
+    @Override
+    public void onBackPressed() {
+        try {
+            super.onBackPressed();
+        } catch (Throwable ex) {
+            Log.w(ex);
+            /*
+                java.lang.NullPointerException: Attempt to invoke virtual method 'android.os.Handler android.app.FragmentHostCallback.getHandler()' on a null object reference
+                        at android.app.FragmentManagerImpl.ensureExecReady(FragmentManager.java:2008)
+                        at android.app.FragmentManagerImpl.execPendingActions(FragmentManager.java:2061)
+                        at android.app.FragmentManagerImpl.popBackStackImmediate(FragmentManager.java:874)
+                        at android.app.FragmentManagerImpl.popBackStackImmediate(FragmentManager.java:835)
+                        at android.app.Activity.onBackPressed(Activity.java:3963)
+                        at androidx.activity.ComponentActivity.access$001(Unknown)
+                        at androidx.activity.ComponentActivity$1.run(SourceFile:1)
+                        at androidx.activity.OnBackPressedDispatcher.onBackPressed(SourceFile:8)
+                        at androidx.activity.f.run(Unknown:2)
+                        at androidx.activity.g.onBackInvoked(Unknown:2)
+                        at android.window.WindowOnBackInvokedDispatcher$OnBackInvokedCallbackWrapper.lambda$onBackInvoked$3$android-window-WindowOnBackInvokedDispatcher$OnBackInvokedCallbackWrapper(WindowOnBackInvokedDispatcher.java:267)
+                        at android.window.WindowOnBackInvokedDispatcher$OnBackInvokedCallbackWrapper$$ExternalSyntheticLambda0.run(Unknown:2)
+                        at android.os.Handler.handleCallback(Handler.java:942)
+                        at android.os.Handler.dispatchMessage(Handler.java:99)
+             */
+        }
+    }
+
+    public void onBackPressedFragment() {
+        performBack();
     }
 
     @Override
@@ -703,6 +885,80 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
                 return false;
         }
         return super.shouldUpRecreateTask(targetIntent);
+    }
+
+    public boolean abShowing = true;
+    public ValueAnimator abAnimator = null;
+
+    public boolean isActionBarShown() {
+        return abShowing;
+    }
+
+    public void showActionBar(boolean show) {
+        ViewGroup abv = findViewById(R.id.action_bar);
+        if (abv == null)
+            return;
+
+        if (abShowing == show)
+            return;
+        abShowing = show;
+
+        int height = Helper.getActionBarHeight(this);
+        int current = abv.getLayoutParams().height;
+        int target = (show ? height : 0);
+        Log.i("ActionBar height=" + current + "..." + target);
+
+
+        if (abAnimator != null)
+            abAnimator.cancel();
+
+        abAnimator = ValueAnimator.ofInt(current, target);
+
+        abAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator anim) {
+                try {
+                    Integer v = (Integer) anim.getAnimatedValue();
+                    Log.i("ActionBar height=" + v);
+                    ViewGroup.LayoutParams lparam = abv.getLayoutParams();
+                    if (lparam.height == v)
+                        Log.i("ActionBar ---");
+                    else {
+                        lparam.height = v;
+                        abv.requestLayout();
+                    }
+                } catch (Throwable ex) {
+                    Log.e(ex);
+                }
+            }
+        });
+
+        abAnimator.addListener(new Animator.AnimatorListener() {
+            @Override
+            public void onAnimationStart(@NonNull Animator animation) {
+                Log.i("ActionBar start");
+            }
+
+            @Override
+            public void onAnimationEnd(@NonNull Animator animation) {
+                Log.i("ActionBar end");
+                abAnimator = null;
+            }
+
+            @Override
+            public void onAnimationCancel(@NonNull Animator animation) {
+                Log.i("ActionBar cancel");
+                abAnimator = null;
+            }
+
+            @Override
+            public void onAnimationRepeat(@NonNull Animator animation) {
+                Log.i("ActionBar repeat");
+            }
+        });
+
+        abAnimator.setDuration(ACTIONBAR_ANIMATION_DURATION * Math.abs(current - target) / height);
+        abAnimator.start();
     }
 
     Handler getMainHandler() {
@@ -770,26 +1026,12 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
         @Override
         public void onFragmentViewDestroyed(@NonNull FragmentManager fm, @NonNull Fragment f) {
             log(fm, f, "onFragmentViewDestroyed");
+            Helper.clearViews(f);
         }
 
         @Override
         public void onFragmentDestroyed(@NonNull FragmentManager fm, @NonNull Fragment f) {
             log(fm, f, "onFragmentDestroyed");
-            if (BuildConfig.PLAY_STORE_RELEASE)
-                return;
-            try {
-                for (Field field : f.getClass().getDeclaredFields()) {
-                    Class<?> type = field.getType();
-                    if (View.class.isAssignableFrom(type) ||
-                            RecyclerView.Adapter.class.isAssignableFrom(type)) {
-                        Log.i("Clearing " + f.getClass().getSimpleName() + ":" + field.getName());
-                        field.setAccessible(true);
-                        field.set(f, null);
-                    }
-                }
-            } catch (Throwable ex) {
-                Log.w(ex);
-            }
         }
 
         @Override
@@ -807,7 +1049,5 @@ abstract class ActivityBase extends AppCompatActivity implements SharedPreferenc
 
     public interface IKeyPressedListener {
         boolean onKeyPressed(KeyEvent event);
-
-        boolean onBackPressed();
     }
 }

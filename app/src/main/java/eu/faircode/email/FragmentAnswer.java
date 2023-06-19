@@ -16,21 +16,20 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.app.Activity.RESULT_OK;
 
-import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
-import android.text.Html;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextUtils;
@@ -43,8 +42,12 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -55,22 +58,30 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
 
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class FragmentAnswer extends FragmentBase {
     private ViewGroup view;
     private EditText etName;
-    private EditText etGroup;
+    private EditText etLabel;
+    private AutoCompleteTextView etGroup;
     private CheckBox cbStandard;
     private CheckBox cbReceipt;
     private CheckBox cbFavorite;
+    private CheckBox cbSnippet;
     private CheckBox cbHide;
     private CheckBox cbExternal;
     private ViewButtonColor btnColor;
     private EditTextCompose etText;
-    private BottomNavigationView style_bar;
+    private HorizontalScrollView style_bar;
     private BottomNavigationView bottom_navigation;
     private ContentLoadingProgressBar pbWait;
     private Group grpReady;
+
+    private ArrayAdapter<String> adapterGroup;
 
     private long id = -1;
     private long copy = -1;
@@ -110,10 +121,12 @@ public class FragmentAnswer extends FragmentBase {
 
         // Get controls
         etName = view.findViewById(R.id.etName);
+        etLabel = view.findViewById(R.id.etLabel);
         etGroup = view.findViewById(R.id.etGroup);
         cbStandard = view.findViewById(R.id.cbStandard);
         cbReceipt = view.findViewById(R.id.cbReceipt);
         cbFavorite = view.findViewById(R.id.cbFavorite);
+        cbSnippet = view.findViewById(R.id.cbSnippet);
         cbHide = view.findViewById(R.id.cbHide);
         cbExternal = view.findViewById(R.id.cbExternal);
         btnColor = view.findViewById(R.id.btnColor);
@@ -124,6 +137,10 @@ public class FragmentAnswer extends FragmentBase {
 
         pbWait = view.findViewById(R.id.pbWait);
         grpReady = view.findViewById(R.id.grpReady);
+
+        adapterGroup = new ArrayAdapter<>(getContext(), R.layout.spinner_item1_dropdown, android.R.id.text1);
+        etGroup.setThreshold(1);
+        etGroup.setAdapter(adapterGroup);
 
         btnColor.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -153,12 +170,9 @@ public class FragmentAnswer extends FragmentBase {
             }
         });
 
-        style_bar.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
-            @Override
-            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-                return onActionStyle(item.getItemId());
-            }
-        });
+        etText.addTextChangedListener(StyleHelper.getTextWatcher(etText));
+
+        StyleHelper.wire(getViewLifecycleOwner(), view, etText);
 
         bottom_navigation.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
             @Override
@@ -166,6 +180,9 @@ public class FragmentAnswer extends FragmentBase {
                 int itemId = menuItem.getItemId();
                 if (itemId == R.id.action_insert_image) {
                     onInsertImage();
+                    return true;
+                } else if (itemId == R.id.action_insert_link) {
+                    onInsertLink();
                     return true;
                 } else if (itemId == R.id.action_delete) {
                     onActionDelete();
@@ -181,7 +198,9 @@ public class FragmentAnswer extends FragmentBase {
         // Initialize
         FragmentDialogTheme.setBackground(context, view, true);
 
+        etLabel.setVisibility(BuildConfig.DEBUG ? View.VISIBLE : View.GONE);
         cbExternal.setVisibility(View.GONE);
+        cbSnippet.setVisibility(View.GONE);
         grpReady.setVisibility(View.GONE);
         style_bar.setVisibility(View.GONE);
         bottom_navigation.setVisibility(View.GONE);
@@ -198,6 +217,12 @@ public class FragmentAnswer extends FragmentBase {
         Bundle args = new Bundle();
         args.putLong("id", copy < 0 ? id : copy);
 
+        Bundle a = getArguments();
+        if (a != null) {
+            args.putString("subject", a.getString("subject"));
+            args.putString("html", a.getString("html"));
+        }
+
         new SimpleTask<EntityAnswer>() {
             @Override
             protected void onPreExecute(Bundle args) {
@@ -212,7 +237,29 @@ public class FragmentAnswer extends FragmentBase {
             @Override
             protected EntityAnswer onExecute(Context context, Bundle args) {
                 long id = args.getLong("id");
-                return DB.getInstance(context).answer().getAnswer(id);
+
+                DB db = DB.getInstance(context);
+                EntityAnswer answer = db.answer().getAnswer(id);
+
+                String html = (answer == null ? args.getString("html") : answer.text);
+                if (html != null) {
+                    Document d = HtmlHelper.sanitizeCompose(context, html, true);
+                    Spanned spanned = HtmlHelper.fromDocument(context, d, new HtmlHelper.ImageGetterEx() {
+                        @Override
+                        public Drawable getDrawable(Element element) {
+                            String source = element.attr("src");
+                            if (source.startsWith("cid:"))
+                                element.attr("src", "cid:");
+                            return ImageHelper.decodeImage(context,
+                                    -1, element, true, 0, 1.0f, etText);
+                        }
+                    }, null);
+                    args.putCharSequence("spanned", spanned);
+                }
+
+                args.putStringArrayList("groups", new ArrayList<>(db.answer().getGroups()));
+
+                return answer;
             }
 
             @Override
@@ -225,38 +272,29 @@ public class FragmentAnswer extends FragmentBase {
                 }
 
                 if (savedInstanceState == null) {
-                    Bundle a = getArguments();
-                    if (a == null)
-                        a = new Bundle();
-
-                    etName.setText(answer == null ? a.getString("subject") : answer.name);
+                    etName.setText(answer == null ? args.getString("subject") : answer.name);
+                    etLabel.setText(answer == null ? null : answer.label);
                     etGroup.setText(answer == null ? null : answer.group);
                     cbStandard.setChecked(answer == null ? false : answer.standard);
                     cbReceipt.setChecked(answer == null ? false : answer.receipt);
                     cbFavorite.setChecked(answer == null ? false : answer.favorite);
+                    cbSnippet.setChecked(answer == null ? false : answer.snippet);
                     cbHide.setChecked(answer == null ? false : answer.hide);
                     cbExternal.setChecked(answer == null ? false : answer.external);
                     btnColor.setColor(answer == null ? null : answer.color);
-
-                    String html = (answer == null ? a.getString("html") : answer.text);
-                    if (html == null)
-                        etText.setText(null);
-                    else
-                        etText.setText(HtmlHelper.fromHtml(html, new Html.ImageGetter() {
-                            @Override
-                            public Drawable getDrawable(String source) {
-                                if (source != null && source.startsWith("cid:"))
-                                    source = null;
-                                return ImageHelper.decodeImage(context, -1, source, true, 0, 1.0f, etText);
-                            }
-                        }, null, context));
+                    etText.setText((Spanned) args.getCharSequence("spanned"));
                 }
+
+                adapterGroup.clear();
+                adapterGroup.addAll(args.getStringArrayList("groups"));
 
                 if (answer == null)
                     bottom_navigation.getMenu().removeItem(R.id.action_delete);
 
                 if (ActivityAnswer.canAnswer(context))
                     cbExternal.setVisibility(View.VISIBLE);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                    cbSnippet.setVisibility(View.VISIBLE);
                 grpReady.setVisibility(View.VISIBLE);
                 bottom_navigation.setVisibility(View.VISIBLE);
             }
@@ -271,6 +309,13 @@ public class FragmentAnswer extends FragmentBase {
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.menu_answer, menu);
+
+        Menu smenu = menu.findItem(R.id.menu_placeholders).getSubMenu();
+
+        List<String> names = EntityAnswer.getCustomPlaceholders(getContext());
+        for (int i = 0; i < names.size(); i++)
+            smenu.add(Menu.FIRST, i + 1, i + 1, names.get(i));
+
         super.onCreateOptionsMenu(menu, inflater);
     }
 
@@ -278,26 +323,54 @@ public class FragmentAnswer extends FragmentBase {
     public void onPrepareOptionsMenu(@NonNull Menu menu) {
         menu.findItem(R.id.menu_placeholder_firstname).setVisible(BuildConfig.DEBUG);
         menu.findItem(R.id.menu_placeholder_lastname).setVisible(BuildConfig.DEBUG);
+
+        bottom_navigation.findViewById(R.id.action_save).setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                if (LanguageTool.isEnabled(v.getContext())) {
+                    onLanguageTool();
+                    return true;
+                } else
+                    return false;
+            }
+        });
+
         super.onPrepareOptionsMenu(menu);
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        int itemId = item.getItemId();
-        if (itemId == R.id.menu_placeholder_name) {
-            onMenuPlaceholder("$name$");
+        if (item.getGroupId() == Menu.FIRST) {
+            String name = item.getTitle().toString();
+            onMenuPlaceholder("$" + name + "$");
             return true;
-        } else if (itemId == R.id.menu_placeholder_email) {
-            onMenuPlaceholder("$email$");
-            return true;
-        } else if (itemId == R.id.menu_placeholder_firstname) {
-            onMenuPlaceholder("$firstname$");
-            return true;
-        } else if (itemId == R.id.menu_placeholder_lastname) {
-            onMenuPlaceholder("$lastname$");
-            return true;
+        } else {
+            int itemId = item.getItemId();
+            if (itemId == R.id.menu_help) {
+                onMenuHelp();
+                return true;
+            } else if (itemId == R.id.menu_placeholder_name) {
+                onMenuPlaceholder("$name$");
+                return true;
+            } else if (itemId == R.id.menu_placeholder_email) {
+                onMenuPlaceholder("$email$");
+                return true;
+            } else if (itemId == R.id.menu_placeholder_firstname) {
+                onMenuPlaceholder("$firstname$");
+                return true;
+            } else if (itemId == R.id.menu_placeholder_lastname) {
+                onMenuPlaceholder("$lastname$");
+                return true;
+            } else if (itemId == R.id.menu_placeholder_date) {
+                onMenuPlaceholder("$date$");
+                return true;
+            }
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void onMenuHelp() {
+        Helper.viewFAQ(getContext(), 179);
     }
 
     private void onMenuPlaceholder(String name) {
@@ -328,8 +401,15 @@ public class FragmentAnswer extends FragmentBase {
         intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         intent.setType("image/*");
-        Helper.openAdvanced(intent);
+        Helper.openAdvanced(getContext(), intent);
         startActivityForResult(intent, REQUEST_IMAGE);
+    }
+
+    private void onInsertLink() {
+        FragmentDialogInsertLink fragment = new FragmentDialogInsertLink();
+        fragment.setArguments(FragmentDialogInsertLink.getArguments(etText));
+        fragment.setTargetFragment(this, REQUEST_LINK);
+        fragment.show(getParentFragmentManager(), "answer:link");
     }
 
     private void onActionDelete() {
@@ -355,10 +435,12 @@ public class FragmentAnswer extends FragmentBase {
         Bundle args = new Bundle();
         args.putLong("id", id);
         args.putString("name", etName.getText().toString().trim());
+        args.putString("label", etLabel.getText().toString().trim());
         args.putString("group", etGroup.getText().toString().trim());
         args.putBoolean("standard", cbStandard.isChecked());
         args.putBoolean("receipt", cbReceipt.isChecked());
         args.putBoolean("favorite", cbFavorite.isChecked());
+        args.putBoolean("snippet", cbSnippet.isChecked());
         args.putBoolean("hide", cbHide.isChecked());
         args.putBoolean("external", cbExternal.isChecked());
         args.putInt("color", btnColor.getColor());
@@ -379,10 +461,12 @@ public class FragmentAnswer extends FragmentBase {
             protected Void onExecute(Context context, Bundle args) {
                 long id = args.getLong("id");
                 String name = args.getString("name");
+                String label = args.getString("label");
                 String group = args.getString("group");
                 boolean standard = args.getBoolean("standard");
                 boolean receipt = args.getBoolean("receipt");
                 boolean favorite = args.getBoolean("favorite");
+                boolean snippet = args.getBoolean("snippet");
                 boolean hide = args.getBoolean("hide");
                 boolean external = args.getBoolean("external");
                 Integer color = args.getInt("color");
@@ -390,6 +474,8 @@ public class FragmentAnswer extends FragmentBase {
 
                 if (TextUtils.isEmpty(name))
                     throw new IllegalArgumentException(context.getString(R.string.title_no_name));
+                if (TextUtils.isEmpty(label))
+                    label = null;
                 if (TextUtils.isEmpty(group))
                     group = null;
                 if (color == Color.TRANSPARENT)
@@ -413,10 +499,12 @@ public class FragmentAnswer extends FragmentBase {
                         answer = db.answer().getAnswer(id);
 
                     answer.name = name;
+                    answer.label = label;
                     answer.group = group;
                     answer.standard = standard;
                     answer.receipt = receipt;
                     answer.favorite = favorite;
+                    answer.snippet = snippet;
                     answer.hide = hide;
                     answer.external = external;
                     answer.color = color;
@@ -483,27 +571,23 @@ public class FragmentAnswer extends FragmentBase {
 
     private void onImageSelected(Uri uri) {
         try {
+            NoStreamException.check(uri, getContext());
+
             getContext().getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            if (!Helper.isPersisted(getContext(), uri, true, false))
+                throw new IllegalStateException("No permission granted to access selected image " + uri);
 
             int start = etText.getSelectionStart();
             SpannableStringBuilder ssb = new SpannableStringBuilderEx(etText.getText());
-            ssb.insert(start, " \uFFFC"); // Object replacement character
+            ssb.insert(start, "\n\uFFFC\n"); // Object replacement character
             String source = uri.toString();
             Drawable d = ImageHelper.decodeImage(getContext(), -1, source, true, 0, 1.0f, etText);
             ImageSpan is = new ImageSpan(d, source);
             ssb.setSpan(is, start + 1, start + 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             etText.setText(ssb);
-            etText.setSelection(start + 2);
-        } catch (SecurityException ex) {
-            Snackbar sb = Snackbar.make(view, R.string.title_no_stream, Snackbar.LENGTH_INDEFINITE)
-                    .setGestureInsetBottomIgnored(true);
-            sb.setAction(R.string.title_info, new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Helper.viewFAQ(v.getContext(), 49);
-                }
-            });
-            sb.show();
+            etText.setSelection(start + 3);
+        } catch (NoStreamException ex) {
+            ex.report(getActivity());
         } catch (Throwable ex) {
             Log.unexpectedError(getParentFragmentManager(), ex);
         }
@@ -511,10 +595,12 @@ public class FragmentAnswer extends FragmentBase {
 
     private void onLinkSelected(Bundle args) {
         String link = args.getString("link");
+        boolean image = args.getBoolean("image");
         int start = args.getInt("start");
         int end = args.getInt("end");
+        String title = args.getString("title");
         etText.setSelection(start, end);
-        StyleHelper.apply(R.id.menu_link, getViewLifecycleOwner(), null, etText, link);
+        StyleHelper.apply(R.id.menu_link, getViewLifecycleOwner(), null, etText, -1L, 0, link, image, title);
     }
 
     private void onDelete() {
@@ -551,32 +637,54 @@ public class FragmentAnswer extends FragmentBase {
         }.execute(this, args, "answer:delete");
     }
 
-    private boolean onActionStyle(int action) {
-        Log.i("Style action=" + action);
+    private void onLanguageTool() {
+        etText.clearComposingText();
 
-        if (action == R.id.menu_link) {
-            Uri uri = null;
+        Bundle args = new Bundle();
+        args.putCharSequence("text", etText.getText());
 
-            ClipboardManager cbm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-            if (cbm != null && cbm.hasPrimaryClip()) {
-                String link = cbm.getPrimaryClip().getItemAt(0).coerceToText(getContext()).toString();
-                uri = Uri.parse(link);
-                if (uri.getScheme() == null)
-                    uri = null;
+        new SimpleTask<List<LanguageTool.Suggestion>>() {
+            private Toast toast = null;
+
+            @Override
+            protected void onPreExecute(Bundle args) {
+                toast = ToastEx.makeText(getContext(), R.string.title_suggestions_check, Toast.LENGTH_LONG);
+                toast.show();
             }
 
-            Bundle args = new Bundle();
-            args.putParcelable("uri", uri);
-            args.putInt("start", etText.getSelectionStart());
-            args.putInt("end", etText.getSelectionEnd());
+            @Override
+            protected void onPostExecute(Bundle args) {
+                if (toast != null)
+                    toast.cancel();
+            }
 
-            FragmentDialogInsertLink fragment = new FragmentDialogInsertLink();
-            fragment.setArguments(args);
-            fragment.setTargetFragment(this, REQUEST_LINK);
-            fragment.show(getParentFragmentManager(), "answer:link");
+            @Override
+            protected List<LanguageTool.Suggestion> onExecute(Context context, Bundle args) throws Throwable {
+                CharSequence text = args.getCharSequence("text").toString();
+                return LanguageTool.getSuggestions(context, text);
+            }
 
-            return true;
-        } else
-            return StyleHelper.apply(action, getViewLifecycleOwner(), view.findViewById(action), etText);
+            @Override
+            protected void onExecuted(Bundle args, List<LanguageTool.Suggestion> suggestions) {
+                LanguageTool.applySuggestions(etText, 0, etText.length(), suggestions);
+
+                if (suggestions == null || suggestions.size() == 0)
+                    ToastEx.makeText(getContext(), R.string.title_suggestions_none, Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            protected void onDestroyed(Bundle args) {
+                if (toast != null) {
+                    toast.cancel();
+                    toast = null;
+                }
+            }
+
+            @Override
+            protected void onException(Bundle args, Throwable ex) {
+                Throwable exex = new Throwable("LanguageTool", ex);
+                Log.unexpectedError(getParentFragmentManager(), exex, false);
+            }
+        }.execute(this, args, "answer:lt");
     }
 }

@@ -16,13 +16,16 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.app.Dialog;
 import android.app.TimePickerDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.format.DateFormat;
 import android.view.LayoutInflater;
@@ -32,6 +35,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
+import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.ImageButton;
@@ -44,23 +48,26 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.constraintlayout.widget.Group;
 import androidx.fragment.app.DialogFragment;
-import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.Observer;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.text.DateFormatSymbols;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Objects;
 
 public class FragmentOptionsSynchronize extends FragmentBase implements SharedPreferences.OnSharedPreferenceChangeListener {
+    private View view;
+    private ImageButton ibHelp;
     private SwitchCompat swEnabled;
+    private Button btnBlockedSenders;
+
     private SwitchCompat swOptimize;
     private ImageButton ibOptimizeInfo;
     private Spinner spPollInterval;
@@ -70,7 +77,11 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
     private TextView tvSchedulePro;
     private TextView tvScheduleStart;
     private TextView tvScheduleEnd;
+    private TextView tvScheduleStartWeekend;
+    private TextView tvScheduleEndWeekend;
+    private ImageButton ibWeekend;
     private CheckBox[] cbDay;
+    private TextView tvScheduleIgnore;
     private ImageButton ibSchedules;
 
     private SwitchCompat swQuickSyncImap;
@@ -87,16 +98,19 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
     private SwitchCompat swSyncFolders;
     private SwitchCompat swSyncFoldersPoll;
     private SwitchCompat swSyncSharedFolders;
+    private SwitchCompat swSyncAdded;
     private SwitchCompat swSubscriptions;
     private SwitchCompat swTuneKeepAlive;
 
     private SwitchCompat swCheckAuthentication;
+    private ImageButton ibCheckAuthenticationInfo;
     private SwitchCompat swCheckTls;
     private ImageButton ibCheckTlsInfo;
     private SwitchCompat swCheckReply;
     private SwitchCompat swCheckMx;
     private SwitchCompat swCheckBlocklist;
     private SwitchCompat swUseBlocklist;
+    private SwitchCompat swUseBlocklistPop;
     private RecyclerView rvBlocklist;
     private AdapterBlocklist badapter;
 
@@ -104,15 +118,29 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
 
     private AdapterAccountExempted adapter;
 
+    private int textColorTertiary;
+    private int colorAccent;
+
     private final static String[] RESET_OPTIONS = new String[]{
-            "enabled", "poll_interval", "auto_optimize", "schedule", "schedule_start", "schedule_end",
+            "enabled", "poll_interval", "auto_optimize",
+            "schedule", "schedule_start", "schedule_end", "schedule_start_weekend", "schedule_end_weekend", "weekend",
             "sync_quick_imap", "sync_quick_pop",
             "sync_nodate", "sync_unseen", "sync_flagged", "delete_unseen", "sync_kept",
             "gmail_thread_id", "outlook_thread_id", "subject_threading",
-            "sync_folders", "sync_folders_poll", "sync_shared_folders", "subscriptions",
-            "check_authentication", "check_tls", "check_reply_domain", "check_mx", "check_blocklist", "use_blocklist",
+            "sync_folders", "sync_folders_poll", "sync_shared_folders", "sync_added_folders", "subscriptions",
+            "check_authentication", "check_tls", "check_reply_domain", "check_mx",
+            "check_blocklist", "use_blocklist", "use_blocklist_pop",
             "tune_keep_alive"
     };
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        final Context context = getContext();
+        this.textColorTertiary = Helper.resolveColor(context, android.R.attr.textColorTertiary);
+        this.colorAccent = Helper.resolveColor(context, R.attr.colorAccent);
+    }
 
     @Override
     @Nullable
@@ -120,11 +148,14 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
         setSubtitle(R.string.title_setup);
         setHasOptionsMenu(true);
 
-        View view = inflater.inflate(R.layout.fragment_options_synchronize, container, false);
+        view = inflater.inflate(R.layout.fragment_options_synchronize, container, false);
 
         // Get controls
 
+        ibHelp = view.findViewById(R.id.ibHelp);
         swEnabled = view.findViewById(R.id.swEnabled);
+        btnBlockedSenders = view.findViewById(R.id.btnBlockedSenders);
+
         swOptimize = view.findViewById(R.id.swOptimize);
         ibOptimizeInfo = view.findViewById(R.id.ibOptimizeInfo);
         spPollInterval = view.findViewById(R.id.spPollInterval);
@@ -135,6 +166,9 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
         tvSchedulePro = view.findViewById(R.id.tvSchedulePro);
         tvScheduleStart = view.findViewById(R.id.tvScheduleStart);
         tvScheduleEnd = view.findViewById(R.id.tvScheduleEnd);
+        tvScheduleStartWeekend = view.findViewById(R.id.tvScheduleStartWeekend);
+        tvScheduleEndWeekend = view.findViewById(R.id.tvScheduleEndWeekend);
+        ibWeekend = view.findViewById(R.id.ibWeekend);
         cbDay = new CheckBox[]{
                 view.findViewById(R.id.cbDay0),
                 view.findViewById(R.id.cbDay1),
@@ -144,6 +178,7 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
                 view.findViewById(R.id.cbDay5),
                 view.findViewById(R.id.cbDay6)
         };
+        tvScheduleIgnore = view.findViewById(R.id.tvScheduleIgnore);
         ibSchedules = view.findViewById(R.id.ibSchedules);
 
         swQuickSyncImap = view.findViewById(R.id.swQuickSyncImap);
@@ -160,16 +195,19 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
         swSyncFolders = view.findViewById(R.id.swSyncFolders);
         swSyncFoldersPoll = view.findViewById(R.id.swSyncFoldersPoll);
         swSyncSharedFolders = view.findViewById(R.id.swSyncSharedFolders);
+        swSyncAdded = view.findViewById(R.id.swSyncAdded);
         swSubscriptions = view.findViewById(R.id.swSubscriptions);
         swTuneKeepAlive = view.findViewById(R.id.swTuneKeepAlive);
 
         swCheckAuthentication = view.findViewById(R.id.swCheckAuthentication);
+        ibCheckAuthenticationInfo = view.findViewById(R.id.ibCheckAuthenticationInfo);
         swCheckTls = view.findViewById(R.id.swCheckTls);
         ibCheckTlsInfo = view.findViewById(R.id.ibCheckTlsInfo);
         swCheckReply = view.findViewById(R.id.swCheckReply);
         swCheckMx = view.findViewById(R.id.swCheckMx);
         swCheckBlocklist = view.findViewById(R.id.swCheckBlocklist);
         swUseBlocklist = view.findViewById(R.id.swUseBlocklist);
+        swUseBlocklistPop = view.findViewById(R.id.swUseBlocklistPop);
         rvBlocklist = view.findViewById(R.id.rvBlocklist);
 
         grpExempted = view.findViewById(R.id.grpExempted);
@@ -180,10 +218,27 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
 
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
 
+        ibHelp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Helper.view(v.getContext(), Helper.getSupportUri(v.getContext(), "Options:sync"), false);
+            }
+        });
+
         swEnabled.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("enabled", checked).apply();
+                WorkerDailyRules.init(compoundButton.getContext());
+            }
+        });
+
+        btnBlockedSenders.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(getContext());
+                lbm.sendBroadcast(new Intent(ActivitySetup.ACTION_MANAGE_LOCAL_CONTACTS)
+                        .putExtra("junk", true));
             }
         });
 
@@ -212,6 +267,8 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
                 if (value != current) {
                     adapterView.setTag(value);
                     prefs.edit().putInt("poll_interval", value).apply();
+                    if (value == 0)
+                        prefs.edit().remove("auto_optimize").apply();
                     tvPollBattery.setVisibility(value > 0 && value < 15 ? View.VISIBLE : View.GONE);
                     grpExempted.setVisibility(value == 0 ? View.GONE : View.VISIBLE);
                 }
@@ -241,27 +298,24 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
 
         Helper.linkPro(tvSchedulePro);
 
-        tvScheduleStart.setOnClickListener(new View.OnClickListener() {
+        View.OnClickListener onSchedule = new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Bundle args = new Bundle();
-                args.putBoolean("start", true);
-                DialogFragment timePicker = new TimePickerFragment();
-                timePicker.setArguments(args);
-                timePicker.show(getParentFragmentManager(), "timePicker");
-            }
-        });
+                int id = v.getId();
 
-        tvScheduleEnd.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
                 Bundle args = new Bundle();
-                args.putBoolean("start", false);
+                args.putBoolean("start", id == R.id.tvScheduleStart || id == R.id.tvScheduleStartWeekend);
+                args.putBoolean("weekend", id == R.id.tvScheduleStartWeekend || id == R.id.tvScheduleEndWeekend);
                 DialogFragment timePicker = new TimePickerFragment();
                 timePicker.setArguments(args);
                 timePicker.show(getParentFragmentManager(), "timePicker");
             }
-        });
+        };
+
+        tvScheduleStart.setOnClickListener(onSchedule);
+        tvScheduleEnd.setOnClickListener(onSchedule);
+        tvScheduleStartWeekend.setOnClickListener(onSchedule);
+        tvScheduleEndWeekend.setOnClickListener(onSchedule);
 
         String[] daynames = new DateFormatSymbols().getWeekdays();
         for (int i = 0; i < 7; i++) {
@@ -274,6 +328,22 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
                 }
             });
         }
+
+        ibWeekend.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                FragmentDialogWeekend fragment = new FragmentDialogWeekend();
+                fragment.show(getParentFragmentManager(), "weekend");
+            }
+        });
+
+        tvScheduleIgnore.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(v.getContext());
+                lbm.sendBroadcast(new Intent(ActivitySetup.ACTION_VIEW_ACCOUNTS));
+            }
+        });
 
         ibSchedules.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -377,6 +447,13 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
             }
         });
 
+        swSyncAdded.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("sync_added_folders", checked).apply();
+            }
+        });
+
         swSubscriptions.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
@@ -396,6 +473,13 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
             public void onCheckedChanged(CompoundButton buttonView, boolean checked) {
                 prefs.edit().putBoolean("check_authentication", checked).apply();
                 swCheckTls.setEnabled(checked);
+            }
+        });
+
+        ibCheckAuthenticationInfo.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Helper.view(v.getContext(), Uri.parse(Helper.AUTH_RESULTS_URI), true);
             }
         });
 
@@ -432,8 +516,8 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("check_blocklist", checked).apply();
                 swUseBlocklist.setEnabled(checked);
-                if (badapter != null)
-                    badapter.enabledChanged();
+                swUseBlocklistPop.setEnabled(checked);
+                rvBlocklist.setAlpha(checked ? 1.0f : Helper.LOW_LIGHT);
             }
         });
 
@@ -441,6 +525,13 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("use_blocklist", checked).apply();
+            }
+        });
+
+        swUseBlocklistPop.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("use_blocklist_pop", checked).apply();
             }
         });
 
@@ -478,8 +569,7 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
 
     @Override
     public void onSharedPreferenceChanged(SharedPreferences prefs, String key) {
-        if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-            setOptions();
+        setOptions();
     }
 
     @Override
@@ -504,77 +594,90 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
     }
 
     private void setOptions() {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
-        boolean pro = ActivityBilling.isPro(getContext());
+        try {
+            if (view == null || getContext() == null)
+                return;
 
-        swEnabled.setChecked(prefs.getBoolean("enabled", true));
-        swOptimize.setChecked(prefs.getBoolean("auto_optimize", false));
+            final Context context = getContext();
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+            boolean pro = ActivityBilling.isPro(context);
 
-        int pollInterval = prefs.getInt("poll_interval", 0);
-        int[] pollIntervalValues = getResources().getIntArray(R.array.pollIntervalValues);
-        for (int pos = 0; pos < pollIntervalValues.length; pos++)
-            if (pollIntervalValues[pos] == pollInterval) {
-                spPollInterval.setTag(pollInterval);
-                spPollInterval.setSelection(pos);
-                break;
+            swEnabled.setChecked(prefs.getBoolean("enabled", true));
+            swOptimize.setChecked(prefs.getBoolean("auto_optimize", false));
+
+            int pollInterval = ServiceSynchronize.getPollInterval(context);
+            int[] pollIntervalValues = getResources().getIntArray(R.array.pollIntervalValues);
+            for (int pos = 0; pos < pollIntervalValues.length; pos++)
+                if (pollIntervalValues[pos] == pollInterval) {
+                    spPollInterval.setTag(pollInterval);
+                    spPollInterval.setSelection(pos);
+                    break;
+                }
+
+            tvPollBattery.setVisibility(pollInterval > 0 && pollInterval < 15 ? View.VISIBLE : View.GONE);
+            grpExempted.setVisibility(pollInterval == 0 ? View.GONE : View.VISIBLE);
+
+            swSchedule.setChecked(prefs.getBoolean("schedule", false) && pro);
+            swSchedule.setEnabled(pro);
+
+            int schedule_start = prefs.getInt("schedule_start", 0);
+            int schedule_end = prefs.getInt("schedule_end", 0);
+            int schedule_start_weekend = prefs.getInt("schedule_start_weekend", schedule_start);
+            int schedule_end_weekend = prefs.getInt("schedule_end_weekend", schedule_end);
+            tvScheduleStart.setText(CalendarHelper.formatHour(context, schedule_start));
+            tvScheduleEnd.setText(CalendarHelper.formatHour(context, schedule_end));
+            tvScheduleStartWeekend.setText(CalendarHelper.formatHour(context, schedule_start_weekend));
+            tvScheduleEndWeekend.setText(CalendarHelper.formatHour(context, schedule_end_weekend));
+
+            for (int i = 0; i < 7; i++) {
+                boolean weekend = CalendarHelper.isWeekend(context, i + 1);
+                cbDay[i].setTypeface(weekend ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
+                cbDay[i].setTextColor(weekend ? colorAccent : textColorTertiary);
+                cbDay[i].setChecked(prefs.getBoolean("schedule_day" + i, true));
             }
 
-        tvPollBattery.setVisibility(pollInterval > 0 && pollInterval < 15 ? View.VISIBLE : View.GONE);
-        grpExempted.setVisibility(pollInterval == 0 ? View.GONE : View.VISIBLE);
-
-        swSchedule.setChecked(prefs.getBoolean("schedule", false) && pro);
-        swSchedule.setEnabled(pro);
-        tvScheduleStart.setText(formatHour(getContext(), prefs.getInt("schedule_start", 0)));
-        tvScheduleEnd.setText(formatHour(getContext(), prefs.getInt("schedule_end", 0)));
-        for (int i = 0; i < 7; i++)
-            cbDay[i].setChecked(prefs.getBoolean("schedule_day" + i, true));
-
-        swQuickSyncImap.setChecked(prefs.getBoolean("sync_quick_imap", false));
-        swQuickSyncPop.setChecked(prefs.getBoolean("sync_quick_pop", true));
-        swNodate.setChecked(prefs.getBoolean("sync_nodate", false));
-        swUnseen.setChecked(prefs.getBoolean("sync_unseen", false));
-        swFlagged.setChecked(prefs.getBoolean("sync_flagged", false));
-        swDeleteUnseen.setChecked(prefs.getBoolean("delete_unseen", false));
-        swSyncKept.setChecked(prefs.getBoolean("sync_kept", true));
-        swGmailThread.setChecked(prefs.getBoolean("gmail_thread_id", false));
-        swOutlookThread.setChecked(prefs.getBoolean("outlook_thread_id", false));
-        swSubjectThreading.setChecked(prefs.getBoolean("subject_threading", false));
-        swSubjectThreading.setEnabled(!swGmailThread.isChecked() && !swOutlookThread.isChecked());
-        swSyncFolders.setChecked(prefs.getBoolean("sync_folders", true));
-        swSyncFoldersPoll.setChecked(prefs.getBoolean("sync_folders_poll", false));
-        swSyncFoldersPoll.setEnabled(swSyncFolders.isChecked());
-        swSyncSharedFolders.setChecked(prefs.getBoolean("sync_shared_folders", false));
-        swSyncSharedFolders.setEnabled(swSyncFolders.isChecked());
-        swSubscriptions.setChecked(prefs.getBoolean("subscriptions", false));
-        swTuneKeepAlive.setChecked(prefs.getBoolean("tune_keep_alive", true));
-        swCheckAuthentication.setChecked(prefs.getBoolean("check_authentication", true));
-        swCheckTls.setChecked(prefs.getBoolean("check_tls", false));
-        swCheckTls.setEnabled(swCheckAuthentication.isChecked());
-        swCheckReply.setChecked(prefs.getBoolean("check_reply_domain", true));
-        swCheckMx.setChecked(prefs.getBoolean("check_mx", false));
-        swCheckBlocklist.setChecked(prefs.getBoolean("check_blocklist", false));
-        swUseBlocklist.setChecked(prefs.getBoolean("use_blocklist", false));
-        swUseBlocklist.setEnabled(swCheckBlocklist.isChecked());
-    }
-
-    private String formatHour(Context context, int minutes) {
-        Calendar cal = Calendar.getInstance();
-        cal.set(Calendar.HOUR_OF_DAY, minutes / 60);
-        cal.set(Calendar.MINUTE, minutes % 60);
-        cal.set(Calendar.SECOND, 0);
-        cal.set(Calendar.MILLISECOND, 0);
-        return Helper.getTimeInstance(context, SimpleDateFormat.SHORT).format(cal.getTime());
+            swQuickSyncImap.setChecked(prefs.getBoolean("sync_quick_imap", false));
+            swQuickSyncPop.setChecked(prefs.getBoolean("sync_quick_pop", true));
+            swNodate.setChecked(prefs.getBoolean("sync_nodate", false));
+            swUnseen.setChecked(prefs.getBoolean("sync_unseen", false));
+            swFlagged.setChecked(prefs.getBoolean("sync_flagged", false));
+            swDeleteUnseen.setChecked(prefs.getBoolean("delete_unseen", false));
+            swSyncKept.setChecked(prefs.getBoolean("sync_kept", true));
+            swGmailThread.setChecked(prefs.getBoolean("gmail_thread_id", false));
+            swOutlookThread.setChecked(prefs.getBoolean("outlook_thread_id", false));
+            swSubjectThreading.setChecked(prefs.getBoolean("subject_threading", false));
+            swSubjectThreading.setEnabled(!swGmailThread.isChecked() && !swOutlookThread.isChecked());
+            swSyncFolders.setChecked(prefs.getBoolean("sync_folders", true));
+            swSyncFoldersPoll.setChecked(prefs.getBoolean("sync_folders_poll", false));
+            swSyncFoldersPoll.setEnabled(swSyncFolders.isChecked());
+            swSyncSharedFolders.setChecked(prefs.getBoolean("sync_shared_folders", false));
+            swSyncSharedFolders.setEnabled(swSyncFolders.isChecked());
+            swSyncAdded.setChecked(prefs.getBoolean("sync_added_folders", false));
+            swSubscriptions.setChecked(prefs.getBoolean("subscriptions", false));
+            swTuneKeepAlive.setChecked(prefs.getBoolean("tune_keep_alive", true));
+            swCheckAuthentication.setChecked(prefs.getBoolean("check_authentication", true));
+            swCheckTls.setChecked(prefs.getBoolean("check_tls", false));
+            swCheckTls.setEnabled(swCheckAuthentication.isChecked());
+            swCheckReply.setChecked(prefs.getBoolean("check_reply_domain", true));
+            swCheckMx.setChecked(prefs.getBoolean("check_mx", false));
+            swCheckBlocklist.setChecked(prefs.getBoolean("check_blocklist", false));
+            swUseBlocklist.setChecked(prefs.getBoolean("use_blocklist", false));
+            swUseBlocklist.setEnabled(swCheckBlocklist.isChecked());
+            swUseBlocklistPop.setChecked(prefs.getBoolean("use_blocklist_pop", false));
+            swUseBlocklistPop.setEnabled(swCheckBlocklist.isChecked());
+            rvBlocklist.setAlpha(swCheckBlocklist.isChecked() ? 1.0f : Helper.LOW_LIGHT);
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
     }
 
     public static class TimePickerFragment extends FragmentDialogBase implements TimePickerDialog.OnTimeSetListener {
         @NonNull
         @Override
         public Dialog onCreateDialog(Bundle savedInstanceState) {
-            Bundle args = getArguments();
-            boolean start = args.getBoolean("start");
-
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
-            int minutes = prefs.getInt("schedule_" + (start ? "start" : "end"), 0);
+            final Context context = getContext();
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+            int minutes = prefs.getInt(getKey(), 0);
 
             Calendar cal = Calendar.getInstance();
             cal.set(Calendar.HOUR_OF_DAY, minutes / 60);
@@ -582,21 +685,23 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
             cal.set(Calendar.SECOND, 0);
             cal.set(Calendar.MILLISECOND, 0);
 
-            return new TimePickerDialog(getContext(), this,
+            return new TimePickerDialog(context, this,
                     cal.get(Calendar.HOUR_OF_DAY),
                     cal.get(Calendar.MINUTE),
-                    DateFormat.is24HourFormat(getContext()));
+                    DateFormat.is24HourFormat(context));
         }
 
         public void onTimeSet(TimePicker view, int hour, int minute) {
-            Bundle args = getArguments();
-            boolean start = args.getBoolean("start");
-
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
             SharedPreferences.Editor editor = prefs.edit();
-            editor.putInt("schedule_" + (start ? "start" : "end"), hour * 60 + minute);
-            editor.putBoolean("schedule", true);
-            editor.apply();
+            editor.putInt(getKey(), hour * 60 + minute).putBoolean("schedule", true).apply();
+        }
+
+        private String getKey() {
+            Bundle args = getArguments();
+            boolean start = args.getBoolean("start");
+            boolean weekend = args.getBoolean("weekend");
+            return "schedule" + (start ? "_start" : "_end") + (weekend ? "_weekend" : "");
         }
     }
 
@@ -624,8 +729,7 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
             }
 
             private void bindTo(EntityAccount account) {
-                cbExempted.setEnabled(!Helper.isOptimizing12(context) &&
-                        !account.ondemand && account.protocol == EntityAccount.TYPE_IMAP);
+                cbExempted.setEnabled(!account.ondemand && account.protocol == EntityAccount.TYPE_IMAP);
                 cbExempted.setChecked(account.poll_exempted);
                 cbExempted.setText(account.name);
             }
@@ -647,6 +751,11 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
                     protected Void onExecute(Context context, Bundle args) {
                         long id = args.getLong("id");
                         boolean exempted = args.getBoolean("exempted");
+
+                        if (exempted) {
+                            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                            prefs.edit().remove("auto_optimize").apply();
+                        }
 
                         DB db = DB.getInstance(context);
                         db.account().setAccountPollExempted(id, exempted);
@@ -677,7 +786,12 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
 
             DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffCallback(items, accounts), false);
             items = accounts;
-            diff.dispatchUpdatesTo(this);
+
+            try {
+                diff.dispatchUpdatesTo(this);
+            } catch (Throwable ex) {
+                Log.e(ex);
+            }
         }
 
         private class DiffCallback extends DiffUtil.Callback {
@@ -745,7 +859,6 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
         private Context context;
         private LayoutInflater inflater;
 
-        private boolean enabled;
         private List<DnsBlockList.BlockList> items;
 
         public class ViewHolder extends RecyclerView.ViewHolder implements CompoundButton.OnCheckedChangeListener {
@@ -767,7 +880,6 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
             private void bindTo(DnsBlockList.BlockList blocklist) {
                 cbEnabled.setText(blocklist.name);
                 cbEnabled.setChecked(DnsBlockList.isEnabled(context, blocklist));
-                cbEnabled.setEnabled(enabled);
             }
 
             @Override
@@ -787,13 +899,6 @@ public class FragmentOptionsSynchronize extends FragmentBase implements SharedPr
 
             setHasStableIds(true);
             this.items = items;
-            enabledChanged();
-        }
-
-        void enabledChanged() {
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-            this.enabled = prefs.getBoolean("check_blocklist", false);
-            notifyDataSetChanged();
         }
 
         @Override

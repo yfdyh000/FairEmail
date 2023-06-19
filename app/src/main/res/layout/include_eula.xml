@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/tvWelcome"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -14,7 +14,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/tvLimitations"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -25,7 +25,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tvWelcome" />
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/tvEulaTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -36,18 +36,30 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tvLimitations" />
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/tvEula"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
         android:text="@string/app_eula"
         android:textAppearance="@style/TextAppearance.AppCompat.Small"
+        android:textSize="12sp"
         android:textIsSelectable="true"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tvEulaTitle" />
 
-    <eu.faircode.email.FixedTextView
+    <TextView
+        android:id="@+id/tvLicense"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="@string/title_license"
+        android:textAppearance="@style/TextAppearance.AppCompat.Small"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvEula" />
+
+    <TextView
         android:id="@+id/tvGplV3"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -56,5 +68,5 @@
         android:textAppearance="@style/TextAppearance.AppCompat.Small"
         android:textColor="?android:attr/textColorLink"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvEula" />
+        app:layout_constraintTop_toBottomOf="@id/tvLicense" />
 </androidx.constraintlayout.widget.ConstraintLayout>

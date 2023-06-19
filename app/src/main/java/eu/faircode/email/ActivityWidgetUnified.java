@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.appwidget.AppWidgetManager;
@@ -25,6 +25,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
@@ -32,18 +33,21 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.constraintlayout.widget.Group;
+import androidx.core.graphics.ColorUtils;
 import androidx.preference.PreferenceManager;
 
 import com.flask.colorpicker.ColorPickerView;
 import com.flask.colorpicker.builder.ColorPickerClickListener;
 import com.flask.colorpicker.builder.ColorPickerDialogBuilder;
 
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -56,10 +60,17 @@ public class ActivityWidgetUnified extends ActivityBase {
     private Spinner spFolder;
     private CheckBox cbUnseen;
     private CheckBox cbFlagged;
+    private CheckBox cbDayNight;
+    private CheckBox cbHighlight;
+    private ViewButtonColor btnHighlight;
     private CheckBox cbSemiTransparent;
     private ViewButtonColor btnColor;
+    private CheckBox cbSeparatorLines;
     private Spinner spFontSize;
     private Spinner spPadding;
+    private Spinner spSubjectLines;
+    private TextView tvSubjectLinesHint;
+    private CheckBox cbAvatars;
     private CheckBox cbRefresh;
     private CheckBox cbCompose;
     private Button btnSave;
@@ -70,6 +81,8 @@ public class ActivityWidgetUnified extends ActivityBase {
     private ArrayAdapter<TupleFolderEx> adapterFolder;
     private ArrayAdapter<String> adapterFontSize;
     private ArrayAdapter<String> adapterPadding;
+
+    private NumberFormat NF = NumberFormat.getNumberInstance();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,12 +102,20 @@ public class ActivityWidgetUnified extends ActivityBase {
         long folder = prefs.getLong("widget." + appWidgetId + ".folder", -1L);
         boolean unseen = prefs.getBoolean("widget." + appWidgetId + ".unseen", false);
         boolean flagged = prefs.getBoolean("widget." + appWidgetId + ".flagged", false);
+        boolean daynight = prefs.getBoolean("widget." + appWidgetId + ".daynight", false);
+        boolean highlight = prefs.getBoolean("widget." + appWidgetId + ".highlight", false);
+        int highlight_color = prefs.getInt("widget." + appWidgetId + ".highlight_color", Color.TRANSPARENT);
         boolean semi = prefs.getBoolean("widget." + appWidgetId + ".semi", true);
         int background = prefs.getInt("widget." + appWidgetId + ".background", Color.TRANSPARENT);
+        boolean separators = prefs.getBoolean("widget." + appWidgetId + ".separators", true);
         int font = prefs.getInt("widget." + appWidgetId + ".font", 0);
         int padding = prefs.getInt("widget." + appWidgetId + ".padding", 0);
+        int subject_lines = prefs.getInt("widget." + appWidgetId + ".subject_lines", 1);
+        boolean avatars = prefs.getBoolean("widget." + appWidgetId + ".avatars", false);
         boolean refresh = prefs.getBoolean("widget." + appWidgetId + ".refresh", false);
         boolean compose = prefs.getBoolean("widget." + appWidgetId + ".compose", false);
+
+        daynight = daynight && (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S);
 
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setSubtitle(R.string.title_widget_title_list);
@@ -104,10 +125,17 @@ public class ActivityWidgetUnified extends ActivityBase {
         spFolder = findViewById(R.id.spFolder);
         cbUnseen = findViewById(R.id.cbUnseen);
         cbFlagged = findViewById(R.id.cbFlagged);
+        cbDayNight = findViewById(R.id.cbDayNight);
+        cbHighlight = findViewById(R.id.cbHighlight);
+        btnHighlight = findViewById(R.id.btnHighlight);
         cbSemiTransparent = findViewById(R.id.cbSemiTransparent);
         btnColor = findViewById(R.id.btnColor);
+        cbSeparatorLines = findViewById(R.id.cbSeparatorLines);
         spFontSize = findViewById(R.id.spFontSize);
         spPadding = findViewById(R.id.spPadding);
+        spSubjectLines = findViewById(R.id.spSubjectLines);
+        tvSubjectLinesHint = findViewById(R.id.tvSubjectLinesHint);
+        cbAvatars = findViewById(R.id.cbAvatars);
         cbRefresh = findViewById(R.id.cbRefresh);
         cbCompose = findViewById(R.id.cbCompose);
         btnSave = findViewById(R.id.btnSave);
@@ -117,14 +145,40 @@ public class ActivityWidgetUnified extends ActivityBase {
         final Intent resultValue = new Intent();
         resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
 
-        btnColor.setOnClickListener(new View.OnClickListener() {
+        cbDayNight.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                cbHighlight.setEnabled(!checked);
+                btnHighlight.setEnabled(cbHighlight.isChecked() && !checked);
+                cbSemiTransparent.setEnabled(!checked);
+                btnColor.setEnabled(!checked);
+            }
+        });
+
+        cbSemiTransparent.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (isChecked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                    btnColor.setColor(Color.TRANSPARENT);
+            }
+        });
+
+        cbHighlight.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                btnHighlight.setVisibility(checked && cbHighlight.isEnabled() ? View.VISIBLE : View.GONE);
+                btnHighlight.setEnabled(checked && cbHighlight.isEnabled());
+            }
+        });
+
+        btnHighlight.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 int editTextColor = Helper.resolveColor(ActivityWidgetUnified.this, android.R.attr.editTextColor);
 
                 ColorPickerDialogBuilder
                         .with(ActivityWidgetUnified.this)
-                        .setTitle(R.string.title_widget_background)
+                        .setTitle(R.string.title_advanced_highlight_color)
                         .showColorEdit(true)
                         .setColorEditTextColor(editTextColor)
                         .wheelType(ColorPickerView.WHEEL_TYPE.FLOWER)
@@ -133,6 +187,47 @@ public class ActivityWidgetUnified extends ActivityBase {
                         .setPositiveButton(android.R.string.ok, new ColorPickerClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int selectedColor, Integer[] allColors) {
+                                btnHighlight.setColor(selectedColor);
+                            }
+                        })
+                        .setNegativeButton(R.string.title_reset, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                btnHighlight.setColor(Color.TRANSPARENT);
+                            }
+                        })
+                        .build()
+                        .show();
+            }
+        });
+
+        btnColor.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                int color = btnColor.getColor();
+                int editTextColor = Helper.resolveColor(ActivityWidgetUnified.this, android.R.attr.editTextColor);
+
+                if (color == Color.TRANSPARENT) {
+                    color = Color.WHITE;
+                    if (cbSemiTransparent.isChecked() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                        color = ColorUtils.setAlphaComponent(color, 127);
+                }
+
+                ColorPickerDialogBuilder
+                        .with(ActivityWidgetUnified.this)
+                        .setTitle(R.string.title_widget_background)
+                        .showColorEdit(true)
+                        .setColorEditTextColor(editTextColor)
+                        .wheelType(ColorPickerView.WHEEL_TYPE.FLOWER)
+                        .density(6)
+                        .initialColor(color)
+                        .showLightnessSlider(true)
+                        .showAlphaSlider(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                        .setPositiveButton(android.R.string.ok, new ColorPickerClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int selectedColor, Integer[] allColors) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                                    cbSemiTransparent.setChecked(false);
                                 btnColor.setColor(selectedColor);
                             }
                         })
@@ -172,11 +267,17 @@ public class ActivityWidgetUnified extends ActivityBase {
                 editor.putLong("widget." + appWidgetId + ".folder", folder == null ? -1L : folder.id);
                 editor.putString("widget." + appWidgetId + ".type", folder == null ? null : folder.type);
                 editor.putBoolean("widget." + appWidgetId + ".unseen", cbUnseen.isChecked());
+                editor.putBoolean("widget." + appWidgetId + ".daynight", cbDayNight.isChecked());
                 editor.putBoolean("widget." + appWidgetId + ".flagged", cbFlagged.isChecked());
+                editor.putBoolean("widget." + appWidgetId + ".highlight", cbHighlight.isChecked());
+                editor.putInt("widget." + appWidgetId + ".highlight_color", btnHighlight.getColor());
                 editor.putBoolean("widget." + appWidgetId + ".semi", cbSemiTransparent.isChecked());
                 editor.putInt("widget." + appWidgetId + ".background", btnColor.getColor());
+                editor.putBoolean("widget." + appWidgetId + ".separators", cbSeparatorLines.isChecked());
                 editor.putInt("widget." + appWidgetId + ".font", tinyOut(font));
                 editor.putInt("widget." + appWidgetId + ".padding", tinyOut(padding));
+                editor.putInt("widget." + appWidgetId + ".subject_lines", spSubjectLines.getSelectedItemPosition() + 1);
+                editor.putBoolean("widget." + appWidgetId + ".avatars", cbAvatars.isChecked());
                 editor.putBoolean("widget." + appWidgetId + ".refresh", cbRefresh.isChecked());
                 editor.putBoolean("widget." + appWidgetId + ".compose", cbCompose.isChecked());
                 editor.putInt("widget." + appWidgetId + ".version", BuildConfig.VERSION_CODE);
@@ -292,10 +393,23 @@ public class ActivityWidgetUnified extends ActivityBase {
         // Initialize
         cbUnseen.setChecked(unseen);
         cbFlagged.setChecked(flagged);
+        cbDayNight.setChecked(daynight);
+        cbDayNight.setVisibility(Build.VERSION.SDK_INT < Build.VERSION_CODES.S ? View.GONE : View.VISIBLE);
+        cbHighlight.setChecked(highlight);
+        cbHighlight.setEnabled(!daynight);
+        btnHighlight.setVisibility(highlight ? View.VISIBLE : View.GONE);
+        btnHighlight.setColor(highlight_color);
+        btnHighlight.setEnabled(highlight && !daynight);
         cbSemiTransparent.setChecked(semi);
+        cbSemiTransparent.setEnabled(!daynight);
         btnColor.setColor(background);
+        btnColor.setEnabled(!daynight);
+        cbSeparatorLines.setChecked(separators);
         spFontSize.setSelection(tinyIn(font));
         spPadding.setSelection(tinyIn(padding));
+        cbAvatars.setChecked(avatars);
+        spSubjectLines.setSelection(subject_lines - 1);
+        tvSubjectLinesHint.setText(getString(R.string.title_advanced_preview_lines_hint, NF.format(HtmlHelper.PREVIEW_SIZE)));
         cbRefresh.setChecked(refresh);
         cbCompose.setChecked(compose);
 

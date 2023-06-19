@@ -37,6 +37,7 @@
     <string name="title_advanced_caption_conversation">සංවාදය</string>
     <string name="title_advanced_caption_message">පණිවිඩය</string>
     <string name="title_advanced_notify_action_delete">මකන්න</string>
+    <string name="title_contact_email">වි-තැපෑල</string>
     <string name="title_months_all">සියල්ල</string>
     <string name="title_unhide">පෙන්වන්න</string>
     <string name="title_raw_send_message">පණිවිඩය</string>
@@ -47,6 +48,8 @@
     <string name="title_attachment_audio">ශ්‍රව්‍ය පටිගතකරන්න</string>
     <string name="title_search">සොයන්න</string>
     <string name="title_language_all">සියල්ල</string>
+    <string name="title_rule_keyword_add">එකතු කරන්න</string>
+    <string name="title_rule_keyword_delete">මකන්න</string>
     <string name="title_rule_enabled">සබල කර ඇත</string>
     <string name="title_legend_section_folders">බහාලුම්</string>
     <string name="title_legend_section_messages">පණිවිඩ</string>
@@ -60,6 +63,8 @@
     <string name="title_pro_purchase">මිලදී ගන්න</string>
     <string name="title_widget_account_all">සියල්ල</string>
     <!-- Thunderbird -->
+    <string name="title_accessibility_accounts">ගිණුම්</string>
+    <string name="title_accessibility_folders">බහාලුම්</string>
     <string-array name="startupNames">
         <item>Unified inbox</item>
         <item>Unified folders</item>
@@ -72,4 +77,11 @@
     <!-- https://www.bouncycastle.org/specifications.html -->
     <!-- https://datatracker.ietf.org/doc/html/rfc5751#page-29 -->
     <!-- https://datatracker.ietf.org/doc/html/rfc5751#section-2.7 -->
+    <string-array name="contactGroupTypes">
+        <item>Any</item>
+        <item>Home</item>
+        <item>Work</item>
+        <item>වෙනත්</item>
+        <item>Mobile</item>
+    </string-array>
 </resources>

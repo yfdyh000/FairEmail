@@ -1,5 +1,6 @@
 package com.bugsnag.android
 
+import com.bugsnag.android.internal.JsonHelper
 import java.io.IOException
 
 /**
@@ -54,6 +55,11 @@ class Stackframe : JsonStream.Streamable {
     var loadAddress: Long? = null
 
     /**
+     * Identifies the exact build this frame originates from.
+     */
+    var codeIdentifier: String? = null
+
+    /**
      * Whether this frame identifies the program counter
      */
     var isPC: Boolean? = null
@@ -90,6 +96,7 @@ class Stackframe : JsonStream.Streamable {
         this.frameAddress = nativeFrame.frameAddress
         this.symbolAddress = nativeFrame.symbolAddress
         this.loadAddress = nativeFrame.loadAddress
+        this.codeIdentifier = nativeFrame.codeIdentifier
         this.isPC = nativeFrame.isPC
         this.type = nativeFrame.type
     }
@@ -97,12 +104,13 @@ class Stackframe : JsonStream.Streamable {
     internal constructor(json: Map<String, Any?>) {
         method = json["method"] as? String
         file = json["file"] as? String
-        lineNumber = json["lineNumber"] as? Number
+        lineNumber = JsonHelper.jsonToLong(json["lineNumber"])
         inProject = json["inProject"] as? Boolean
         columnNumber = json["columnNumber"] as? Number
-        frameAddress = (json["frameAddress"] as? Number)?.toLong()
-        symbolAddress = (json["symbolAddress"] as? Number)?.toLong()
-        loadAddress = (json["loadAddress"] as? Number)?.toLong()
+        frameAddress = JsonHelper.jsonToLong(json["frameAddress"])
+        symbolAddress = JsonHelper.jsonToLong(json["symbolAddress"])
+        loadAddress = JsonHelper.jsonToLong(json["loadAddress"])
+        codeIdentifier = json["codeIdentifier"] as? String
         isPC = json["isPC"] as? Boolean
 
         @Suppress("UNCHECKED_CAST")
@@ -121,9 +129,10 @@ class Stackframe : JsonStream.Streamable {
 
         writer.name("columnNumber").value(columnNumber)
 
-        frameAddress?.let { writer.name("frameAddress").value(it) }
-        symbolAddress?.let { writer.name("symbolAddress").value(it) }
-        loadAddress?.let { writer.name("loadAddress").value(it) }
+        frameAddress?.let { writer.name("frameAddress").value(JsonHelper.ulongToHex(frameAddress)) }
+        symbolAddress?.let { writer.name("symbolAddress").value(JsonHelper.ulongToHex(symbolAddress)) }
+        loadAddress?.let { writer.name("loadAddress").value(JsonHelper.ulongToHex(loadAddress)) }
+        codeIdentifier?.let { writer.name("codeIdentifier").value(it) }
         isPC?.let { writer.name("isPC").value(it) }
 
         type?.let {

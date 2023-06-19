@@ -17,21 +17,33 @@
         android:layout_height="wrap_content"
         android:paddingBottom="24dp">
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvDefault"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="3dp"
-            android:drawableStart="@drawable/twotone_support_24"
-            android:drawablePadding="6dp"
+            android:layout_marginStart="3dp"
             android:gravity="center_vertical"
+            android:minHeight="36dp"
             android:text="@string/title_advanced_default"
             android:textAppearance="@style/TextAppearance.AppCompat.Small"
             android:textColor="?android:attr/textColorPrimary"
             android:textStyle="italic"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/ibHelp"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
+
+        <ImageButton
+            android:id="@+id/ibHelp"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="3dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:padding="6dp"
+            android:scaleType="fitCenter"
+            app:layout_constraintBottom_toBottomOf="@+id/tvDefault"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/tvDefault"
+            app:srcCompat="@drawable/twotone_help_24" />
 
         <androidx.cardview.widget.CardView
             android:id="@+id/cardGeneral"
@@ -52,7 +64,7 @@
                 android:paddingHorizontal="6dp"
                 android:paddingVertical="12dp">
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvCaptionGeneral"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -75,6 +87,17 @@
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swSendSelf"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/app_send_self"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swPowerMenu"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swExternalSearch"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -82,7 +105,19 @@
                     android:text="@string/title_advanced_external_search"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swPowerMenu"
+                    app:layout_constraintTop_toBottomOf="@id/swSendSelf"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swSortAnswers"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:tag="nosuggest"
+                    android:text="@string/title_advanced_sort_answers"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swExternalSearch"
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
@@ -90,11 +125,11 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:tag="debug"
+                    android:tag="nosuggest"
                     android:text="@string/title_advanced_external_answer"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swExternalSearch"
+                    app:layout_constraintTop_toBottomOf="@id/swSortAnswers"
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
@@ -109,7 +144,7 @@
                     app:layout_constraintTop_toBottomOf="@id/swExternalAnswer"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvShortcutsHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -132,7 +167,7 @@
                     app:layout_constraintTop_toBottomOf="@id/tvShortcutsHint"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvFtsHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -144,7 +179,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swFts" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvFtsIndexed"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -157,7 +192,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvFtsHint" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvFtsPro"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -179,7 +214,7 @@
                     app:layout_constraintTop_toBottomOf="@id/tvFtsPro"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvClassificationHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -192,7 +227,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swClassification" />
 
-                <eu.faircode.email.FixedImageButton
+                <ImageButton
                     android:id="@+id/ibClassification"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -202,7 +237,7 @@
                     app:layout_constraintTop_toBottomOf="@id/tvClassificationHint"
                     app:srcCompat="@drawable/twotone_info_24" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvClassMinProbability"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -225,7 +260,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvClassMinProbability" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvClassMinDifference"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -248,7 +283,18 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvClassMinDifference" />
 
-                <eu.faircode.email.FixedTextView
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swShowFiltered"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_show_filtered"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/sbClassMinDifference"
+                    app:switchPadding="12dp" />
+
+                <TextView
                     android:id="@+id/tvLanguage"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -259,31 +305,17 @@
                     android:textColor="?android:attr/textColorPrimary"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/sbClassMinDifference" />
+                    app:layout_constraintTop_toBottomOf="@id/swShowFiltered" />
 
                 <Spinner
                     android:id="@+id/spLanguage"
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:layout_marginEnd="12dp"
-                    app:layout_constraintEnd_toStartOf="@+id/ibResetLanguage"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvLanguage" />
 
-                <eu.faircode.email.FixedImageButton
-                    android:id="@+id/ibResetLanguage"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="12dp"
-                    android:background="?android:attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="@string/title_reset"
-                    android:tooltipText="@string/title_reset"
-                    app:layout_constraintBottom_toBottomOf="@id/spLanguage"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:srcCompat="@drawable/twotone_cancel_24" />
-
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvLanguageHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -297,64 +329,44 @@
                     app:layout_constraintTop_toBottomOf="@id/spLanguage" />
 
                 <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/swDeepL"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:checked="true"
-                    android:text="@string/title_advanced_deepl"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvLanguageHint"
-                    app:switchPadding="12dp" />
-
-                <eu.faircode.email.FixedImageButton
-                    android:id="@+id/ibDeepL"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:contentDescription="@string/title_info"
-                    android:tooltipText="@string/title_info"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swDeepL"
-                    app:srcCompat="@drawable/twotone_info_24" />
-
-                <eu.faircode.email.FixedTextView
-                    android:id="@+id/tvSdcard"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:drawableEnd="@drawable/twotone_open_in_new_12"
-                    android:drawablePadding="6dp"
-                    android:drawableTint="?android:attr/textColorLink"
-                    android:text="@string/title_advanced_sdcard"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
-                    android:textColor="?android:attr/textColorLink"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/ibDeepL" />
-
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/swWatchdog"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:checked="true"
-                    android:text="@string/title_advanced_watchdog"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvSdcard"
-                    app:switchPadding="12dp" />
-
-                <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swUpdates"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:checked="true"
+                    android:drawableStart="@drawable/twotone_get_app_24"
+                    android:drawablePadding="6dp"
                     android:text="@string/title_advanced_updates"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swWatchdog"
+                    app:layout_constraintTop_toBottomOf="@id/tvLanguageHint"
                     app:switchPadding="12dp" />
+
+                <TextView
+                    android:id="@+id/tvGithubPrivacy"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:drawableEnd="@drawable/twotone_open_in_new_12"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_privacy_policy"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?android:attr/textColorLink"
+                    app:drawableTint="?android:attr/textColorLink"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swUpdates" />
+
+                <ImageButton
+                    android:id="@+id/ibChannelUpdated"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/tvGithubPrivacy"
+                    app:srcCompat="@drawable/switch_off_on" />
 
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swWeekly"
@@ -365,62 +377,99 @@
                     android:text="@string/title_advanced_check_weekly"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swUpdates"
+                    app:layout_constraintTop_toBottomOf="@id/ibChannelUpdated"
                     app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swBeta"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_beta"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swWeekly"
+                    app:switchPadding="12dp" />
+
+                <TextView
+                    android:id="@+id/tvBitBucketPrivacy"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="24dp"
+                    android:layout_marginTop="12dp"
+                    android:drawableEnd="@drawable/twotone_open_in_new_12"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_privacy_policy"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?android:attr/textColorLink"
+                    app:drawableTint="?android:attr/textColorLink"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swBeta" />
 
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swChangelog"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
+                    android:drawableStart="@drawable/twotone_list_alt_24"
+                    android:drawablePadding="6dp"
                     android:text="@string/title_advanced_changelog"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swWeekly"
+                    app:layout_constraintTop_toBottomOf="@id/tvBitBucketPrivacy"
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/swExperiments"
+                    android:id="@+id/swAnnouncements"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:text="@string/title_advanced_experiments"
+                    android:checked="true"
+                    android:drawableStart="@drawable/baseline_campaign_white_24"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_advanced_announcements"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swChangelog"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
-                    android:id="@+id/tvExperimentsHint"
+                <TextView
+                    android:id="@+id/tvAnnouncementsPrivacy"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
                     android:drawableEnd="@drawable/twotone_open_in_new_12"
                     android:drawablePadding="6dp"
-                    android:drawableTint="?android:attr/textColorLink"
-                    android:text="@string/title_advanced_experiments_hint"
+                    android:text="@string/title_privacy_policy"
                     android:textAppearance="@style/TextAppearance.AppCompat.Small"
                     android:textColor="?android:attr/textColorLink"
+                    app:drawableTint="?android:attr/textColorLink"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swExperiments" />
+                    app:layout_constraintTop_toBottomOf="@id/swAnnouncements" />
 
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swCrashReports"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
+                    android:drawableStart="@drawable/twotone_report_24"
+                    android:drawablePadding="6dp"
                     android:text="@string/title_advanced_crash_reports"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvExperimentsHint"
+                    app:layout_constraintTop_toBottomOf="@id/tvAnnouncementsPrivacy"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvUuid"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
                     android:layout_marginEnd="48dp"
                     android:fontFamily="monospace"
+                    android:selectAllOnFocus="true"
                     android:text="UUID"
                     android:textAppearance="@style/TextAppearance.AppCompat.Small"
                     android:textIsSelectable="true"
@@ -451,7 +500,7 @@
                     app:layout_constraintTop_toBottomOf="@id/btnReset"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvCleanupAttachmentsHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -475,7 +524,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvCleanupAttachmentsHint" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvCleanupHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -487,7 +536,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/btnCleanup" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvLastCleanup"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -497,18 +546,677 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvCleanupHint" />
 
+                <TextView
+                    android:id="@+id/tvSdcard"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:drawableEnd="@drawable/twotone_open_in_new_12"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_advanced_sdcard"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?android:attr/textColorLink"
+                    app:drawableTint="?android:attr/textColorLink"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvLastCleanup" />
+
+                <androidx.constraintlayout.widget.Group
+                    android:id="@+id/grpUpdates"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    app:constraint_referenced_ids="swUpdates,tvGithubPrivacy,swWeekly" />
+
+                <androidx.constraintlayout.widget.Group
+                    android:id="@+id/grpBitbucket"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    app:constraint_referenced_ids="swBeta,tvBitBucketPrivacy" />
+
+                <androidx.constraintlayout.widget.Group
+                    android:id="@+id/grpAnnouncements"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    app:constraint_referenced_ids="swAnnouncements,tvAnnouncementsPrivacy" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardIntegration"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="3dp"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="?attr/colorCardBackground"
+            app:cardCornerRadius="6dp"
+            app:cardElevation="0dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/cardGeneral">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="12dp">
+
+                <TextView
+                    android:id="@+id/tvCaptionIntegration"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="@string/title_advanced_caption_integrations"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Large"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swLanguageTool"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_lt"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvCaptionIntegration"
+                    app:switchPadding="12dp" />
+
+                <TextView
+                    android:id="@+id/tvLanguageToolHint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/title_advanced_privacy_risk"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?attr/colorWarning"
+                    app:drawableTint="?attr/colorWarning"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swLanguageTool" />
+
+                <TextView
+                    android:id="@+id/tvLanguageToolPrivacy"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:drawableEnd="@drawable/twotone_open_in_new_12"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_privacy_policy"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?android:attr/textColorLink"
+                    app:drawableTint="?android:attr/textColorLink"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvLanguageToolHint" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swLanguageToolAuto"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_lt_auto"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvLanguageToolPrivacy"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swLanguageToolPicky"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_translate_formal"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swLanguageToolAuto"
+                    app:switchPadding="12dp" />
+
+                <EditText
+                    android:id="@+id/etLanguageTool"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:inputType="textUri"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swLanguageToolPicky" />
+
+                <EditText
+                    android:id="@+id/etLanguageToolUser"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:hint="@string/title_advanced_lt_user"
+                    android:inputType="textEmailAddress"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/etLanguageTool" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilLanguageToolKey"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    app:endIconMode="password_toggle"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/etLanguageToolUser">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="@string/title_advanced_lt_key"
+                        android:inputType="textPassword"
+                        android:textAppearance="@style/TextAppearance.AppCompat.Small" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/tvLanguageTool"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:autoLink="web"
+                    android:drawableEnd="@drawable/twotone_open_in_new_12"
+                    android:drawablePadding="6dp"
+                    android:text="https://languagetool.org"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?android:attr/textColorLink"
+                    app:drawableTint="?android:attr/textColorLink"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tilLanguageToolKey" />
+
+                <ImageButton
+                    android:id="@+id/ibLanguageTool"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:contentDescription="@string/title_info"
+                    android:tooltipText="@string/title_info"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvLanguageTool"
+                    app:srcCompat="@drawable/twotone_info_24" />
+
+                <View
+                    android:id="@+id/vSeparatorDeepL"
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="24dp"
+                    android:background="?attr/colorSeparator"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/ibLanguageTool" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swDeepL"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_deepl"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/vSeparatorDeepL"
+                    app:switchPadding="12dp" />
+
+                <TextView
+                    android:id="@+id/tvDeepLHint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/title_advanced_privacy_risk"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?attr/colorWarning"
+                    app:drawableTint="?attr/colorWarning"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swDeepL" />
+
+                <TextView
+                    android:id="@+id/tvDeepLPrivacy"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:drawableEnd="@drawable/twotone_open_in_new_12"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_privacy_policy"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?android:attr/textColorLink"
+                    app:drawableTint="?android:attr/textColorLink"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvDeepLHint" />
+
+                <ImageButton
+                    android:id="@+id/ibDeepL"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:contentDescription="@string/title_translate_configure"
+                    android:tooltipText="@string/title_translate_configure"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvDeepLPrivacy"
+                    app:srcCompat="@drawable/twotone_settings_24" />
+
+                <View
+                    android:id="@+id/vSeparatorVirusTotal"
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="24dp"
+                    android:background="?attr/colorSeparator"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/ibDeepL" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swVirusTotal"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_virus_total"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/vSeparatorVirusTotal"
+                    app:switchPadding="12dp" />
+
+                <TextView
+                    android:id="@+id/tvVirusTotalHint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/title_advanced_privacy_risk"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?attr/colorWarning"
+                    app:drawableTint="?attr/colorWarning"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swVirusTotal" />
+
+                <TextView
+                    android:id="@+id/tvVirusTotalPrivacy"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:drawableEnd="@drawable/twotone_open_in_new_12"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_privacy_policy"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?android:attr/textColorLink"
+                    app:drawableTint="?android:attr/textColorLink"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvVirusTotalHint" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilVirusTotal"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    app:endIconMode="password_toggle"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/tvVirusTotalPrivacy">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="API key"
+                        android:inputType="textPassword"
+                        android:textAppearance="@style/TextAppearance.AppCompat.Small" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <ImageButton
+                    android:id="@+id/ibVirusTotal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:contentDescription="@string/title_info"
+                    android:tooltipText="@string/title_info"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tilVirusTotal"
+                    app:srcCompat="@drawable/twotone_info_24" />
+
+                <View
+                    android:id="@+id/vSeparatorSend"
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="24dp"
+                    android:background="?attr/colorSeparator"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/ibVirusTotal" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swSend"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_send"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/vSeparatorSend"
+                    app:switchPadding="12dp" />
+
+                <EditText
+                    android:id="@+id/etSend"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="wss://send.vis.ee/api/ws"
+                    android:inputType="textUri"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swSend" />
+
+                <ImageButton
+                    android:id="@+id/ibSend"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:contentDescription="@string/title_info"
+                    android:tooltipText="@string/title_info"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/etSend"
+                    app:srcCompat="@drawable/twotone_info_24" />
+
+                <View
+                    android:id="@+id/vSeparatorOpenAi"
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="24dp"
+                    android:background="?attr/colorSeparator"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/ibSend" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swOpenAi"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_openai"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/vSeparatorOpenAi"
+                    app:switchPadding="12dp" />
+
+                <TextView
+                    android:id="@+id/tvOpenAiHint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/title_advanced_privacy_risk"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?attr/colorWarning"
+                    app:drawableTint="?attr/colorWarning"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swOpenAi" />
+
+                <TextView
+                    android:id="@+id/tvOpenAiPrivacy"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:drawableEnd="@drawable/twotone_open_in_new_12"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_privacy_policy"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?android:attr/textColorLink"
+                    app:drawableTint="?android:attr/textColorLink"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvOpenAiHint" />
+
+                <EditText
+                    android:id="@+id/etOpenAi"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:hint="https://api.openai.com/"
+                    android:inputType="textUri"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvOpenAiPrivacy" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilOpenAi"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    app:endIconMode="password_toggle"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/etOpenAi">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="API key"
+                        android:inputType="textPassword"
+                        android:textAppearance="@style/TextAppearance.AppCompat.Small" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/tvOpenAiModel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_openai_model"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tilOpenAi" />
+
+                <EditText
+                    android:id="@+id/etOpenAiModel"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:hint="gpt-3.5-turbo"
+                    android:inputType="text"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvOpenAiModel" />
+
+                <TextView
+                    android:id="@+id/tvOpenAiTemperature"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginEnd="48dp"
+                    android:text="@string/title_advanced_openai_temperature"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/etOpenAiModel" />
+
+                <SeekBar
+                    android:id="@+id/sbOpenAiTemperature"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:max="20"
+                    android:min="0"
+                    android:progress="10"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvOpenAiTemperature" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swOpenAiModeration"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_openai_moderation"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/sbOpenAiTemperature"
+                    app:switchPadding="12dp" />
+
+                <ImageButton
+                    android:id="@+id/ibOpenAi"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:contentDescription="@string/title_info"
+                    android:tooltipText="@string/title_info"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swOpenAiModeration"
+                    app:srcCompat="@drawable/twotone_info_24" />
+
+                <androidx.constraintlayout.widget.Group
+                    android:id="@+id/grpVirusTotal"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    app:constraint_referenced_ids="swVirusTotal,tvVirusTotalHint,tvVirusTotalPrivacy,tilVirusTotal,ibVirusTotal" />
+
+                <androidx.constraintlayout.widget.Group
+                    android:id="@+id/grpSend"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    app:constraint_referenced_ids="swSend,etSend,ibSend" />
+
+                <androidx.constraintlayout.widget.Group
+                    android:id="@+id/grpOpenAi"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    app:constraint_referenced_ids="swOpenAi,tvOpenAiHint,tvOpenAiPrivacy,etOpenAi,tilOpenAi,ibOpenAi,etOpenAiModel,tvOpenAiTemperature,sbOpenAiTemperature" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardAdvanced"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="3dp"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="?attr/colorCardBackground"
+            app:cardCornerRadius="6dp"
+            app:cardElevation="0dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/cardIntegration">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="12dp">
+
+                <TextView
+                    android:id="@+id/tvCaptionAdvanced"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:drawableStart="@drawable/twotone_warning_24"
+                    android:drawablePadding="6dp"
+                    android:gravity="center"
+                    android:text="@string/title_setup_advanced"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Large"
+                    android:textColor="?attr/colorWarning"
+                    android:textStyle="bold"
+                    app:drawableTint="?attr/colorWarning"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swWatchdog"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="true"
+                    android:drawableStart="@drawable/twotone_check_24"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_advanced_watchdog"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvCaptionAdvanced"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swExperiments"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:drawableStart="@drawable/twotone_science_24"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_advanced_experiments"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swWatchdog"
+                    app:switchPadding="12dp" />
+
+                <TextView
+                    android:id="@+id/tvExperimentsHint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:drawableEnd="@drawable/twotone_open_in_new_12"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_advanced_experiments_hint"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?android:attr/textColorLink"
+                    app:drawableTint="?android:attr/textColorLink"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swExperiments" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swMainLog"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="true"
+                    android:drawableStart="@drawable/twotone_list_alt_24"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_advanced_main_log"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvExperimentsHint"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swMainLogMem"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_main_log_mem"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swMainLog"
+                    app:switchPadding="12dp" />
+
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swProtocol"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
+                    android:drawableStart="@drawable/twotone_compare_arrows_24"
+                    android:drawablePadding="6dp"
                     android:text="@string/title_advanced_protocol"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvLastCleanup"
+                    app:layout_constraintTop_toBottomOf="@id/swMainLogMem"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvProtocolHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -526,6 +1234,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
+                    android:drawableStart="@drawable/twotone_bug_report_24"
+                    android:drawablePadding="6dp"
                     android:text="@string/title_advanced_log_info"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -537,13 +1247,15 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
+                    android:drawableStart="@drawable/twotone_logo_dev_24"
+                    android:drawablePadding="6dp"
                     android:text="@string/title_advanced_debug"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swLogInfo"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvDebugHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -557,15 +1269,28 @@
                     app:layout_constraintTop_toBottomOf="@id/swDebug" />
 
                 <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swCanary"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:drawableStart="@drawable/leakcanary"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_advanced_canary"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvDebugHint"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swTest1"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:tag="debug"
+                    android:tag="nosuggest"
                     android:text="@string/title_advanced_test1"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvDebugHint"
+                    app:layout_constraintTop_toBottomOf="@id/swCanary"
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
@@ -573,7 +1298,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:tag="debug"
+                    android:tag="nosuggest"
                     android:text="@string/title_advanced_test2"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -585,7 +1310,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:tag="debug"
+                    android:tag="nosuggest"
                     android:text="@string/title_advanced_test3"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -597,7 +1322,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:tag="debug"
+                    android:tag="nosuggest"
                     android:text="@string/title_advanced_test4"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -609,18 +1334,12 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:tag="debug"
+                    android:tag="nosuggest"
                     android:text="@string/title_advanced_test5"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swTest4"
                     app:switchPadding="12dp" />
-
-                <androidx.constraintlayout.widget.Group
-                    android:id="@+id/grpUpdates"
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    app:constraint_referenced_ids="swUpdates,swWeekly" />
 
                 <androidx.constraintlayout.widget.Group
                     android:id="@+id/grpTest"
@@ -636,13 +1355,13 @@
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="3dp"
             android:layout_marginTop="12dp"
-            android:tag="debug"
+            android:tag="nosuggest"
             app:cardBackgroundColor="?attr/colorCardBackground"
             app:cardCornerRadius="6dp"
             app:cardElevation="0dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/cardGeneral">
+            app:layout_constraintTop_toBottomOf="@id/cardAdvanced">
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
@@ -650,18 +1369,18 @@
                 android:paddingHorizontal="6dp"
                 android:paddingVertical="12dp">
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvCaptionDebug"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:drawableStart="@drawable/twotone_warning_24"
                     android:drawableEnd="@drawable/twotone_warning_24"
                     android:drawablePadding="6dp"
-                    android:drawableTint="?attr/colorError"
                     android:gravity="center"
                     android:text="@string/title_advanced_caption_debug"
                     android:textAppearance="@style/TextAppearance.AppCompat.Large"
                     android:textStyle="bold"
+                    app:drawableTint="?attr/colorWarning"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
@@ -678,6 +1397,28 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvCaptionDebug" />
 
+                <Button
+                    android:id="@+id/btnDaily"
+                    style="?android:attr/buttonStyleSmall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:drawableEnd="@drawable/twotone_hourglass_top_24"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_advanced_daily"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/btnRepair" />
+
+                <TextView
+                    android:id="@+id/tvLastDaily"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="daily"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/btnDaily" />
+
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swAutostart"
                     android:layout_width="0dp"
@@ -687,7 +1428,19 @@
                     android:text="@string/title_advanced_autostart"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/btnRepair"
+                    app:layout_constraintTop_toBottomOf="@id/tvLastDaily"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swEmergency"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="true"
+                    android:text="@string/title_advanced_emergency"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swAutostart"
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
@@ -699,7 +1452,7 @@
                     android:text="@string/title_advanced_work_manager"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swAutostart"
+                    app:layout_constraintTop_toBottomOf="@id/swEmergency"
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
@@ -709,14 +1462,14 @@
                     android:layout_marginTop="12dp"
                     android:drawableStart="@drawable/twotone_warning_24"
                     android:drawablePadding="6dp"
-                    android:drawableTint="?attr/colorError"
                     android:text="@string/title_advanced_external_storage"
+                    app:drawableTint="?attr/colorWarning"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swWorkManager"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvExternalStorageFolder"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -728,59 +1481,28 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swExternalStorage" />
 
-                <eu.faircode.email.FixedTextView
-                    android:id="@+id/tvRoomQueryThreads"
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swIntegrity"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:layout_marginEnd="48dp"
-                    android:text="@string/title_advanced_room_query_threads"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:checked="true"
+                    android:text="@string/title_advanced_integrity"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvExternalStorageFolder" />
-
-                <SeekBar
-                    android:id="@+id/sbRoomQueryThreads"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:max="32"
-                    android:min="0"
-                    android:progress="4"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvRoomQueryThreads" />
-
-                <eu.faircode.email.FixedImageButton
-                    android:id="@+id/ibRoom"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/sbRoomQueryThreads"
-                    app:srcCompat="@drawable/twotone_check_24" />
-
-                <eu.faircode.email.FixedTextView
-                    android:id="@+id/tvRoomHint"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="48dp"
-                    android:text="@string/title_advanced_english_hint"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
-                    android:textStyle="italic"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/ibRoom" />
+                    app:layout_constraintTop_toBottomOf="@id/tvExternalStorageFolder"
+                    app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swWal"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
+                    android:checked="true"
                     android:text="@string/title_advanced_wal"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvRoomHint"
+                    app:layout_constraintTop_toBottomOf="@id/swIntegrity"
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
@@ -788,13 +1510,48 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
+                    android:checked="true"
                     android:text="@string/title_advanced_checkpoints"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swWal"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swAnalyze"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="true"
+                    android:text="@string/title_advanced_analyze"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swCheckpoints"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swAutoVacuum"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_auto_vacuum"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swAnalyze"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swSyncExtra"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_sync_extra"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swAutoVacuum"
+                    app:switchPadding="12dp" />
+
+                <TextView
                     android:id="@+id/tvSqliteCache"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -804,20 +1561,20 @@
                     android:textAppearance="@style/TextAppearance.AppCompat.Small"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swCheckpoints" />
+                    app:layout_constraintTop_toBottomOf="@id/swSyncExtra" />
 
                 <SeekBar
                     android:id="@+id/sbSqliteCache"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:max="50"
+                    android:max="100"
                     android:min="0"
-                    android:progress="5"
+                    android:progress="10"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvSqliteCache" />
 
-                <eu.faircode.email.FixedImageButton
+                <ImageButton
                     android:id="@+id/ibSqliteCache"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -826,7 +1583,7 @@
                     app:layout_constraintTop_toBottomOf="@id/sbSqliteCache"
                     app:srcCompat="@drawable/twotone_check_24" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvSqliteCacheHint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -838,7 +1595,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/ibSqliteCache" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvChunkSize"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -861,28 +1618,85 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvChunkSize" />
 
+                <TextView
+                    android:id="@+id/tvThreadRange"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginEnd="48dp"
+                    android:text="@string/title_advanced_thread_range"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/sbChunkSize" />
+
+                <SeekBar
+                    android:id="@+id/sbThreadRange"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:max="10"
+                    android:min="0"
+                    android:progress="7"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvThreadRange" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swAutoScroll"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_auto_scroll"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/sbThreadRange"
+                    app:switchPadding="12dp" />
+
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swUndoManager"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:checked="true"
                     android:text="@string/title_advanced_undo_manager"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/sbChunkSize"
+                    app:layout_constraintTop_toBottomOf="@id/swAutoScroll"
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/swWebViewLegacy"
+                    android:id="@+id/swBrowserZoom"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:checked="true"
-                    android:text="@string/title_advanced_webview_legacy"
+                    android:text="@string/title_advanced_browser_zoom"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swUndoManager"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swFakeDark"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="true"
+                    android:text="@string/title_advanced_fake_dark"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swBrowserZoom"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swShowRecent"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="true"
+                    android:text="@string/title_advanced_show_recent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swFakeDark"
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
@@ -894,7 +1708,18 @@
                     android:text="@string/title_advanced_modseq"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swWebViewLegacy"
+                    app:layout_constraintTop_toBottomOf="@id/swShowRecent"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swPreamble"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_preamble"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swModSeq"
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
@@ -905,7 +1730,7 @@
                     android:text="@string/title_advanced_uid"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swModSeq"
+                    app:layout_constraintTop_toBottomOf="@id/swPreamble"
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
@@ -924,7 +1749,6 @@
                     android:id="@+id/swUidExpunge"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
                     android:layout_marginTop="12dp"
                     android:text="@string/title_advanced_uid_expunge"
                     app:layout_constraintEnd_toEndOf="parent"
@@ -992,6 +1816,18 @@
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swUseTop"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="true"
+                    android:text="@string/title_advanced_use_top"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swAuthApop"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swKeepAlivePoll"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -999,7 +1835,7 @@
                     android:text="@string/title_advanced_keep_alive_poll"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swAuthApop"
+                    app:layout_constraintTop_toBottomOf="@id/swUseTop"
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
@@ -1027,15 +1863,122 @@
                     app:switchPadding="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/swExactAlarms"
+                    android:id="@+id/swFastFetch"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:text="@string/title_advanced_exact_alarms"
+                    android:text="@string/title_advanced_fast_fetch"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swIdleDone"
                     app:switchPadding="12dp" />
+
+                <TextView
+                    android:id="@+id/tvMaxBackoff"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginEnd="48dp"
+                    android:text="@string/title_advanced_max_backoff"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swFastFetch" />
+
+                <SeekBar
+                    android:id="@+id/sbMaxBackOff"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:max="4"
+                    android:progress="3"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvMaxBackoff" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swLogarithmicBackoff"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="true"
+                    android:text="@string/title_advanced_logarithmic_backoff"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/sbMaxBackOff"
+                    app:switchPadding="12dp" />
+
+                <TextView
+                    android:id="@+id/tvLogarithmicBackoffHint"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="48dp"
+                    android:text="@string/title_advanced_logarithmic_backoff_hint"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?attr/colorWarning"
+                    android:textStyle="italic"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swLogarithmicBackoff" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swExactAlarms"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="true"
+                    android:text="@string/title_advanced_exact_alarms"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvLogarithmicBackoffHint"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swNativeDkim"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_native_dkim"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swExactAlarms"
+                    app:switchPadding="12dp" />
+
+                <TextView
+                    android:id="@+id/tvNativeDkimHint"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="48dp"
+                    android:text="@string/title_advanced_sync_delay_hint"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?attr/colorWarning"
+                    android:textStyle="italic"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swNativeDkim" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swNativeArc"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_native_arc"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvNativeDkimHint"
+                    app:switchPadding="12dp" />
+
+                <EditText
+                    android:id="@+id/etNativeArcWhitelist"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="12dp"
+                    android:inputType="textNoSuggestions"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swNativeArc" />
 
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swInfra"
@@ -1045,7 +1988,7 @@
                     android:text="@string/title_advanced_infra"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swExactAlarms"
+                    app:layout_constraintTop_toBottomOf="@id/etNativeArcWhitelist"
                     app:switchPadding="12dp" />
 
                 <androidx.constraintlayout.helper.widget.Flow
@@ -1069,7 +2012,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/swInfra" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_awsses"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1078,7 +2021,7 @@
                     app:srcCompat="@drawable/infra_awsses"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_elastic"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1087,7 +2030,7 @@
                     app:srcCompat="@drawable/infra_elastic"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_gmail"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1096,7 +2039,7 @@
                     app:srcCompat="@drawable/infra_gmail"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_icloud"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1105,7 +2048,7 @@
                     app:srcCompat="@drawable/infra_icloud"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_icontact"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1114,7 +2057,7 @@
                     app:srcCompat="@drawable/infra_icontact"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_mailchimp"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1123,7 +2066,7 @@
                     app:srcCompat="@drawable/infra_mailchimp"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_mailgun"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1132,7 +2075,7 @@
                     app:srcCompat="@drawable/infra_mailgun"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_mailjet"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1141,7 +2084,7 @@
                     app:srcCompat="@drawable/infra_mailjet"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_mandrill"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1150,7 +2093,7 @@
                     app:srcCompat="@drawable/infra_mandrill"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_netcore"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1159,7 +2102,7 @@
                     app:srcCompat="@drawable/infra_netcore"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_outlook"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1168,7 +2111,7 @@
                     app:srcCompat="@drawable/infra_outlook"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_paypal"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1177,7 +2120,7 @@
                     app:srcCompat="@drawable/infra_paypal"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_phpmailer"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1186,7 +2129,7 @@
                     app:srcCompat="@drawable/infra_phpmailer"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_postmark"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1195,7 +2138,7 @@
                     app:srcCompat="@drawable/infra_postmark"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_salesforce"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1204,7 +2147,7 @@
                     app:srcCompat="@drawable/infra_salesforce"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_sendgrid"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1213,7 +2156,7 @@
                     app:srcCompat="@drawable/infra_sendgrid"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_sendinblue"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1222,7 +2165,7 @@
                     app:srcCompat="@drawable/infra_sendinblue"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_sparkpost"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1231,7 +2174,7 @@
                     app:srcCompat="@drawable/infra_sparkpost"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_yahoo"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1240,7 +2183,7 @@
                     app:srcCompat="@drawable/infra_yahoo"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_zeptomail"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1249,7 +2192,7 @@
                     app:srcCompat="@drawable/infra_zeptomail"
                     tools:ignore="MissingConstraints" />
 
-                <eu.faircode.email.FixedImageView
+                <ImageView
                     android:id="@+id/infra_zoho"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -1259,6 +2202,20 @@
                     app:srcCompat="@drawable/infra_zoho"
                     tools:ignore="MissingConstraints" />
 
+                <TextView
+                    android:id="@+id/tvDkimVerifyHint"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginEnd="48dp"
+                    android:text="@string/title_advanced_usage_hint"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="?attr/colorWarning"
+                    android:textStyle="italic"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/flowInfra" />
+
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swDupMsgId"
                     android:layout_width="0dp"
@@ -1267,8 +2224,43 @@
                     android:text="@string/title_advanced_dup_msgid"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/flowInfra"
+                    app:layout_constraintTop_toBottomOf="@id/tvDkimVerifyHint"
                     app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swThreadByRef"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_thread_by_ref"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swDupMsgId"
+                    app:switchPadding="12dp" />
+
+                <EditText
+                    android:id="@+id/etKeywords"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="@string/title_advanced_global_keywords"
+                    android:inputType="text"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swThreadByRef" />
+
+                <TextView
+                    android:id="@+id/tvKeywordsHint"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="48dp"
+                    android:text="@string/title_advanced_keywords_hint"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textStyle="italic"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/etKeywords" />
 
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swTestIab"
@@ -1278,10 +2270,30 @@
                     android:text="@string/title_advanced_test_iab"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swDupMsgId"
+                    app:layout_constraintTop_toBottomOf="@id/tvKeywordsHint"
                     app:switchPadding="12dp" />
 
-                <eu.faircode.email.FixedTextView
+                <Button
+                    android:id="@+id/btnImportProviders"
+                    style="?android:attr/buttonStyleSmall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_import_providers"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swTestIab" />
+
+                <Button
+                    android:id="@+id/btnExportClassifier"
+                    style="?android:attr/buttonStyleSmall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_export_classifier"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/btnImportProviders" />
+
+                <TextView
                     android:id="@+id/tvProcessors"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -1290,9 +2302,9 @@
                     android:textAppearance="@style/TextAppearance.AppCompat.Small"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swTestIab" />
+                    app:layout_constraintTop_toBottomOf="@id/btnExportClassifier" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvMemoryClass"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -1302,7 +2314,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvProcessors" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvMemoryUsage"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -1312,7 +2324,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvMemoryClass" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvStorageUsage"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -1322,18 +2334,41 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvMemoryUsage" />
 
-                <eu.faircode.email.FixedTextView
+
+                <TextView
+                    android:id="@+id/tvCacheUsage"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/title_advanced_storage_usage"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvStorageUsage" />
+
+                <TextView
                     android:id="@+id/tvCursorWindow"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:text="@string/title_advanced_cursor_window"
                     android:textAppearance="@style/TextAppearance.AppCompat.Small"
                     android:textIsSelectable="true"
+                    android:visibility="gone"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvStorageUsage" />
+                    app:layout_constraintTop_toBottomOf="@id/tvCacheUsage" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
+                    android:id="@+id/tvContactInfo"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/title_advanced_contact_info"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textIsSelectable="true"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvCursorWindow" />
+
+                <TextView
                     android:id="@+id/tvSuffixes"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -1342,9 +2377,9 @@
                     android:textIsSelectable="true"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvCursorWindow" />
+                    app:layout_constraintTop_toBottomOf="@id/tvContactInfo" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvAndroidId"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -1355,7 +2390,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvSuffixes" />
 
-                <eu.faircode.email.FixedTextView
+                <TextView
                     android:id="@+id/tvFingerprint"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -1398,16 +2433,6 @@
                     app:layout_constraintTop_toBottomOf="@id/btnCharsets" />
 
                 <Button
-                    android:id="@+id/btnCiphers"
-                    style="?android:attr/buttonStyleSmall"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="@string/title_advanced_ciphers"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/btnFontMap" />
-
-                <Button
                     android:id="@+id/btnFiles"
                     style="?android:attr/buttonStyleSmall"
                     android:layout_width="wrap_content"
@@ -1415,9 +2440,29 @@
                     android:layout_marginTop="12dp"
                     android:text="@string/title_advanced_files"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/btnCiphers" />
+                    app:layout_constraintTop_toBottomOf="@id/btnFontMap" />
 
-                <eu.faircode.email.FixedTextView
+                <Button
+                    android:id="@+id/btnUris"
+                    style="?android:attr/buttonStyleSmall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_uris"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/btnFiles" />
+
+                <Button
+                    android:id="@+id/btnAllPermissions"
+                    style="?android:attr/buttonStyleSmall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_all_permissions"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/btnUris" />
+
+                <TextView
                     android:id="@+id/tvPermissions"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -1427,7 +2472,7 @@
                     android:textIsSelectable="true"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/btnFiles" />
+                    app:layout_constraintTop_toBottomOf="@id/btnAllPermissions" />
             </androidx.constraintlayout.widget.ConstraintLayout>
         </androidx.cardview.widget.CardView>
     </androidx.constraintlayout.widget.ConstraintLayout>

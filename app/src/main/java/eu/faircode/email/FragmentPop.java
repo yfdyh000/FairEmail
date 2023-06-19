@@ -16,14 +16,14 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.app.Activity.RESULT_OK;
-import static com.google.android.material.textfield.TextInputLayout.END_ICON_NONE;
 import static com.google.android.material.textfield.TextInputLayout.END_ICON_PASSWORD_TOGGLE;
 import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
 
+import android.Manifest;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
@@ -34,7 +34,6 @@ import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -51,6 +50,7 @@ import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.constraintlayout.widget.Group;
@@ -59,6 +59,8 @@ import androidx.lifecycle.Lifecycle;
 
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputLayout;
+
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -83,17 +85,26 @@ public class FragmentPop extends FragmentBase {
     private ViewButtonColor btnColor;
     private TextView tvColorPro;
 
+    private Button btnCalendar;
+    private TextView tvCalendarPro;
+
     private CheckBox cbSynchronize;
+    private CheckBox cbIgnoreSchedule;
     private CheckBox cbOnDemand;
     private CheckBox cbPrimary;
     private CheckBox cbNotify;
+    private TextView tvNotifyRemark;
+    private CheckBox cbSummary;
     private TextView tvNotifyPro;
     private CheckBox cbAutoSeen;
     private CheckBox cbLeaveServer;
+    private CheckBox cbClientDelete;
     private CheckBox cbLeaveDeleted;
     private CheckBox cbLeaveDevice;
     private EditText etMax;
     private EditText etInterval;
+    private CheckBox cbUnmetered;
+    private CheckBox cbVpnOnly;
 
     private ArrayAdapter<EntityFolder> adapterSwipe;
     private Spinner spLeft;
@@ -103,16 +114,21 @@ public class FragmentPop extends FragmentBase {
     private ContentLoadingProgressBar pbSave;
     private CheckBox cbIdentity;
     private TextView tvError;
+
+    private Group grpCalendar;
     private Group grpError;
 
     private ContentLoadingProgressBar pbWait;
 
     private long id = -1;
+    private int auth = AUTH_TYPE_PASSWORD;
+    private String calendar = null;
     private boolean saving = false;
 
     private static final int REQUEST_COLOR = 1;
-    private static final int REQUEST_SAVE = 2;
-    private static final int REQUEST_DELETE = 3;
+    private static final int REQUEST_CALENDAR = 2;
+    private static final int REQUEST_SAVE = 3;
+    private static final int REQUEST_DELETE = 4;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -147,17 +163,26 @@ public class FragmentPop extends FragmentBase {
         btnColor = view.findViewById(R.id.btnColor);
         tvColorPro = view.findViewById(R.id.tvColorPro);
 
+        btnCalendar = view.findViewById(R.id.btnCalendar);
+        tvCalendarPro = view.findViewById(R.id.tvCalendarPro);
+
         cbSynchronize = view.findViewById(R.id.cbSynchronize);
+        cbIgnoreSchedule = view.findViewById(R.id.cbIgnoreSchedule);
         cbOnDemand = view.findViewById(R.id.cbOnDemand);
         cbPrimary = view.findViewById(R.id.cbPrimary);
         cbNotify = view.findViewById(R.id.cbNotify);
+        tvNotifyRemark = view.findViewById(R.id.tvNotifyRemark);
+        cbSummary = view.findViewById(R.id.cbSummary);
         tvNotifyPro = view.findViewById(R.id.tvNotifyPro);
         cbAutoSeen = view.findViewById(R.id.cbAutoSeen);
         cbLeaveServer = view.findViewById(R.id.cbLeaveServer);
+        cbClientDelete = view.findViewById(R.id.cbClientDelete);
         cbLeaveDeleted = view.findViewById(R.id.cbLeaveDeleted);
         cbLeaveDevice = view.findViewById(R.id.cbLeaveDevice);
         etMax = view.findViewById(R.id.etMax);
         etInterval = view.findViewById(R.id.etInterval);
+        cbUnmetered = view.findViewById(R.id.cbUnmeteredOnly);
+        cbVpnOnly = view.findViewById(R.id.cbVpnOnly);
 
         spLeft = view.findViewById(R.id.spLeft);
         spRight = view.findViewById(R.id.spRight);
@@ -167,6 +192,8 @@ public class FragmentPop extends FragmentBase {
         cbIdentity = view.findViewById(R.id.cbIdentity);
 
         tvError = view.findViewById(R.id.tvError);
+
+        grpCalendar = view.findViewById(R.id.grpCalendar);
         grpError = view.findViewById(R.id.grpError);
 
         pbWait = view.findViewById(R.id.pbWait);
@@ -200,6 +227,9 @@ public class FragmentPop extends FragmentBase {
 
             @Override
             public void afterTextChanged(Editable s) {
+                if (tilPassword == null)
+                    return;
+
                 String password = s.toString();
                 boolean warning = (Helper.containsWhiteSpace(password) ||
                         Helper.containsControlChars(password));
@@ -234,9 +264,27 @@ public class FragmentPop extends FragmentBase {
 
         Helper.linkPro(tvColorPro);
 
+        grpCalendar.setVisibility(BuildConfig.PLAY_STORE_RELEASE ? View.GONE : View.VISIBLE);
+        btnCalendar.setEnabled(Helper.hasPermission(getContext(), Manifest.permission.WRITE_CALENDAR));
+        btnCalendar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Bundle args = new Bundle();
+                args.putString("calendar", calendar);
+
+                FragmentDialogCalendar fragment = new FragmentDialogCalendar();
+                fragment.setArguments(args);
+                fragment.setTargetFragment(FragmentPop.this, REQUEST_CALENDAR);
+                fragment.show(getParentFragmentManager(), "account:calendar");
+            }
+        });
+
+        Helper.linkPro(tvCalendarPro);
+
         cbSynchronize.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                cbIgnoreSchedule.setEnabled(checked);
                 cbOnDemand.setEnabled(checked);
                 cbPrimary.setEnabled(checked);
             }
@@ -244,10 +292,32 @@ public class FragmentPop extends FragmentBase {
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             Helper.hide(cbNotify);
+            Helper.hide(tvNotifyRemark);
             Helper.hide(view.findViewById(R.id.tvNotifyPro));
         }
 
+        tvNotifyRemark.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Helper.viewFAQ(v.getContext(), 145);
+            }
+        });
+
         Helper.linkPro(tvNotifyPro);
+
+        cbNotify.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                cbSummary.setEnabled(cbNotify.isEnabled() && isChecked);
+            }
+        });
+
+        cbLeaveServer.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                cbClientDelete.setEnabled(!isChecked);
+            }
+        });
 
         etInterval.setHint(Integer.toString(EntityAccount.DEFAULT_POLL_INTERVAL));
 
@@ -264,23 +334,24 @@ public class FragmentPop extends FragmentBase {
             }
         });
 
-        addKeyPressedListener(new ActivityBase.IKeyPressedListener() {
+        setBackPressedCallback(new OnBackPressedCallback(true) {
             @Override
-            public boolean onKeyPressed(KeyEvent event) {
-                return false;
-            }
-
-            @Override
-            public boolean onBackPressed() {
-                onSave(true);
-                return true;
+            public void handleOnBackPressed() {
+                if (Helper.isKeyboardVisible(view))
+                    Helper.hideKeyboard(view);
+                else
+                    onSave(true);
             }
         });
 
         // Initialize
         Helper.setViewsEnabled(view, false);
 
-        tilPassword.setEndIconMode(id < 0 || Helper.isSecure(getContext()) ? END_ICON_PASSWORD_TOGGLE : END_ICON_NONE);
+        if (id < 0)
+            tilPassword.setEndIconMode(END_ICON_PASSWORD_TOGGLE);
+        else
+            Helper.setupPasswordToggle(getActivity(), tilPassword);
+
         pbSave.setVisibility(View.GONE);
         grpError.setVisibility(View.GONE);
 
@@ -303,24 +374,31 @@ public class FragmentPop extends FragmentBase {
         args.putInt("encryption", encryption);
         args.putBoolean("insecure", cbInsecure.isChecked());
         args.putString("port", etPort.getText().toString());
+        args.putInt("auth", auth);
         args.putString("user", etUser.getText().toString());
         args.putString("password", tilPassword.getEditText().getText().toString());
 
         args.putString("name", etName.getText().toString());
         args.putString("category", etCategory.getText().toString());
         args.putInt("color", btnColor.getColor());
+        args.putString("calendar", calendar);
 
         args.putBoolean("synchronize", cbSynchronize.isChecked());
+        args.putBoolean("ignore_schedule", cbIgnoreSchedule.isChecked());
         args.putBoolean("ondemand", cbOnDemand.isChecked());
         args.putBoolean("primary", cbPrimary.isChecked());
         args.putBoolean("notify", cbNotify.isChecked());
+        args.putBoolean("summary", cbSummary.isChecked());
         args.putBoolean("auto_seen", cbAutoSeen.isChecked());
 
         args.putBoolean("leave_server", cbLeaveServer.isChecked());
+        args.putBoolean("client_delete", cbClientDelete.isChecked());
         args.putBoolean("leave_deleted", cbLeaveDeleted.isChecked());
         args.putBoolean("leave_device", cbLeaveDevice.isChecked());
         args.putString("max", etMax.getText().toString());
         args.putString("interval", etInterval.getText().toString());
+        args.putBoolean("unmetered", cbUnmetered.isChecked());
+        args.putBoolean("vpn_only", cbVpnOnly.isChecked());
 
         args.putLong("left", ((EntityFolder) spLeft.getSelectedItem()).id);
         args.putLong("right", ((EntityFolder) spRight.getSelectedItem()).id);
@@ -353,23 +431,30 @@ public class FragmentPop extends FragmentBase {
                 int encryption = args.getInt("encryption");
                 boolean insecure = args.getBoolean("insecure");
                 String port = args.getString("port");
+                int auth = args.getInt("auth");
                 String user = args.getString("user").trim();
                 String password = args.getString("password");
 
                 String name = args.getString("name");
                 String category = args.getString("category");
                 Integer color = args.getInt("color");
+                String calendar = args.getString("calendar");
 
                 boolean synchronize = args.getBoolean("synchronize");
+                boolean ignore_schedule = args.getBoolean("ignore_schedule");
                 boolean ondemand = args.getBoolean("ondemand");
                 boolean primary = args.getBoolean("primary");
                 boolean notify = args.getBoolean("notify");
+                boolean summary = args.getBoolean("summary");
                 boolean auto_seen = args.getBoolean("auto_seen");
                 boolean leave_server = args.getBoolean("leave_server");
+                boolean client_delete = args.getBoolean("client_delete");
                 boolean leave_deleted = args.getBoolean("leave_deleted");
                 boolean leave_device = args.getBoolean("leave_device");
                 String max = args.getString("max");
                 String interval = args.getString("interval");
+                boolean unmetered = args.getBoolean("unmetered");
+                boolean vpn_only = args.getBoolean("vpn_only");
 
                 long left = args.getLong("left");
                 long right = args.getLong("right");
@@ -392,6 +477,8 @@ public class FragmentPop extends FragmentBase {
                 if (TextUtils.isEmpty(interval))
                     interval = Integer.toString(EntityAccount.DEFAULT_POLL_INTERVAL);
                 Integer max_messages = (TextUtils.isEmpty(max) ? null : Integer.parseInt(max));
+                if (max_messages != null && max_messages == 0)
+                    max_messages = null;
                 int poll_interval = Math.max(1, Integer.parseInt(interval));
 
                 if (TextUtils.isEmpty(name))
@@ -400,13 +487,23 @@ public class FragmentPop extends FragmentBase {
                     category = null;
                 if (color == Color.TRANSPARENT || !pro)
                     color = null;
-                if (!pro)
+                if (!pro) {
                     notify = false;
+                    summary = false;
+                }
 
                 long now = new Date().getTime();
 
                 DB db = DB.getInstance(context);
                 EntityAccount account = db.account().getAccount(id);
+
+                JSONObject jconditions = new JSONObject();
+                if (account != null && account.conditions != null)
+                    try {
+                        jconditions = new JSONObject(account.conditions);
+                    } catch (Throwable ex) {
+                        Log.e(ex);
+                    }
 
                 if (should) {
                     if (account == null)
@@ -430,7 +527,11 @@ public class FragmentPop extends FragmentBase {
                         return true;
                     if (!Objects.equals(account.color, color))
                         return true;
+                    if (!Objects.equals(account.calendar, calendar))
+                        return true;
                     if (!Objects.equals(account.synchronize, synchronize))
+                        return true;
+                    if (ignore_schedule != jconditions.optBoolean("ignore_schedule"))
                         return true;
                     if (!Objects.equals(account.ondemand, ondemand))
                         return true;
@@ -438,9 +539,13 @@ public class FragmentPop extends FragmentBase {
                         return true;
                     if (!Objects.equals(account.notify, notify))
                         return true;
+                    if (!Objects.equals(account.summary, summary))
+                        return true;
                     if (!Objects.equals(account.auto_seen, auto_seen))
                         return true;
                     if (!Objects.equals(account.leave_on_server, leave_server))
+                        return true;
+                    if (!Objects.equals(account.client_delete, client_delete))
                         return true;
                     if (!Objects.equals(account.leave_deleted, leave_deleted))
                         return true;
@@ -449,6 +554,10 @@ public class FragmentPop extends FragmentBase {
                     if (!Objects.equals(account.max_messages, max_messages))
                         return true;
                     if (!Objects.equals(account.poll_interval, poll_interval))
+                        return true;
+                    if (unmetered != jconditions.optBoolean("unmetered"))
+                        return true;
+                    if (vpn_only != jconditions.optBoolean("vpn_only"))
                         return true;
 
                     if (!Objects.equals(account.swipe_left, left))
@@ -479,23 +588,25 @@ public class FragmentPop extends FragmentBase {
                 if (check) {
                     String protocol = "pop3" + (encryption == EmailService.ENCRYPTION_SSL ? "s" : "");
                     try (EmailService iservice = new EmailService(
-                            context, protocol, null, encryption, insecure,
+                            context, protocol, null, encryption, insecure, false,
                             EmailService.PURPOSE_CHECK, true)) {
                         iservice.connect(
                                 host, Integer.parseInt(port),
-                                AUTH_TYPE_PASSWORD, null,
+                                auth, null,
                                 user, password,
                                 null, null);
                     }
                 }
 
+                boolean reschedule = (ignore_schedule != jconditions.optBoolean("ignore_schedule"));
+
                 try {
                     db.beginTransaction();
 
                     if (account != null && !account.password.equals(password)) {
-                        String domain = UriHelper.getParentDomain(context, account.host);
-                        String match = (Objects.equals(account.host, domain) ? account.host : "%." + domain);
-                        int count = db.identity().setIdentityPassword(account.id, account.user, password, AUTH_TYPE_PASSWORD, match);
+                        String root = UriHelper.getRootDomain(context, account.host);
+                        String match = (root == null || root.equals(account.host) ? account.host : "%." + root);
+                        int count = db.identity().setIdentityPassword(account.id, account.user, password, auth, match);
                         Log.i("Updated passwords=" + count + " match=" + match);
                     }
 
@@ -508,24 +619,32 @@ public class FragmentPop extends FragmentBase {
                     account.encryption = encryption;
                     account.insecure = insecure;
                     account.port = Integer.parseInt(port);
-                    account.auth_type = AUTH_TYPE_PASSWORD;
+                    account.auth_type = auth;
                     account.user = user;
                     account.password = password;
 
                     account.name = name;
                     account.category = category;
                     account.color = color;
+                    account.calendar = calendar;
 
                     account.synchronize = synchronize;
+                    jconditions.put("ignore_schedule", ignore_schedule);
                     account.ondemand = ondemand;
                     account.primary = (account.synchronize && primary);
                     account.notify = notify;
+                    account.summary = summary;
                     account.auto_seen = auto_seen;
                     account.leave_on_server = leave_server;
+                    account.client_delete = client_delete;
                     account.leave_deleted = leave_deleted;
                     account.leave_on_device = leave_device;
                     account.max_messages = max_messages;
                     account.poll_interval = poll_interval;
+
+                    jconditions.put("unmetered", unmetered);
+                    jconditions.put("vpn_only", vpn_only);
+                    account.conditions = jconditions.toString();
 
                     account.swipe_left = left;
                     account.swipe_right = right;
@@ -558,67 +677,16 @@ public class FragmentPop extends FragmentBase {
                             account.deleteNotificationChannel(context);
                     }
 
-                    EntityFolder inbox = db.folder().getFolderByType(account.id, EntityFolder.INBOX);
-                    if (inbox == null) {
-                        inbox = new EntityFolder();
-                        inbox.account = account.id;
-                        inbox.name = "INBOX";
-                        inbox.type = EntityFolder.INBOX;
-                        inbox.synchronize = true;
-                        inbox.unified = true;
-                        inbox.notify = true;
-                        inbox.sync_days = Integer.MAX_VALUE;
-                        inbox.keep_days = Integer.MAX_VALUE;
-                        inbox.initialize = 0;
-                        inbox.id = db.folder().insertFolder(inbox);
+                    for (EntityFolder folder : EntityFolder.getPopFolders(context)) {
+                        EntityFolder existing = db.folder().getFolderByType(account.id, folder.type);
+                        if (existing == null) {
+                            folder.account = account.id;
+                            folder.id = db.folder().insertFolder(folder);
+                            existing = folder;
+                        }
 
-                        if (account.synchronize)
-                            EntityOperation.sync(context, inbox.id, true);
-                    }
-
-                    EntityFolder drafts = db.folder().getFolderByType(account.id, EntityFolder.DRAFTS);
-                    if (drafts == null) {
-                        drafts = new EntityFolder();
-                        drafts.account = account.id;
-                        drafts.name = context.getString(R.string.title_folder_drafts);
-                        drafts.type = EntityFolder.DRAFTS;
-                        drafts.synchronize = false;
-                        drafts.unified = false;
-                        drafts.notify = false;
-                        drafts.sync_days = Integer.MAX_VALUE;
-                        drafts.keep_days = Integer.MAX_VALUE;
-                        drafts.initialize = 0;
-                        drafts.id = db.folder().insertFolder(drafts);
-                    }
-
-                    EntityFolder sent = db.folder().getFolderByType(account.id, EntityFolder.SENT);
-                    if (sent == null) {
-                        sent = new EntityFolder();
-                        sent.account = account.id;
-                        sent.name = context.getString(R.string.title_folder_sent);
-                        sent.type = EntityFolder.SENT;
-                        sent.synchronize = false;
-                        sent.unified = false;
-                        sent.notify = false;
-                        sent.sync_days = Integer.MAX_VALUE;
-                        sent.keep_days = Integer.MAX_VALUE;
-                        sent.initialize = 0;
-                        sent.id = db.folder().insertFolder(sent);
-                    }
-
-                    EntityFolder trash = db.folder().getFolderByType(account.id, EntityFolder.TRASH);
-                    if (trash == null) {
-                        trash = new EntityFolder();
-                        trash.account = account.id;
-                        trash.name = context.getString(R.string.title_folder_trash);
-                        trash.type = EntityFolder.TRASH;
-                        trash.synchronize = false;
-                        trash.unified = false;
-                        trash.notify = false;
-                        trash.sync_days = Integer.MAX_VALUE;
-                        trash.keep_days = Integer.MAX_VALUE;
-                        trash.initialize = 0;
-                        trash.id = db.folder().insertFolder(trash);
+                        if (account.synchronize && existing.synchronize)
+                            EntityOperation.sync(context, existing.id, true);
                     }
 
                     db.setTransactionSuccessful();
@@ -626,11 +694,13 @@ public class FragmentPop extends FragmentBase {
                     db.endTransaction();
                 }
 
-                ServiceSynchronize.eval(context, "POP3");
+                if (reschedule)
+                    ServiceSynchronize.reschedule(context);
+                else
+                    ServiceSynchronize.eval(context, "POP3");
 
                 if (!synchronize) {
-                    NotificationManager nm =
-                            (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+                    NotificationManager nm = Helper.getSystemService(context, NotificationManager.class);
                     nm.cancel("receive:" + account.id, NotificationHelper.NOTIFICATION_TAGGED);
                     nm.cancel("alert:" + account.id, NotificationHelper.NOTIFICATION_TAGGED);
                 }
@@ -655,9 +725,9 @@ public class FragmentPop extends FragmentBase {
                     if (context != null)
                         WidgetUnified.updateData(context); // Update color stripe
 
-                    if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
-                        getParentFragmentManager().popBackStack();
+                    finish();
 
+                    if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
                         boolean saved = args.getBoolean("saved");
                         if (saved && cbIdentity.isChecked()) {
                             Bundle aargs = new Bundle();
@@ -698,7 +768,9 @@ public class FragmentPop extends FragmentBase {
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
-        outState.putString("fair:password", tilPassword.getEditText().getText().toString());
+        outState.putString("fair:password", tilPassword == null ? null : tilPassword.getEditText().getText().toString());
+        outState.putInt("fair:auth", auth);
+        outState.putString("fair:calendar", calendar);
         super.onSaveInstanceState(outState);
     }
 
@@ -721,6 +793,14 @@ public class FragmentPop extends FragmentBase {
             @Override
             protected void onExecuted(Bundle args, final EntityAccount account) {
                 if (savedInstanceState == null) {
+                    JSONObject jcondition = new JSONObject();
+                    try {
+                        if (account != null && account.conditions != null)
+                            jcondition = new JSONObject(account.conditions);
+                    } catch (Throwable ex) {
+                        Log.e(ex);
+                    }
+
                     etHost.setText(account == null ? null : account.host);
                     etPort.setText(account == null ? null : Long.toString(account.port));
 
@@ -741,26 +821,29 @@ public class FragmentPop extends FragmentBase {
                     btnColor.setColor(account == null ? null : account.color);
 
                     cbSynchronize.setChecked(account == null ? true : account.synchronize);
+                    cbIgnoreSchedule.setChecked(jcondition.optBoolean("ignore_schedule"));
                     cbOnDemand.setChecked(account == null ? false : account.ondemand);
                     cbPrimary.setChecked(account == null ? false : account.primary);
 
-                    boolean pro = ActivityBilling.isPro(getContext());
-                    cbNotify.setChecked(account != null && account.notify && pro);
-                    cbNotify.setEnabled(pro);
+                    cbNotify.setChecked(account != null && account.notify);
+                    cbSummary.setChecked(account != null && account.summary);
 
                     cbAutoSeen.setChecked(account == null ? true : account.auto_seen);
 
                     cbLeaveServer.setChecked(account == null ? true : account.leave_on_server);
+                    cbClientDelete.setChecked(account == null ? false : account.client_delete);
+                    cbClientDelete.setEnabled(!cbLeaveServer.isChecked());
                     cbLeaveDeleted.setChecked(account == null ? true : account.leave_deleted);
                     cbLeaveDevice.setChecked(account == null ? false : account.leave_on_device);
 
-                    if (account != null && account.max_messages == null)
-                        etMax.setText(null);
+                    if (account != null && account.max_messages != null)
+                        etMax.setText(Integer.toString(account.max_messages));
                     else
-                        etMax.setText(Integer.toString(account == null
-                                ? EntityAccount.DEFAULT_MAX_MESSAGES : account.max_messages));
+                        etMax.setText(null);
 
                     etInterval.setText(account == null ? "" : Long.toString(account.poll_interval));
+                    cbUnmetered.setChecked(jcondition.optBoolean("unmetered"));
+                    cbVpnOnly.setChecked(jcondition.optBoolean("vpn_only"));
                     cbIdentity.setChecked(account == null);
 
                     List<EntityFolder> folders = getSwipeActions();
@@ -777,6 +860,9 @@ public class FragmentPop extends FragmentBase {
                                 : account.swipe_right.equals(folder.id))
                             spRight.setSelection(pos);
                     }
+
+                    auth = (account == null ? AUTH_TYPE_PASSWORD : account.auth_type);
+                    calendar = (account == null ? null : account.calendar);
 
                     new SimpleTask<EntityAccount>() {
                         @Override
@@ -797,10 +883,21 @@ public class FragmentPop extends FragmentBase {
                     }.execute(FragmentPop.this, new Bundle(), "account:primary");
                 } else {
                     tilPassword.getEditText().setText(savedInstanceState.getString("fair:password"));
+                    auth = savedInstanceState.getInt("fair:auth");
+                    calendar = savedInstanceState.getString("fair:calendar");
                 }
 
                 Helper.setViewsEnabled(view, true);
+                boolean pro = ActivityBilling.isPro(getContext());
+                cbNotify.setEnabled(pro);
+                cbSummary.setEnabled(pro && cbNotify.isChecked());
 
+                if (auth != AUTH_TYPE_PASSWORD) {
+                    etUser.setEnabled(false);
+                    tilPassword.getEditText().setEnabled(false);
+                }
+
+                cbIgnoreSchedule.setEnabled(cbSynchronize.isChecked());
                 cbOnDemand.setEnabled(cbSynchronize.isChecked());
                 cbPrimary.setEnabled(cbSynchronize.isChecked());
 
@@ -861,6 +958,20 @@ public class FragmentPop extends FragmentBase {
                             startActivity(new Intent(getContext(), ActivityBilling.class));
                     }
                     break;
+                case REQUEST_CALENDAR:
+                    if (resultCode == RESULT_OK && data != null) {
+                        if (ActivityBilling.isPro(getContext())) {
+                            Bundle args = data.getBundleExtra("args");
+                            JSONObject jobject = new JSONObject();
+                            jobject.put("id", args.getLong("id"));
+                            jobject.put("account", args.getString("account"));
+                            jobject.put("type", args.getString("type"));
+                            jobject.put("name", args.getString("name"));
+                            calendar = jobject.toString();
+                        } else
+                            startActivity(new Intent(getContext(), ActivityBilling.class));
+                    }
+                    break;
                 case REQUEST_SAVE:
                     if (resultCode == RESULT_OK) {
                         getMainHandler().post(new Runnable() {
@@ -872,8 +983,8 @@ public class FragmentPop extends FragmentBase {
                             }
                         });
                         onSave(false);
-                    } else if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-                        getParentFragmentManager().popBackStack();
+                    } else
+                        finish();
                     break;
                 case REQUEST_DELETE:
                     if (resultCode == RESULT_OK)
@@ -910,8 +1021,7 @@ public class FragmentPop extends FragmentBase {
 
             @Override
             protected void onExecuted(Bundle args, Void data) {
-                if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-                    getParentFragmentManager().popBackStack();
+                finish();
             }
 
             @Override
@@ -948,6 +1058,11 @@ public class FragmentPop extends FragmentBase {
         hide.id = EntityMessage.SWIPE_ACTION_HIDE;
         hide.name = getString(R.string.title_hide);
         folders.add(hide);
+
+        EntityFolder junk = new EntityFolder();
+        junk.id = EntityMessage.SWIPE_ACTION_JUNK;
+        junk.name = getString(R.string.title_report_spam);
+        folders.add(junk);
 
         EntityFolder delete = new EntityFolder();
         delete.id = EntityMessage.SWIPE_ACTION_DELETE;

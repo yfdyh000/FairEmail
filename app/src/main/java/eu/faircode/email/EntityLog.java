@@ -16,11 +16,12 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Debug;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
@@ -31,7 +32,6 @@ import androidx.room.PrimaryKey;
 
 import java.util.Date;
 import java.util.Objects;
-import java.util.concurrent.ExecutorService;
 
 @Entity(
         tableName = EntityLog.TABLE_NAME,
@@ -58,18 +58,16 @@ public class EntityLog {
     public Long time;
     @NonNull
     public Type type = Type.General;
+    public Long thread;
     public Long account;
     public Long folder;
     public Long message;
     @NonNull
     public String data;
 
-    enum Type {General, Statistics, Scheduling, Network, Account, Protocol, Classification, Notification, Rules}
+    public enum Type {General, Statistics, Scheduling, Network, Account, Protocol, Classification, Notification, Rules, Cloud, Debug}
 
-    private static final ExecutorService executor =
-            Helper.getBackgroundExecutor(1, "log");
-
-    static void log(final Context context, String data) {
+    public static void log(final Context context, String data) {
         log(context, Type.General, data);
     }
 
@@ -111,23 +109,35 @@ public class EntityLog {
 
         if (context == null)
             return;
+        if (type == Type.Debug &&
+                !(BuildConfig.DEBUG || BuildConfig.TEST_RELEASE))
+            return;
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean main_log = prefs.getBoolean("main_log", true);
         if (!main_log)
             return;
 
+        boolean main_log_memory = prefs.getBoolean("main_log_memory", false);
+        if (main_log_memory) {
+            long j = Log.getAvailableMb() - Log.getFreeMemMb();
+            long n = Debug.getNativeHeapSize() / 1024L / 1024L;
+            data = j + "/" + n + " " + data;
+        }
+
         final EntityLog entry = new EntityLog();
         entry.time = new Date().getTime();
         entry.type = type;
+        entry.thread = Thread.currentThread().getId();
         entry.account = account;
         entry.folder = folder;
         entry.message = message;
         entry.data = data;
 
         final DB db = DB.getInstance(context);
+        final Context acontext = context.getApplicationContext();
 
-        executor.submit(new Runnable() {
+        Helper.getSerialExecutor().submit(new Runnable() {
             @Override
             public void run() {
                 // Check available storage space
@@ -161,17 +171,18 @@ public class EntityLog {
                 long now = new Date().getTime();
                 if (last_cleanup == null || last_cleanup + LOG_CLEANUP_INTERVAL < now) {
                     last_cleanup = now;
-                    cleanup(context, now - LOG_KEEP_DURATION);
+                    cleanup(acontext, now - LOG_KEEP_DURATION);
                 }
             }
         });
     }
 
     static void clear(final Context context) {
-        executor.submit(new Runnable() {
+        final Context acontext = context.getApplicationContext();
+        Helper.getParallelExecutor().submit(new Runnable() {
             @Override
             public void run() {
-                cleanup(context, new Date().getTime());
+                cleanup(acontext, new Date().getTime());
             }
         });
     }
@@ -220,6 +231,10 @@ public class EntityLog {
                 return ContextCompat.getColor(context, R.color.solarizedBlue);
             case Rules:
                 return ContextCompat.getColor(context, R.color.solarizedCyan);
+            case Cloud:
+                return ContextCompat.getColor(context, R.color.solarizedRed);
+            case Debug:
+                return Helper.resolveColor(context, R.attr.colorWarning);
             default:
                 return null;
         }

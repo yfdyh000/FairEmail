@@ -16,14 +16,16 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.app.Activity.RESULT_CANCELED;
 import static android.app.Activity.RESULT_OK;
 
+import android.app.Activity;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -42,6 +44,7 @@ public class FragmentDialogBase extends DialogFragment {
     private LifecycleRegistry registry;
     private String targetRequestKey;
     private int targetRequestCode;
+    private Integer orientation = null;
 
     public String getRequestKey() {
         return Helper.getRequestKey(this);
@@ -68,7 +71,7 @@ public class FragmentDialogBase extends DialogFragment {
 
         String requestKey = getRequestKey();
         if (!BuildConfig.PLAY_STORE_RELEASE)
-            EntityLog.log(getContext(), "Listing key=" + requestKey);
+            EntityLog.log(getContext(), "Listening key=" + requestKey);
         getParentFragmentManager().setFragmentResultListener(requestKey, this, new FragmentResultListener() {
             @Override
             public void onFragmentResult(@NonNull String requestKey, @NonNull Bundle result) {
@@ -111,13 +114,6 @@ public class FragmentDialogBase extends DialogFragment {
     }
 
     @Override
-    public void onDestroy() {
-        registry.setCurrentState(Lifecycle.State.DESTROYED);
-        super.onDestroy();
-        Log.i("Destroy " + this);
-    }
-
-    @Override
     public void onStart() {
         registry.setCurrentState(Lifecycle.State.STARTED);
         try {
@@ -133,6 +129,26 @@ public class FragmentDialogBase extends DialogFragment {
         registry.setCurrentState(Lifecycle.State.CREATED);
         super.onStop();
         Log.d("Stop " + this);
+    }
+
+    @Override
+    public void onDestroy() {
+        registry.setCurrentState(Lifecycle.State.DESTROYED);
+        if (orientation != null) {
+            Activity activity = getActivity();
+            if (activity != null)
+                activity.setRequestedOrientation(orientation);
+        }
+        super.onDestroy();
+        Log.i("Destroy " + this);
+    }
+
+    protected void lockOrientation() {
+        Activity activity = getActivity();
+        if (activity != null) {
+            orientation = activity.getRequestedOrientation();
+            activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED);
+        }
     }
 
     @Override
@@ -162,6 +178,15 @@ public class FragmentDialogBase extends DialogFragment {
     }
 
     @Override
+    public void dismiss() {
+        try {
+            super.dismiss();
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
+    }
+
+    @Override
     public void onDismiss(@NonNull DialogInterface dialog) {
         sendResult(RESULT_CANCELED);
         super.onDismiss(dialog);
@@ -183,6 +208,11 @@ public class FragmentDialogBase extends DialogFragment {
         targetRequestCode = requestCode;
     }
 
+    public void setTargetActivity(ActivityBase activity, int requestCode) {
+        targetRequestKey = activity.getRequestKey();
+        targetRequestCode = requestCode;
+    }
+
     protected void sendResult(int resultCode) {
         EntityLog.log(getContext(), "Sending key=" + targetRequestKey +
                 " request=" + targetRequestCode +
@@ -192,14 +222,22 @@ public class FragmentDialogBase extends DialogFragment {
         if (!hasResult || resultCode == RESULT_OK) {
             hasResult = true;
 
-            if (targetRequestKey != null) {
-                Bundle args = getArguments();
-                if (args == null) // onDismiss
-                    args = new Bundle();
-                args.putInt("requestCode", targetRequestCode);
-                args.putInt("resultCode", resultCode);
-                getParentFragmentManager().setFragmentResult(targetRequestKey, args);
-            }
+            if (targetRequestKey != null)
+                try {
+                    Bundle args = getArguments();
+                    if (args == null) // onDismiss
+                        args = new Bundle();
+                    args.putInt("requestCode", targetRequestCode);
+                    args.putInt("resultCode", resultCode);
+                    getParentFragmentManager().setFragmentResult(targetRequestKey, args);
+                } catch (Throwable ex) {
+                    Log.w(ex);
+                    /*
+                        java.lang.IllegalStateException: Fragment FragmentDialog... not associated with a fragment manager.
+                            at androidx.fragment.app.Fragment.getParentFragmentManager(SourceFile:2)
+                            at eu.faircode.email.FragmentDialogBase.sendResult(SourceFile:9)
+                     */
+                }
         }
     }
 

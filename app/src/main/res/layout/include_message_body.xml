@@ -40,7 +40,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/inAttachments" />
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/tvNoInternetBody"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -53,7 +53,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/inNavigation" />
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/tvDownloading"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -75,7 +75,7 @@
         app:layout_constraintStart_toStartOf="@id/tvDownloading"
         app:layout_constraintTop_toTopOf="@id/tvDownloading" />
 
-    <eu.faircode.email.FixedImageButton
+    <ImageButton
         android:id="@+id/ibDownloading"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -86,7 +86,7 @@
         app:layout_constraintTop_toTopOf="@+id/tvDownloading"
         app:srcCompat="@drawable/twotone_info_24" />
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/tvBody"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -103,6 +103,14 @@
         app:layout_constraintTop_toBottomOf="@id/tvDownloading" />
 
     <View
+        android:id="@+id/vwRipple"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:background="@drawable/ripple"
+        app:layout_constraintStart_toStartOf="@+id/tvBody"
+        app:layout_constraintTop_toTopOf="@+id/tvBody" />
+
+    <View
         android:id="@+id/wvBody"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -114,7 +122,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tvBody" />
 
-    <eu.faircode.email.FixedImageButton
+    <ImageButton
         android:id="@+id/ibInfrastructure"
         android:layout_width="36dp"
         android:layout_height="36dp"
@@ -125,7 +133,7 @@
         app:layout_constraintTop_toBottomOf="@id/wvBody"
         app:srcCompat="@drawable/infra_awsses" />
 
-    <eu.faircode.email.FixedImageButton
+    <ImageButton
         android:id="@+id/ibTrashBottom"
         android:layout_width="36dp"
         android:layout_height="36dp"
@@ -139,7 +147,7 @@
         app:srcCompat="@drawable/twotone_delete_24"
         app:tint="?attr/colorAccent" />
 
-    <eu.faircode.email.FixedImageButton
+    <ImageButton
         android:id="@+id/ibArchiveBottom"
         android:layout_width="36dp"
         android:layout_height="36dp"
@@ -154,7 +162,7 @@
         app:srcCompat="@drawable/twotone_archive_24"
         app:tint="?attr/colorAccent" />
 
-    <eu.faircode.email.FixedImageButton
+    <ImageButton
         android:id="@+id/ibMoveBottom"
         android:layout_width="36dp"
         android:layout_height="36dp"
@@ -169,7 +177,7 @@
         app:srcCompat="@drawable/twotone_drive_file_move_24"
         app:tint="?attr/colorAccent" />
 
-    <eu.faircode.email.FixedImageButton
+    <ImageButton
         android:id="@+id/ibSeenBottom"
         android:layout_width="36dp"
         android:layout_height="36dp"

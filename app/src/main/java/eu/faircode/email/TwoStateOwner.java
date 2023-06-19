@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import androidx.annotation.NonNull;
@@ -42,6 +42,7 @@ public class TwoStateOwner implements LifecycleOwner {
     private LifecycleRegistry registry;
     private long created;
     private long changed;
+    private String state;
 
     private static DateFormat DTF = SimpleDateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
 
@@ -85,6 +86,7 @@ public class TwoStateOwner implements LifecycleOwner {
                 public void onAny() {
                     Log.i(TwoStateOwner.this + " " + registry);
                     changed = new Date().getTime();
+                    state = registry.getCurrentState().name();
                 }
             });
 

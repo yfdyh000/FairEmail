@@ -40,7 +40,7 @@ FairEmail might be for you if you value your privacy.
 * Common text style options (size, color, lists, etc)
 * Battery friendly
 * Low data usage
-* Small (~25 MB)
+* Small (<25 MB)
 * Material design (including dark/black theme)
 * Maintained and supported
 
@@ -94,9 +94,10 @@ All pro features are convenience or advanced features.
 * Snooze messages ([instructions](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq67))
 * Send messages after selected time
 * Synchronization scheduling ([instructions](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq78))
-* Reply templates
+* Reply templates ([instructions](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq179))
 * Accept/decline calendar invitations
 * Add message to calendar
+* Automatically generate vCard attachments
 * Filter rules ([instructions](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq71))
 * Automatic message classification ([instructions](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq163))
 * Search indexing ([instructions](https://github.com/M66B/FairEmail/blob/master/FAQ.md#user-content-faq13))
@@ -116,7 +117,7 @@ Supported download locations:
 * [GitHub](https://github.com/M66B/FairEmail/releases)
 * [Play store](https://play.google.com/store/apps/details?id=eu.faircode.email)
 * [Play store](https://play.google.com/apps/testing/eu.faircode.email) (test)
-* [F-Droid](https://f-droid.org/en/packages/eu.faircode.email/) ([last build status](https://f-droid.org/wiki/page/eu.faircode.email/lastbuild)) (the F-Droid app can be downloaded [here](https://f-droid.org/))
+* [F-Droid](https://f-droid.org/en/packages/eu.faircode.email/) (the F-Droid app can be downloaded [here](https://f-droid.org/))
 * ~~[AppGallery](https://wap3.hispace.hicloud.com/uowap/index.jsp#/detailApp/C101678151) (the AppGallery app can be downloaded [here](https://huaweimobileservices.com/appgallery/))~~
 * ~~[Amazon](https://www.amazon.com/gp/product/B0983R6MH2)~~ (the APK file repackaged by Amazon is incomplete! An issue report was never answered by Amazon.)
 
@@ -164,6 +165,8 @@ for more information.
 ## Compatibility
 
 FairEmail requires at least Android 5 Lollipop.
+
+FairEmail is supported on smartphones and tablets only, and for example not on E Ink devices.
 
 Individual message notifications are available on Android 7 Nougat and later only
 because earlier Android versions do not support notification grouping.
@@ -223,7 +226,7 @@ Error reporting is disabled by default, see also [the privacy policy](https://gi
 
 ## License
 
-Copyright &copy; 2018-2021 Marcel Bokhorst. All rights reserved.
+Copyright &copy; 2018-2023 Marcel Bokhorst. All rights reserved.
 
 [GNU General Public License version 3](https://www.gnu.org/licenses/gpl.txt)
 

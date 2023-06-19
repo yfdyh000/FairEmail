@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -29,6 +29,8 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.drawerlayout.widget.DrawerLayout;
+
+import java.util.ArrayList;
 
 public class DrawerLayoutEx extends DrawerLayout {
     public DrawerLayoutEx(@NonNull Context context) {
@@ -76,6 +78,16 @@ public class DrawerLayoutEx extends DrawerLayout {
     }
 
     @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        try {
+            return super.dispatchTouchEvent(ev);
+        } catch (Throwable ex) {
+            Log.w(ex);
+            return false;
+        }
+    }
+
+    @Override
     public boolean dispatchGenericMotionEvent(MotionEvent ev) {
         if (isLocked()) {
             View content = getChildAt(0);
@@ -87,6 +99,27 @@ public class DrawerLayoutEx extends DrawerLayout {
                 return content.dispatchGenericMotionEvent(ev);
         }
 
-        return super.dispatchGenericMotionEvent(ev);
+        try {
+            return super.dispatchGenericMotionEvent(ev);
+        } catch (Throwable ex) {
+            Log.w(ex);
+            return false;
+        }
+    }
+
+    @Override
+    public void addFocusables(ArrayList<View> views, int direction, int focusableMode) {
+        if (getDrawerLockMode(Gravity.LEFT) == LOCK_MODE_LOCKED_OPEN) {
+            for (int i = 0; i < getChildCount(); i++) {
+                View child = getChildAt(i);
+                if (child.getVisibility() == View.VISIBLE && isContentView(child))
+                    child.addFocusables(views, direction, focusableMode);
+            }
+        } else
+            super.addFocusables(views, direction, focusableMode);
+    }
+
+    boolean isContentView(View child) {
+        return ((LayoutParams) child.getLayoutParams()).gravity == Gravity.NO_GRAVITY;
     }
 }

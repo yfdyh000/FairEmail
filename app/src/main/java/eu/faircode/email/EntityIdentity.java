@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static androidx.room.ForeignKey.CASCADE;
@@ -35,6 +35,7 @@ import org.json.JSONObject;
 
 import java.util.Locale;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 import javax.mail.Address;
@@ -55,6 +56,8 @@ public class EntityIdentity {
 
     @PrimaryKey(autoGenerate = true)
     public Long id;
+    @NonNull
+    public String uuid = UUID.randomUUID().toString();
     @NonNull
     public String name;
     @NonNull
@@ -98,13 +101,18 @@ public class EntityIdentity {
     public Boolean sender_extra = false;
     @NonNull
     public Boolean sender_extra_name = false;
+    @NonNull
+    public Boolean reply_extra_name = false;
     public String sender_extra_regex;
     public String replyto;
     public String cc;
     public String bcc;
     public String internal;
+    public String uri; // linked contact
     @NonNull
     public Boolean unicode = false;
+    @NonNull
+    public Boolean octetmime = false;
     @NonNull
     public Boolean plain_only = false; // obsolete
     @NonNull
@@ -127,6 +135,7 @@ public class EntityIdentity {
     public String error;
     public Long last_connected;
     public Long max_size;
+    public Long last_modified; // sync
 
     String getProtocol() {
         return (encryption == EmailService.ENCRYPTION_SSL ? "smtps" : "smtp");
@@ -159,6 +168,10 @@ public class EntityIdentity {
 
         if (TextUtils.isEmpty(sender_extra_regex)) {
             // Domain
+            if ("secure.mailbox.org".equalsIgnoreCase(cother[1]))
+                cother[1] = "mailbox.org";
+            if ("secure.mailbox.org".equalsIgnoreCase(cemail[1]))
+                cemail[1] = "mailbox.org";
             if (!cother[1].equalsIgnoreCase(cemail[1]))
                 return false;
 
@@ -185,6 +198,7 @@ public class EntityIdentity {
     public JSONObject toJSON() throws JSONException {
         JSONObject json = new JSONObject();
         json.put("id", id);
+        json.put("uuid", uuid);
         json.put("name", name);
         json.put("email", email);
         // not account
@@ -212,14 +226,17 @@ public class EntityIdentity {
         json.put("self", self);
         json.put("sender_extra", sender_extra);
         json.put("sender_extra_name", sender_extra_name);
+        json.put("reply_extra_name", reply_extra_name);
         json.put("sender_extra_regex", sender_extra_regex);
 
         json.put("replyto", replyto);
         json.put("cc", cc);
         json.put("bcc", bcc);
         json.put("internal", internal);
+        json.put("uri", uri);
 
         json.put("unicode", unicode);
+        json.put("octetmime", octetmime);
         // not plain_only
         json.put("sign_default", sign_default);
         json.put("encrypt_default", encrypt_default);
@@ -241,6 +258,10 @@ public class EntityIdentity {
     public static EntityIdentity fromJSON(JSONObject json) throws JSONException {
         EntityIdentity identity = new EntityIdentity();
         identity.id = json.getLong("id");
+
+        if (json.has("uuid") && !json.isNull("uuid"))
+            identity.uuid = json.getString("uuid");
+
         identity.name = json.getString("name");
         identity.email = json.getString("email");
         if (json.has("display") && !json.isNull("display"))
@@ -259,19 +280,19 @@ public class EntityIdentity {
         identity.insecure = (json.has("insecure") && json.getBoolean("insecure"));
         identity.port = json.getInt("port");
         identity.auth_type = json.getInt("auth_type");
-        if (json.has("provider"))
+        if (json.has("provider") && !json.isNull("provider"))
             identity.provider = json.getString("provider");
         identity.user = json.getString("user");
         identity.password = json.getString("password");
-        if (json.has("certificate_alias"))
+        if (json.has("certificate_alias") && !json.isNull("certificate_alias"))
             identity.certificate_alias = json.getString("certificate_alias");
         if (json.has("realm") && !json.isNull("realm"))
             identity.realm = json.getString("realm");
-        if (json.has("fingerprint"))
+        if (json.has("fingerprint") && !json.isNull("fingerprint"))
             identity.fingerprint = json.getString("fingerprint");
         if (json.has("use_ip"))
             identity.use_ip = json.getBoolean("use_ip");
-        if (json.has("ehlo"))
+        if (json.has("ehlo") && !json.isNull("ehlo"))
             identity.ehlo = json.getString("ehlo");
 
         identity.synchronize = json.getBoolean("synchronize");
@@ -282,7 +303,9 @@ public class EntityIdentity {
             identity.sender_extra = json.getBoolean("sender_extra");
         if (json.has("sender_extra_name"))
             identity.sender_extra_name = json.getBoolean("sender_extra_name");
-        if (json.has("sender_extra_regex"))
+        if (json.has("reply_extra_name"))
+            identity.reply_extra_name = json.getBoolean("reply_extra_name");
+        if (json.has("sender_extra_regex") && !json.isNull("sender_extra_regex"))
             identity.sender_extra_regex = json.getString("sender_extra_regex");
 
         if (json.has("replyto") && !json.isNull("replyto"))
@@ -293,9 +316,14 @@ public class EntityIdentity {
             identity.bcc = json.getString("bcc");
         if (json.has("internal") && !json.isNull("internal"))
             identity.internal = json.getString("internal");
+        if (json.has("uri") && !json.isNull("uri"))
+            identity.uri = json.getString("uri");
 
         if (json.has("unicode"))
             identity.unicode = json.getBoolean("unicode");
+
+        if (json.has("octetmime"))
+            identity.octetmime = json.getBoolean("octetmime");
 
         if (json.has("sign_default"))
             identity.sign_default = json.getBoolean("sign_default");
@@ -309,40 +337,62 @@ public class EntityIdentity {
     public boolean equals(Object obj) {
         if (obj instanceof EntityIdentity) {
             EntityIdentity other = (EntityIdentity) obj;
-            return (this.name.equals(other.name) &&
-                    this.email.equals(other.email) &&
-                    this.account.equals(other.account) &&
-                    Objects.equals(this.display, other.display) &&
-                    Objects.equals(this.color, other.color) &&
-                    Objects.equals(this.signature, other.signature) &&
-                    this.host.equals(other.host) &&
-                    this.encryption.equals(other.encryption) &&
-                    this.insecure.equals(other.insecure) &&
-                    this.port.equals(other.port) &&
-                    this.auth_type.equals(other.auth_type) &&
-                    this.user.equals(other.user) &&
-                    this.password.equals(other.password) &&
-                    Objects.equals(this.realm, other.realm) &&
-                    this.use_ip == other.use_ip &&
-                    Objects.equals(this.ehlo, other.ehlo) &&
-                    this.synchronize.equals(other.synchronize) &&
-                    this.primary.equals(other.primary) &&
-                    this.self.equals(other.self) &&
-                    this.sender_extra.equals(other.sender_extra) &&
-                    this.sender_extra_name.equals(other.sender_extra_name) &&
-                    Objects.equals(this.sender_extra_regex, other.sender_extra_regex) &&
-                    Objects.equals(this.replyto, other.replyto) &&
-                    Objects.equals(this.cc, other.cc) &&
-                    Objects.equals(this.bcc, other.bcc) &&
-                    Objects.equals(this.internal, other.internal) &&
-                    Objects.equals(this.sign_key, other.sign_key) &&
-                    Objects.equals(this.sign_key_alias, other.sign_key_alias) &&
-                    Objects.equals(this.state, other.state) &&
-                    Objects.equals(this.error, other.error) &&
-                    Objects.equals(this.last_connected, other.last_connected) &&
-                    Objects.equals(this.max_size, other.max_size));
+            return areEqual(this, other, true, true);
         } else
             return false;
+    }
+
+    public static boolean areEqual(EntityIdentity i1, EntityIdentity other, boolean auth, boolean state) {
+        return (Objects.equals(i1.uuid, other.uuid) &&
+                i1.name.equals(other.name) &&
+                i1.email.equals(other.email) &&
+                (!state || Objects.equals(i1.account, other.account)) &&
+                Objects.equals(i1.display, other.display) &&
+                Objects.equals(i1.color, other.color) &&
+                Objects.equals(i1.signature, other.signature) &&
+                i1.host.equals(other.host) &&
+                i1.encryption.equals(other.encryption) &&
+                i1.insecure.equals(other.insecure) &&
+                i1.port.equals(other.port) &&
+                i1.auth_type.equals(other.auth_type) &&
+                Objects.equals(i1.provider, other.provider) &&
+                i1.user.equals(other.user) &&
+                (!auth || i1.password.equals(other.password)) &&
+                // certificate
+                Objects.equals(i1.certificate_alias, other.certificate_alias) &&
+                Objects.equals(i1.realm, other.realm) &&
+                Objects.equals(i1.fingerprint, other.fingerprint) &&
+                i1.use_ip == other.use_ip &&
+                Objects.equals(i1.ehlo, other.ehlo) &&
+                i1.synchronize.equals(other.synchronize) &&
+                i1.primary.equals(other.primary) &&
+                i1.self.equals(other.self) &&
+                i1.sender_extra.equals(other.sender_extra) &&
+                i1.sender_extra_name.equals(other.sender_extra_name) &&
+                Objects.equals(i1.sender_extra_regex, other.sender_extra_regex) &&
+                Objects.equals(i1.replyto, other.replyto) &&
+                Objects.equals(i1.cc, other.cc) &&
+                Objects.equals(i1.bcc, other.bcc) &&
+                Objects.equals(i1.internal, other.internal) &&
+                Objects.equals(i1.uri, other.uri) &&
+                Objects.equals(i1.unicode, other.unicode) &&
+                Objects.equals(i1.octetmime, other.octetmime) &&
+                // plain_only
+                Objects.equals(i1.sign_default, other.sign_default) &&
+                Objects.equals(i1.encrypt_default, other.encrypt_default) &&
+                Objects.equals(i1.encrypt, other.encrypt) &&
+                // delivery_receipt
+                // read_receipt
+                // store_sent
+                // sent_folder
+                Objects.equals(i1.sign_key, other.sign_key) &&
+                Objects.equals(i1.sign_key_alias, other.sign_key_alias) &&
+                Objects.equals(i1.tbd, other.tbd) &&
+                (!state || Objects.equals(i1.state, other.state)) &&
+                (!state || Objects.equals(i1.error, other.error)) &&
+                (!state || Objects.equals(i1.last_connected, other.last_connected)) &&
+                (!state || Objects.equals(i1.max_size, other.max_size)) &&
+                (!state || Objects.equals(i1.last_modified, other.last_modified)));
     }
 
     String getDisplayName() {

@@ -16,11 +16,12 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
@@ -37,7 +38,9 @@ import android.view.SubMenu;
 
 import androidx.annotation.NonNull;
 import androidx.core.view.MenuCompat;
+import androidx.preference.PreferenceManager;
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 import org.json.JSONException;
@@ -46,7 +49,9 @@ import org.json.JSONObject;
 import java.io.Serializable;
 import java.text.Collator;
 import java.text.NumberFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -54,6 +59,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 import javax.mail.Address;
 import javax.mail.internet.InternetAddress;
@@ -65,6 +71,7 @@ import javax.mail.internet.InternetAddress;
         foreignKeys = {
         },
         indices = {
+                @Index(value = {"label"}, unique = true),
         }
 )
 public class EntityAnswer implements Serializable {
@@ -73,7 +80,10 @@ public class EntityAnswer implements Serializable {
     @PrimaryKey(autoGenerate = true)
     public Long id;
     @NonNull
+    public String uuid = UUID.randomUUID().toString();
+    @NonNull
     public String name;
+    public String label;
     public String group;
     @NonNull
     public Boolean standard;
@@ -81,6 +91,8 @@ public class EntityAnswer implements Serializable {
     public Boolean receipt;
     @NonNull
     public Boolean favorite;
+    @NonNull
+    public Boolean snippet;
     @NonNull
     public Boolean hide;
     @NonNull
@@ -92,11 +104,13 @@ public class EntityAnswer implements Serializable {
     public Integer applied = 0;
     public Long last_applied;
 
-    String getHtml(Address[] address) {
-        return replacePlaceholders(text, address);
+    private static final String PREF_PLACEHOLDER = "answer.value.";
+
+    String getHtml(Context context, Address[] address) {
+        return replacePlaceholders(context, text, address);
     }
 
-    static String replacePlaceholders(String text, Address[] address) {
+    static String replacePlaceholders(Context context, String text, Address[] address) {
         String fullName = null;
         String email = null;
         if (address != null && address.length > 0) {
@@ -124,6 +138,12 @@ public class EntityAnswer implements Serializable {
                 if (c > 0) {
                     first = fullName.substring(0, c).trim();
                     last = fullName.substring(c + 1).trim();
+                } else {
+                    c = fullName.indexOf('@');
+                    if (c > 0) {
+                        first = fullName.substring(0, c).trim();
+                        last = null;
+                    }
                 }
             }
         }
@@ -147,6 +167,8 @@ public class EntityAnswer implements Serializable {
             if (username != null) {
                 int dot = username.indexOf('.');
                 if (dot < 0)
+                    dot = username.indexOf('_');
+                if (dot < 0)
                     first = username;
                 else
                     first = username.substring(0, dot);
@@ -155,35 +177,131 @@ public class EntityAnswer implements Serializable {
             }
         }
 
+        first = Helper.trim(first, ".");
+        last = Helper.trim(last, ".");
+
         text = text.replace("$name$", fullName == null ? "" : Html.escapeHtml(fullName));
         text = text.replace("$firstname$", first == null ? "" : Html.escapeHtml(first));
         text = text.replace("$lastname$", last == null ? "" : Html.escapeHtml(last));
         text = text.replace("$email$", email == null ? "" : Html.escapeHtml(email));
 
+        int s = text.indexOf("$date");
+        while (s >= 0) {
+            int e = text.indexOf('$', s + 5);
+            if (e < 0)
+                break;
+
+            Calendar c = null;
+            String v = text.substring(s + 5, e);
+            if (v.startsWith("-") || v.startsWith("+")) {
+                Integer days = Helper.parseInt(v.substring(1));
+                if (days != null && days >= 0 && days < 10 * 365) {
+                    c = Calendar.getInstance();
+                    c.add(Calendar.DATE, days * (v.startsWith("-") ? -1 : 1));
+                }
+            } else if (TextUtils.isEmpty(v))
+                c = Calendar.getInstance();
+
+            if (c == null)
+                s = text.indexOf("$date", e + 1);
+            else {
+                v = Html.escapeHtml(SimpleDateFormat.getDateInstance(SimpleDateFormat.LONG).format(c.getTime()));
+                text = text.substring(0, s) + v + text.substring(e + 1);
+                s = text.indexOf("$date", s + v.length());
+            }
+        }
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        for (String key : prefs.getAll().keySet())
+            if (key.startsWith(PREF_PLACEHOLDER)) {
+                String name = key.substring(PREF_PLACEHOLDER.length());
+                String value = prefs.getString(key, null);
+
+                String[] lines = (value == null ? new String[0] : value.split("\n"));
+                for (int i = 0; i < lines.length; i++)
+                    lines[i] = Html.escapeHtml(lines[i]);
+
+                text = text.replace("$" + name + "$", TextUtils.join("<br>", lines));
+            }
+
+        if (BuildConfig.DEBUG)
+            text = text.replace("$version$", BuildConfig.VERSION_NAME);
+
         return text;
     }
 
+    static void setCustomPlaceholder(Context context, String name, String value) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        if (TextUtils.isEmpty(value))
+            prefs.edit().remove(EntityAnswer.PREF_PLACEHOLDER + name).apply();
+        else
+            prefs.edit().putString(EntityAnswer.PREF_PLACEHOLDER + name, value).apply();
+    }
+
+    static String getCustomPlaceholder(Context context, String name) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        return prefs.getString(EntityAnswer.PREF_PLACEHOLDER + name, null);
+    }
+
+    static List<String> getCustomPlaceholders(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+
+        List<String> names = new ArrayList<>();
+        for (String key : prefs.getAll().keySet())
+            if (key.startsWith(EntityAnswer.PREF_PLACEHOLDER))
+                names.add(key.substring(EntityAnswer.PREF_PLACEHOLDER.length()));
+
+        final Collator collator = Collator.getInstance(Locale.getDefault());
+        collator.setStrength(Collator.SECONDARY); // Case insensitive, process accents etc
+        Collections.sort(names, new Comparator<String>() {
+            @Override
+            public int compare(String n1, String n2) {
+                return collator.compare(n1, n2);
+            }
+        });
+
+        return names;
+    }
+
     static void fillMenu(Menu main, boolean compose, List<EntityAnswer> answers, Context context) {
-        boolean grouped = BuildConfig.DEBUG;
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean sort_answers = prefs.getBoolean("sort_answers", false);
 
         int iconSize = context.getResources().getDimensionPixelSize(R.dimen.menu_item_icon_size);
+        NumberFormat NF = NumberFormat.getNumberInstance();
 
         List<EntityAnswer> favorites = new ArrayList<>();
-        List<String> groups = new ArrayList<>();
+        Map<String, Integer> groupApplied = new HashMap<>();
         for (EntityAnswer answer : answers)
             if (compose && answer.favorite)
                 favorites.add(answer);
-            else if (answer.group != null && !groups.contains(answer.group))
-                groups.add(answer.group);
+            else if (answer.group != null) {
+                Integer total = groupApplied.get(answer.group);
+                if (total == null)
+                    total = 0;
+                groupApplied.put(answer.group, total + answer.applied);
+            }
 
         Collator collator = Collator.getInstance(Locale.getDefault());
         collator.setStrength(Collator.SECONDARY); // Case insensitive, process accents etc
-        Collections.sort(groups, collator);
+
+        List<String> groups = new ArrayList<>(groupApplied.keySet());
+        Collections.sort(groups, new Comparator<String>() {
+            @Override
+            public int compare(String g1, String g2) {
+                Integer a1 = groupApplied.get(g1);
+                Integer a2 = groupApplied.get(g2);
+                if (!sort_answers || a1.equals(a2))
+                    return collator.compare(g1, g2);
+                else
+                    return -a1.compareTo(a2);
+            }
+        });
 
         Collections.sort(answers, new Comparator<EntityAnswer>() {
             @Override
             public int compare(EntityAnswer a1, EntityAnswer a2) {
-                if (!grouped || a1.applied.equals(a2.applied))
+                if (!sort_answers || a1.applied.equals(a2.applied))
                     return collator.compare(a1.name, a2.name);
                 else
                     return -a1.applied.compareTo(a2.applied);
@@ -200,16 +318,26 @@ public class EntityAnswer implements Serializable {
         int order = 0;
 
         Map<String, SubMenu> map = new HashMap<>();
-        for (String group : groups)
-            map.put(group, main.addSubMenu(Menu.NONE, order, order++, group));
+        for (String group : groups) {
+            SpannableStringBuilder ssb = new SpannableStringBuilderEx(group);
 
-        NumberFormat NF = NumberFormat.getNumberInstance();
+            int total = groupApplied.get(group);
+            if (sort_answers && total > 0) {
+                int start = ssb.length();
+                ssb.append(" (").append(NF.format(total)).append(")");
+                ssb.setSpan(new RelativeSizeSpan(HtmlHelper.FONT_SMALL),
+                        start, ssb.length(), 0);
+            }
+
+            map.put(group, main.addSubMenu(Menu.NONE, order, order++, ssb));
+        }
+
         for (EntityAnswer answer : answers) {
             if (compose && answer.favorite)
                 continue;
             order++;
 
-            SpannableStringBuilder ssb = new SpannableStringBuilder(answer.name);
+            SpannableStringBuilder ssb = new SpannableStringBuilderEx(answer.name);
 
             if (answer.color != null) {
                 Drawable d = new ColorDrawable(answer.color);
@@ -220,7 +348,7 @@ public class EntityAnswer implements Serializable {
                 ssb.setSpan(imageSpan, 0, 1, 0);
             }
 
-            if (grouped && answer.applied > 0) {
+            if (sort_answers && answer.applied > 0) {
                 int start = ssb.length();
                 ssb.append(" (").append(NF.format(answer.applied)).append(")");
                 ssb.setSpan(new RelativeSizeSpan(HtmlHelper.FONT_SMALL),
@@ -240,14 +368,14 @@ public class EntityAnswer implements Serializable {
 
         if (compose && BuildConfig.DEBUG) {
             SubMenu profiles = main.addSubMenu(Menu.NONE, order, order++, "Profiles");
-            for (EmailProvider p : EmailProvider.loadProfiles(context)) {
+            for (EmailProvider p : EmailProvider.getProviders(context)) {
                 SpannableStringBuilder ssb = new SpannableStringBuilderEx();
                 int start;
                 ssb.append("IMAP (account, receive)");
 
                 ssb.append(" host ");
                 start = ssb.length();
-                ssb.append(p.imap.host);
+                ssb.append(p.imap.host == null ? "?" : p.imap.host);
                 ssb.setSpan(new StyleSpan(Typeface.BOLD),
                         start, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
@@ -269,7 +397,7 @@ public class EntityAnswer implements Serializable {
 
                 ssb.append(" host ");
                 start = ssb.length();
-                ssb.append(p.smtp.host);
+                ssb.append(p.smtp.host == null ? "?" : p.smtp.host);
                 ssb.setSpan(new StyleSpan(Typeface.BOLD),
                         start, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
@@ -287,11 +415,17 @@ public class EntityAnswer implements Serializable {
 
                 ssb.append("\n\n");
 
+                if (p.appPassword)
+                    ssb.append("App password\n\n");
+
+                if (p.documentation != null)
+                    ssb.append(HtmlHelper.fromHtml(p.documentation.toString(), context)).append("\n\n");
+
                 if (!TextUtils.isEmpty(p.link))
                     ssb.append(p.link).append("\n\n");
 
                 profiles.add(999, profiles.size(), profiles.size() + 1, p.name +
-                        (p.appPassword ? "+" : ""))
+                                (p.appPassword ? "+" : ""))
                         .setIntent(new Intent().putExtra("config", ssb));
             }
         }
@@ -303,7 +437,7 @@ public class EntityAnswer implements Serializable {
         icon.setTint(color);
 
         for (EntityAnswer answer : favorites) {
-            SpannableStringBuilder ssb = new SpannableStringBuilder(answer.name);
+            SpannableStringBuilder ssb = new SpannableStringBuilderEx(answer.name);
 
             if (answer.color != null) {
                 Drawable d = new ColorDrawable(answer.color);
@@ -322,18 +456,20 @@ public class EntityAnswer implements Serializable {
                     .setIntent(new Intent().putExtra("id", answer.id));
         }
 
-        if (grouped)
+        if (sort_answers)
             MenuCompat.setGroupDividerEnabled(main, true);
     }
 
     public JSONObject toJSON() throws JSONException {
         JSONObject json = new JSONObject();
         json.put("id", id);
+        json.put("uuid", uuid);
         json.put("name", name);
         json.put("group", group);
         json.put("standard", standard);
         json.put("receipt", receipt);
         json.put("favorite", favorite);
+        json.put("snippet", snippet);
         json.put("hide", hide);
         json.put("external", external);
         json.put("color", color);
@@ -346,6 +482,8 @@ public class EntityAnswer implements Serializable {
     public static EntityAnswer fromJSON(JSONObject json) throws JSONException {
         EntityAnswer answer = new EntityAnswer();
         answer.id = json.getLong("id");
+        if (json.has("uuid"))
+            answer.uuid = json.getString("uuid");
         answer.name = json.getString("name");
         answer.group = json.optString("group");
         if (TextUtils.isEmpty(answer.group))
@@ -353,6 +491,7 @@ public class EntityAnswer implements Serializable {
         answer.standard = json.optBoolean("standard");
         answer.receipt = json.optBoolean("receipt");
         answer.favorite = json.optBoolean("favorite");
+        answer.snippet = json.optBoolean("snippet");
         answer.hide = json.optBoolean("hide");
         answer.external = json.optBoolean("external");
         if (json.has("color") && !json.isNull("color"))
@@ -368,11 +507,13 @@ public class EntityAnswer implements Serializable {
     public boolean equals(Object obj) {
         if (obj instanceof EntityAnswer) {
             EntityAnswer other = (EntityAnswer) obj;
-            return (this.name.equals(other.name) &&
+            return (Objects.equals(this.uuid, other.uuid) &&
+                    this.name.equals(other.name) &&
                     Objects.equals(this.group, other.group) &&
                     this.standard.equals(other.standard) &&
                     this.receipt.equals(other.receipt) &&
                     this.favorite.equals(other.favorite) &&
+                    this.snippet.equals(other.snippet) &&
                     this.hide.equals(other.hide) &&
                     this.external.equals(other.external) &&
                     this.text.equals(other.text) &&

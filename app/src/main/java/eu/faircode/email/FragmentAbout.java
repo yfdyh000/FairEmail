@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -78,6 +78,15 @@ public class FragmentAbout extends FragmentBase {
             source = "Debug";
         else
             source = "?";
+
+        try {
+            String installer = context.getPackageManager().getInstallerPackageName(BuildConfig.APPLICATION_ID);
+            if (installer != null && !"com.android.vending".equals(installer))
+                source += " (" + installer + ")";
+        } catch (Throwable ex) {
+            Log.w(ex);
+        }
+
         tvDownloaded.setText(getString(R.string.app_download, source));
 
         long last = 0;

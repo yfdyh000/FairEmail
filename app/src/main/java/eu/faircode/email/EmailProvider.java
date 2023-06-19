@@ -16,19 +16,21 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.system.OsConstants.ECONNREFUSED;
 
 import android.content.Context;
-import android.content.res.XmlResourceParser;
+import android.content.SharedPreferences;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.system.ErrnoException;
 import android.text.TextUtils;
+import android.util.Xml;
 
 import androidx.annotation.NonNull;
+import androidx.preference.PreferenceManager;
 
 import com.sun.mail.util.LineInputStream;
 
@@ -37,9 +39,14 @@ import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
 
 import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
@@ -55,15 +62,19 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import javax.net.SocketFactory;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
@@ -71,19 +82,26 @@ public class EmailProvider implements Parcelable {
     public String id;
     public String name;
     public String description;
+    public boolean debug;
     public boolean enabled;
+    public boolean alt;
     public List<String> domain;
     public List<String> mx;
     public int order;
     public String type;
     public int keepalive;
+    public boolean noop;
     public boolean partial;
+    public boolean raw;
     public boolean useip;
     public boolean appPassword;
+    public String maxtls;
     public String link;
     public Server imap = new Server();
     public Server smtp = new Server();
+    public Server pop;
     public OAuth oauth;
+    public OAuth graph;
     public UserType user = UserType.EMAIL;
     public String username;
     public StringBuilder documentation; // html
@@ -92,8 +110,11 @@ public class EmailProvider implements Parcelable {
 
     enum UserType {LOCAL, EMAIL, VALUE}
 
-    private static final int SCAN_TIMEOUT = 15 * 1000; // milliseconds
-    private static final int ISPDB_TIMEOUT = 15 * 1000; // milliseconds
+    private static List<EmailProvider> imported;
+
+    private static final int SCAN_TIMEOUT = 10 * 1000; // milliseconds
+    private static final int ISPDB_TIMEOUT = 10 * 1000; // milliseconds
+    private static final int MS_TIMEOUT = 10 * 1000; // milliseconds
 
     private static final List<String> PROPRIETARY = Collections.unmodifiableList(Arrays.asList(
             "protonmail.ch",
@@ -102,16 +123,49 @@ public class EmailProvider implements Parcelable {
             "tutanota.de",
             "tutamail.com", // tutanota
             "tuta.io", // tutanota
-            "keemail.me" // tutanota
+            "keemail.me", // tutanota
+            "ctemplar.com",
+            "cyberfear.com",
+            "skiff.com",
+            "tildamail.com",
+            "criptext.com",
+            "onmail.com"
     ));
-    private static final ExecutorService executor =
-            Helper.getBackgroundExecutor(0, "provider");
 
     private EmailProvider() {
     }
 
     EmailProvider(String name) {
         this.name = name;
+    }
+
+    static void init(Context context) {
+        Helper.getSerialExecutor().submit(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    File file = new File(context.getFilesDir(), "providers.xml");
+                    if (file.exists()) {
+                        try (FileInputStream is = new FileInputStream(file)) {
+                            XmlPullParser parser = Xml.newPullParser();
+                            parser.setInput(is, null);
+                            imported = parseProfiles(parser);
+                        }
+                    }
+                } catch (Throwable ex) {
+                    Log.e(ex);
+                }
+            }
+        });
+    }
+
+    static void importProfiles(InputStream is, Context context) throws IOException {
+        File file = new File(context.getFilesDir(), "providers.xml");
+        try (OutputStream os = new FileOutputStream(file)) {
+            Helper.copy(is, os);
+        }
+
+        init(context);
     }
 
     private void validate() throws UnknownHostException {
@@ -136,11 +190,42 @@ public class EmailProvider implements Parcelable {
         return result;
     }
 
-    static List<EmailProvider> loadProfiles(Context context) {
+    private static List<EmailProvider> loadProfiles(Context context) {
         List<EmailProvider> result = null;
+
+        try {
+            result = parseProfiles(context.getResources().getXml(R.xml.providers));
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
+
+        if (imported != null)
+            result.addAll(imported);
+
+        final Collator collator = Collator.getInstance(Locale.getDefault());
+        collator.setStrength(Collator.SECONDARY); // Case insensitive, process accents etc
+
+        Collections.sort(result, new Comparator<EmailProvider>() {
+            @Override
+            public int compare(EmailProvider p1, EmailProvider p2) {
+                int o = Integer.compare(p1.order, p2.order);
+                if (o == 0)
+                    return collator.compare(p1.name, p2.name);
+                else
+                    return o;
+            }
+        });
+
+        return result;
+    }
+
+    private static List<EmailProvider> parseProfiles(XmlPullParser xml) {
+        List<EmailProvider> result = null;
+
+        String lang = Locale.getDefault().getLanguage();
+
         try {
             EmailProvider provider = null;
-            XmlResourceParser xml = context.getResources().getXml(R.xml.providers);
             int eventType = xml.getEventType();
             while (eventType != XmlPullParser.END_DOCUMENT) {
                 if (eventType == XmlPullParser.START_TAG) {
@@ -155,7 +240,10 @@ public class EmailProvider implements Parcelable {
                         provider.description = xml.getAttributeValue(null, "description");
                         if (provider.description == null)
                             provider.description = provider.name;
-                        provider.enabled = xml.getAttributeBooleanValue(null, "enabled", true);
+
+                        provider.debug = getAttributeBooleanValue(xml, "debug", false);
+                        provider.enabled = getAttributeBooleanValue(xml, "enabled", true);
+                        provider.alt = getAttributeBooleanValue(xml, "alt", false);
 
                         String domain = xml.getAttributeValue(null, "domain");
                         if (domain != null)
@@ -165,14 +253,19 @@ public class EmailProvider implements Parcelable {
                         if (mx != null)
                             provider.mx = Arrays.asList(mx.split(","));
 
-                        provider.order = xml.getAttributeIntValue(null, "order", Integer.MAX_VALUE);
-                        provider.keepalive = xml.getAttributeIntValue(null, "keepalive", 0);
-                        provider.partial = xml.getAttributeBooleanValue(null, "partial", true);
-                        provider.useip = xml.getAttributeBooleanValue(null, "useip", true);
-                        provider.appPassword = xml.getAttributeBooleanValue(null, "appPassword", false);
+                        provider.order = getAttributeIntValue(xml, "order", Integer.MAX_VALUE);
+                        provider.keepalive = getAttributeIntValue(xml, "keepalive", 0);
+                        provider.noop = getAttributeBooleanValue(xml, "noop", false);
+                        provider.partial = getAttributeBooleanValue(xml, "partial", true);
+                        provider.raw = getAttributeBooleanValue(xml, "raw", false);
+                        provider.useip = getAttributeBooleanValue(xml, "useip", true);
+                        provider.appPassword = getAttributeBooleanValue(xml, "appPassword", false);
+                        provider.maxtls = xml.getAttributeValue(null, "maxtls");
                         provider.link = xml.getAttributeValue(null, "link");
 
-                        String documentation = xml.getAttributeValue(null, "documentation");
+                        String documentation = xml.getAttributeValue(null, "documentation." + lang);
+                        if (documentation == null)
+                            documentation = xml.getAttributeValue(null, "documentation");
                         if (documentation != null)
                             provider.documentation = new StringBuilder(documentation);
 
@@ -192,29 +285,54 @@ public class EmailProvider implements Parcelable {
                     } else if ("imap".equals(name)) {
                         provider.imap.score = 100;
                         provider.imap.host = xml.getAttributeValue(null, "host");
-                        provider.imap.port = xml.getAttributeIntValue(null, "port", 0);
-                        provider.imap.starttls = xml.getAttributeBooleanValue(null, "starttls", false);
+                        provider.imap.port = getAttributeIntValue(xml, "port", 0);
+                        provider.imap.starttls = getAttributeBooleanValue(xml, "starttls", false);
                     } else if ("smtp".equals(name)) {
                         provider.smtp.score = 100;
                         provider.smtp.host = xml.getAttributeValue(null, "host");
-                        provider.smtp.port = xml.getAttributeIntValue(null, "port", 0);
-                        provider.smtp.starttls = xml.getAttributeBooleanValue(null, "starttls", false);
+                        provider.smtp.port = getAttributeIntValue(xml, "port", 0);
+                        provider.smtp.starttls = getAttributeBooleanValue(xml, "starttls", false);
+                    } else if ("pop".equals(name)) {
+                        provider.pop = new Server();
+                        provider.pop.host = xml.getAttributeValue(null, "host");
+                        provider.pop.port = getAttributeIntValue(xml, "port", 0);
+                        provider.pop.starttls = getAttributeBooleanValue(xml, "starttls", false);
                     } else if ("oauth".equals(name)) {
                         provider.oauth = new OAuth();
-                        provider.oauth.enabled = xml.getAttributeBooleanValue(null, "enabled", false);
-                        provider.oauth.askAccount = xml.getAttributeBooleanValue(null, "askAccount", false);
+                        provider.oauth.enabled = getAttributeBooleanValue(xml, "enabled", false);
+                        provider.oauth.askAccount = getAttributeBooleanValue(xml, "askAccount", false);
                         provider.oauth.clientId = xml.getAttributeValue(null, "clientId");
                         provider.oauth.clientSecret = xml.getAttributeValue(null, "clientSecret");
-                        provider.oauth.pcke = xml.getAttributeBooleanValue(null, "pcke", false);
                         provider.oauth.scopes = xml.getAttributeValue(null, "scopes").split(",");
                         provider.oauth.authorizationEndpoint = xml.getAttributeValue(null, "authorizationEndpoint");
                         provider.oauth.tokenEndpoint = xml.getAttributeValue(null, "tokenEndpoint");
+                        provider.oauth.tokenScopes = getAttributeBooleanValue(xml, "tokenScopes", false);
                         provider.oauth.redirectUri = xml.getAttributeValue(null, "redirectUri");
                         provider.oauth.privacy = xml.getAttributeValue(null, "privacy");
+                        provider.oauth.prompt = xml.getAttributeValue(null, "prompt");
+                    } else if ("graph".equals(name)) {
+                        provider.graph = new OAuth();
+                        provider.graph.enabled = getAttributeBooleanValue(xml, "enabled", false);
+                        provider.graph.askAccount = getAttributeBooleanValue(xml, "askAccount", false);
+                        provider.graph.clientId = xml.getAttributeValue(null, "clientId");
+                        provider.graph.clientSecret = xml.getAttributeValue(null, "clientSecret");
+                        provider.graph.scopes = xml.getAttributeValue(null, "scopes").split(",");
+                        provider.graph.authorizationEndpoint = xml.getAttributeValue(null, "authorizationEndpoint");
+                        provider.graph.tokenEndpoint = xml.getAttributeValue(null, "tokenEndpoint");
+                        provider.graph.tokenScopes = getAttributeBooleanValue(xml, "tokenScopes", false);
+                        provider.graph.redirectUri = xml.getAttributeValue(null, "redirectUri");
+                        provider.graph.privacy = xml.getAttributeValue(null, "privacy");
+                        provider.graph.prompt = xml.getAttributeValue(null, "prompt");
+                    } else if ("parameter".equals(name)) {
+                        if (provider.oauth.parameters == null)
+                            provider.oauth.parameters = new LinkedHashMap<>();
+                        provider.oauth.parameters.put(
+                                xml.getAttributeValue(null, "key"),
+                                xml.getAttributeValue(null, "value"));
                     } else
                         throw new IllegalAccessException(name);
                 } else if (eventType == XmlPullParser.END_TAG) {
-                    if ("provider".equals(xml.getName()) && provider.enabled) {
+                    if ("provider".equals(xml.getName())) {
                         result.add(provider);
                         provider = null;
                     }
@@ -225,42 +343,71 @@ public class EmailProvider implements Parcelable {
         } catch (Throwable ex) {
             Log.e(ex);
         }
-        final Collator collator = Collator.getInstance(Locale.getDefault());
-        collator.setStrength(Collator.SECONDARY); // Case insensitive, process accents etc
-
-        Collections.sort(result, new Comparator<EmailProvider>() {
-            @Override
-            public int compare(EmailProvider p1, EmailProvider p2) {
-                int o = Integer.compare(p1.order, p2.order);
-                if (o == 0)
-                    return collator.compare(p1.name, p2.name);
-                else
-                    return o;
-            }
-        });
 
         return result;
     }
 
+    private static boolean getAttributeBooleanValue(XmlPullParser parser, String name, boolean defaultValue) {
+        String value = parser.getAttributeValue(null, name);
+        return (value == null ? defaultValue : Boolean.parseBoolean(value));
+    }
+
+    private static int getAttributeIntValue(XmlPullParser parser, String name, int defaultValue) {
+        String value = parser.getAttributeValue(null, name);
+        return (value == null ? defaultValue : Integer.parseInt(value));
+    }
+
     static EmailProvider getProvider(Context context, String id) throws FileNotFoundException {
-        for (EmailProvider provider : loadProfiles(context))
-            if (id.equals(provider.id))
-                return provider;
+        if (id != null)
+            for (EmailProvider provider : loadProfiles(context))
+                if (id.equals(provider.id))
+                    return provider;
 
         throw new FileNotFoundException("provider id=" + id);
     }
 
-    @NonNull
-    static List<EmailProvider> fromDomain(Context context, String domain, Discover discover) throws IOException {
-        return fromEmail(context, domain, discover);
+    static EmailProvider getProviderByHost(Context context, @NonNull String host) {
+        for (EmailProvider provider : loadProfiles(context)) {
+            if (provider.imap != null && host.equals(provider.imap.host))
+                return provider;
+            if (provider.pop != null && host.equals(provider.pop.host))
+                return provider;
+            if (provider.smtp != null && host.equals(provider.smtp.host))
+                return provider;
+        }
+
+        return null;
+    }
+
+    // For user interface
+    static List<EmailProvider> getProviders(Context context) {
+        return getProviders(context, false);
+    }
+
+    static List<EmailProvider> getProviders(Context context, boolean debug) {
+        List<EmailProvider> result = new ArrayList<>();
+        for (EmailProvider provider : loadProfiles(context))
+            if (provider.enabled || (provider.debug && debug))
+                result.add(provider);
+        return result;
     }
 
     @NonNull
-    static List<EmailProvider> fromEmail(Context context, String email, Discover discover) throws IOException {
-        int at = email.indexOf('@');
-        String domain = (at < 0 ? email : email.substring(at + 1));
-        if (at < 0)
-            email = "someone@" + domain;
+    static List<EmailProvider> fromDomain(Context context, String domain, Discover discover) throws IOException {
+        return fromEmail(context, domain, discover,
+                new IDiscovery() {
+                    @Override
+                    public void onStatus(String status) {
+                        // Do nothing
+                    }
+                });
+    }
+
+    @NonNull
+    static List<EmailProvider> fromEmail(Context context, String _email, Discover discover, IDiscovery intf) throws IOException {
+        int at = _email.indexOf('@');
+        String domain = (at < 0 ? _email : _email.substring(at + 1));
+        String email = (at < 0 ? "someone@" + domain : _email);
 
         if (TextUtils.isEmpty(domain))
             throw new UnknownHostException(context.getString(R.string.title_setup_no_settings, domain));
@@ -274,12 +421,24 @@ public class EmailProvider implements Parcelable {
                 for (String d : provider.domain)
                     if (domain.toLowerCase(Locale.ROOT).matches(d)) {
                         EntityLog.log(context, "Provider from domain=" + domain + " (" + d + ")");
-                        if (!BuildConfig.DEBUG)
-                            return Arrays.asList(provider);
+                        return Arrays.asList(provider);
                     }
 
+        try {
+            intf.onStatus("NS " + domain);
+            DnsHelper.DnsRecord[] ns = DnsHelper.lookup(context, domain, "ns");
+            for (DnsHelper.DnsRecord record : ns)
+                for (EmailProvider provider : providers)
+                    if (provider.mx != null)
+                        for (String mx : provider.mx)
+                            if (record.response.matches(mx))
+                                return Arrays.asList(provider);
+        } catch (Throwable ex) {
+            Log.w(ex);
+        }
+
         List<EmailProvider> candidates =
-                new ArrayList<>(_fromDomain(context, domain.toLowerCase(Locale.ROOT), email, discover));
+                new ArrayList<>(_fromDomain(context, domain.toLowerCase(Locale.ROOT), email, discover, intf));
 
         if (false) // Unsafe: the password could be sent to an unrelated email server
             try {
@@ -300,7 +459,7 @@ public class EmailProvider implements Parcelable {
                             InetAddress ialt = InetAddress.getByName(altName);
                             if (!ialt.equals(iaddr)) {
                                 EntityLog.log(context, "Using website common name=" + altName);
-                                candidates.addAll(_fromDomain(context, altName.toLowerCase(Locale.ROOT), email, discover));
+                                candidates.addAll(_fromDomain(context, altName.toLowerCase(Locale.ROOT), email, discover, intf));
                             }
                         } catch (Throwable ex) {
                             Log.w(ex);
@@ -313,6 +472,7 @@ public class EmailProvider implements Parcelable {
         try {
             List<DnsHelper.DnsRecord> records = new ArrayList<>();
             try {
+                intf.onStatus("MX " + domain);
                 DnsHelper.DnsRecord[] mx = DnsHelper.lookup(context, domain, "mx");
                 if (mx.length > 0)
                     records.add(mx[0]);
@@ -321,8 +481,8 @@ public class EmailProvider implements Parcelable {
             }
 
             for (DnsHelper.DnsRecord record : records)
-                if (!TextUtils.isEmpty(record.name)) {
-                    String target = record.name.toLowerCase(Locale.ROOT);
+                if (!TextUtils.isEmpty(record.response)) {
+                    String target = record.response.toLowerCase(Locale.ROOT);
                     EntityLog.log(context, "MX target=" + target);
 
                     for (EmailProvider provider : providers) {
@@ -334,9 +494,9 @@ public class EmailProvider implements Parcelable {
                                     break;
                                 }
 
-                        String mxparent = UriHelper.getParentDomain(context, target);
-                        String pdomain = UriHelper.getParentDomain(context, provider.imap.host);
-                        if (mxparent.equalsIgnoreCase(pdomain)) {
+                        String mxroot = UriHelper.getRootDomain(context, target);
+                        String proot = UriHelper.getRootDomain(context, provider.imap.host);
+                        if (mxroot != null && mxroot.equalsIgnoreCase(proot)) {
                             EntityLog.log(context, "From MX host=" + provider.imap.host);
                             candidates.add(provider);
                             break;
@@ -344,15 +504,17 @@ public class EmailProvider implements Parcelable {
                     }
 
                     while (candidates.size() == 0 && target.indexOf('.') > 0) {
-                        candidates.addAll(_fromDomain(context, target, email, discover));
+                        candidates.addAll(_fromDomain(context, target, email, discover, intf));
                         int dot = target.indexOf('.');
                         target = target.substring(dot + 1);
+                        if (UriHelper.isTld(context, target))
+                            break;
                     }
                 }
 
             for (DnsHelper.DnsRecord record : records)
                 try {
-                    String target = record.name.toLowerCase(Locale.ROOT);
+                    String target = record.response.toLowerCase(Locale.ROOT);
                     InetAddress.getByName(target);
 
                     EmailProvider mx1 = new EmailProvider(domain);
@@ -396,9 +558,15 @@ public class EmailProvider implements Parcelable {
                 if (provider.enabled &&
                         provider.imap.host.equals(candidate.imap.host) ||
                         provider.smtp.host.equals(candidate.smtp.host)) {
-                    EntityLog.log(context, "Replacing auto config by profile=" + provider.name);
+                    EntityLog.log(context, "Replacing auto config host by profile=" + provider.name);
                     return Arrays.asList(provider);
-                }
+                } else if (provider.enabled && provider.mx != null)
+                    for (String mx : provider.mx)
+                        if ((candidate.imap.host != null && candidate.imap.host.matches(mx)) ||
+                                (candidate.smtp.host != null && candidate.smtp.host.matches(mx))) {
+                            EntityLog.log(context, "Replacing auto config MC by profile=" + provider.name);
+                            return Arrays.asList(provider);
+                        }
 
             // https://help.dreamhost.com/hc/en-us/articles/214918038-Email-client-configuration-overview
             if (candidate.imap.host != null &&
@@ -419,16 +587,17 @@ public class EmailProvider implements Parcelable {
         Collections.sort(candidates, new Comparator<EmailProvider>() {
             @Override
             public int compare(EmailProvider p1, EmailProvider p2) {
-                return -Integer.compare(p1.getScore(), p2.getScore());
+                return -Integer.compare(p1.getScore(email), p2.getScore(email));
             }
         });
 
         // Log candidates
         for (EmailProvider candidate : candidates)
             EntityLog.log(context, "Candidate" +
-                    " score=" + candidate.getScore() +
+                    " score=" + candidate.getScore(email) +
                     " imap=" + candidate.imap +
-                    " smtp=" + candidate.smtp);
+                    " smtp=" + candidate.smtp +
+                    " user=" + candidate.username);
 
         // Remove duplicates
         List<EmailProvider> result = new ArrayList<>();
@@ -442,13 +611,13 @@ public class EmailProvider implements Parcelable {
     }
 
     @NonNull
-    private static List<EmailProvider> _fromDomain(Context context, String domain, String email, Discover discover) {
+    private static List<EmailProvider> _fromDomain(Context context, String domain, String email, Discover discover, IDiscovery intf) {
         List<EmailProvider> result = new ArrayList<>();
 
         try {
             // Assume the provider knows best
             Log.i("Provider from DNS domain=" + domain);
-            result.add(fromDNS(context, domain, discover));
+            result.add(fromDNS(context, domain, discover, intf));
         } catch (Throwable ex) {
             Log.w(ex);
         }
@@ -456,7 +625,15 @@ public class EmailProvider implements Parcelable {
         try {
             // Check ISPDB
             Log.i("Provider from ISPDB domain=" + domain);
-            result.add(fromISPDB(context, domain, email));
+            result.add(fromISPDB(context, domain, email, intf));
+        } catch (Throwable ex) {
+            Log.w(ex);
+        }
+
+        try {
+            // Check Microsoft auto discovery
+            Log.i("Provider from MS domain=" + domain);
+            result.add(fromMSAutodiscovery(context, domain, email, intf));
         } catch (Throwable ex) {
             Log.w(ex);
         }
@@ -464,7 +641,7 @@ public class EmailProvider implements Parcelable {
         try {
             // Scan ports
             Log.i("Provider from scan domain=" + domain);
-            result.add(fromScan(context, domain, discover));
+            result.add(fromScan(context, domain, discover, intf));
         } catch (Throwable ex) {
             Log.w(ex);
         }
@@ -473,49 +650,45 @@ public class EmailProvider implements Parcelable {
     }
 
     @NonNull
-    private static EmailProvider fromISPDB(Context context, String domain, String email) throws Throwable {
+    private static EmailProvider fromISPDB(Context context, String domain, String email, IDiscovery intf) throws Throwable {
         // https://wiki.mozilla.org/Thunderbird:Autoconfiguration
-        Throwable failure;
+        for (String link : Misc.getISPDBUrls(context, domain, email))
+            try {
+                URL url = new URL(link);
+                return getISPDB(context, domain, url, true, intf);
+            } catch (Throwable ex) {
+                Log.i(ex);
+            }
 
-        try {
-            URL url = new URL("https://autoconfig." + domain + "/mail/config-v1.1.xml?emailaddress=" + email);
-            return getISPDB(context, domain, url);
-        } catch (Throwable ex) {
-            Log.i(ex);
-            failure = ex;
-        }
-
-        try {
-            URL url = new URL("https://" + domain + "/.well-known/autoconfig/mail/config-v1.1.xml?emailaddress=" + email);
-            return getISPDB(context, domain, url);
-        } catch (Throwable ex) {
-            Log.i(ex);
-        }
-
-        try {
-            URL url = new URL("https://autoconfig.thunderbird.net/v1.1/" + domain);
-            return getISPDB(context, domain, url);
-        } catch (Throwable ex) {
-            Log.i(ex);
-        }
-
-        throw failure;
+        URL url = new URL("https://autoconfig.thunderbird.net/v1.1/" + domain);
+        return getISPDB(context, domain, url, false, intf);
     }
 
     @NonNull
-    private static EmailProvider getISPDB(Context context, String domain, URL url) throws IOException, XmlPullParserException {
+    private static EmailProvider getISPDB(Context context, String domain, URL url, boolean unsafe, IDiscovery intf) throws IOException, XmlPullParserException {
         EmailProvider provider = new EmailProvider(domain);
 
         HttpURLConnection request = null;
         try {
             Log.i("Fetching " + url);
+            intf.onStatus("ISPDB " + url);
 
             request = (HttpURLConnection) url.openConnection();
             request.setRequestMethod("GET");
             request.setReadTimeout(ISPDB_TIMEOUT);
             request.setConnectTimeout(ISPDB_TIMEOUT);
             request.setDoInput(true);
-            request.setRequestProperty("User-Agent", WebViewEx.getUserAgent(context));
+            ConnectionHelper.setUserAgent(context, request);
+
+            if (unsafe && request instanceof HttpsURLConnection) {
+                ((HttpsURLConnection) request).setHostnameVerifier(new HostnameVerifier() {
+                    @Override
+                    public boolean verify(String hostname, SSLSession session) {
+                        return true;
+                    }
+                });
+            }
+
             request.connect();
 
             int status = request.getResponseCode();
@@ -697,57 +870,240 @@ public class EmailProvider implements Parcelable {
     }
 
     @NonNull
-    private static EmailProvider fromDNS(Context context, String domain, Discover discover) throws UnknownHostException {
+    private static EmailProvider fromMSAutodiscovery(Context context, String domain, String email, IDiscovery intf) throws UnknownHostException {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean open_safe = prefs.getBoolean("open_safe", false);
+
+        // https://learn.microsoft.com/en-us/Exchange/architecture/client-access/autodiscover
+        // https://github.com/gronke/email-autodiscover/blob/master/mail/autodiscover.xml
+        // Example: https://mail.de/autodiscover/autodiscover.xml
+        for (String link : Misc.getMSUrls(context, domain, email))
+            try {
+                URL url = new URL(link);
+                return getMSAutodiscovery(context, domain, url, true, intf);
+            } catch (Throwable ex) {
+                Log.i(ex);
+            }
+
+        throw new UnknownHostException(domain);
+    }
+
+    private static EmailProvider getMSAutodiscovery(Context context, String domain, URL url, boolean unsafe, IDiscovery intf) throws IOException, XmlPullParserException {
+        EmailProvider provider = new EmailProvider(domain);
+
+        HttpURLConnection request = null;
+        try {
+            Log.i("Fetching " + url);
+            intf.onStatus("MS " + url);
+
+            request = (HttpURLConnection) url.openConnection();
+            request.setRequestMethod("GET");
+            request.setReadTimeout(MS_TIMEOUT);
+            request.setConnectTimeout(MS_TIMEOUT);
+            request.setDoInput(true);
+            ConnectionHelper.setUserAgent(context, request);
+
+            if (unsafe && request instanceof HttpsURLConnection) {
+                ((HttpsURLConnection) request).setHostnameVerifier(new HostnameVerifier() {
+                    @Override
+                    public boolean verify(String hostname, SSLSession session) {
+                        return true;
+                    }
+                });
+            }
+
+            request.connect();
+
+            int status = request.getResponseCode();
+            if (status != HttpURLConnection.HTTP_OK)
+                throw new FileNotFoundException("Error " + status + ": " + request.getResponseMessage());
+
+            // https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser
+            XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
+            XmlPullParser xml = factory.newPullParser();
+            xml.setInput(new InputStreamReader(request.getInputStream()));
+
+            EntityLog.log(context, "Parsing " + url);
+
+            boolean isAccount = false;
+            boolean isEmail = false;
+            boolean isSettings = false;
+            boolean isProtocol = false;
+            boolean isImap = false;
+            boolean isSmtp = false;
+            String host = null;
+            Integer port = null;
+            int eventType = xml.getEventType();
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                if (eventType == XmlPullParser.START_TAG) {
+                    String name = xml.getName();
+                    if ("Account".equals(name)) {
+                        // <AccountType>email</AccountType>
+                        isAccount = true;
+                    } else if ("AccountType".equals(name) && isAccount) {
+                        // <AccountType>email</AccountType>
+                        eventType = xml.next();
+                        if (eventType == XmlPullParser.TEXT && "email".equals(xml.getText()))
+                            isEmail = true;
+                        continue;
+                    } else if ("Action".equals(name) && isAccount) {
+                        // <Action>settings</Action>
+                        eventType = xml.next();
+                        if (eventType == XmlPullParser.TEXT && "settings".equals(xml.getText()))
+                            isSettings = true;
+                        continue;
+                    } else if ("Protocol".equals(name) && isAccount) {
+                        // <AccountType>email</AccountType>
+                        isProtocol = true;
+                    } else if (isAccount && isEmail && isSettings && isProtocol) {
+                        if ("Type".equals(name)) {
+                            // <AccountType>email</AccountType>
+                            eventType = xml.next();
+                            if (eventType == XmlPullParser.TEXT) {
+                                String type = xml.getText();
+                                if ("IMAP".equals(type))
+                                    isImap = true;
+                                else if ("SMTP".equals(type))
+                                    isSmtp = true;
+                            }
+                            continue;
+                        } else if ("Server".equals(name)) {
+                            eventType = xml.next();
+                            if (eventType == XmlPullParser.TEXT)
+                                host = xml.getText();
+                            continue;
+                        } else if ("Port".equals(name)) {
+                            eventType = xml.next();
+                            if (eventType == XmlPullParser.TEXT) {
+                                String p = xml.getText();
+                                if (TextUtils.isDigitsOnly(p))
+                                    port = Integer.parseInt(p);
+                            }
+                            continue;
+                        }
+                    }
+                } else if (eventType == XmlPullParser.END_TAG) {
+                    String name = xml.getName();
+                    if ("Account".equals(name)) {
+                        isAccount = false;
+                        isEmail = false;
+                        isSettings = false;
+                    } else if ("Protocol".equals(name)) {
+                        if (isProtocol && host != null && port != null) {
+                            if (isImap) {
+                                provider.imap.score = 20;
+                                provider.imap.host = host;
+                                provider.imap.port = port;
+                                provider.imap.starttls = (provider.imap.port == 143);
+                            } else if (isSmtp) {
+                                provider.smtp.score = 20;
+                                provider.smtp.host = host;
+                                provider.smtp.port = port;
+                                provider.smtp.starttls = (provider.smtp.port == 587);
+                            }
+                        }
+                        isProtocol = false;
+                        isImap = false;
+                        isSmtp = false;
+                        host = null;
+                        port = null;
+                    }
+                }
+
+                eventType = xml.next();
+            }
+
+            provider.validate();
+            Log.e("MS=" + url);
+
+            return provider;
+        } finally {
+            if (request != null)
+                request.disconnect();
+        }
+    }
+
+    @NonNull
+    private static EmailProvider fromDNS(Context context, String domain, Discover discover, IDiscovery intf) throws UnknownHostException {
         // https://tools.ietf.org/html/rfc6186
         EmailProvider provider = new EmailProvider(domain);
 
         if (discover == Discover.ALL || discover == Discover.IMAP) {
-            try {
-                // Identifies an IMAP server where TLS is initiated directly upon connection to the IMAP server.
-                DnsHelper.DnsRecord[] records = DnsHelper.lookup(context, "_imaps._tcp." + domain, "srv");
-                if (records.length == 0)
-                    throw new UnknownHostException(domain);
-                // ... service is not supported at all at a particular domain by setting the target of an SRV RR to "."
-                provider.imap.score = 50;
-                provider.imap.host = records[0].name;
-                provider.imap.port = records[0].port;
-                provider.imap.starttls = false;
-                EntityLog.log(context, "_imaps._tcp." + domain + "=" + provider.imap);
-            } catch (UnknownHostException ignored) {
-                // Identifies an IMAP server that MAY ... require the MUA to use the "STARTTLS" command
-                DnsHelper.DnsRecord[] records = DnsHelper.lookup(context, "_imap._tcp." + domain, "srv");
-                if (records.length == 0)
-                    throw new UnknownHostException(domain);
-                provider.imap.score = 50;
-                provider.imap.host = records[0].name;
-                provider.imap.port = records[0].port;
-                provider.imap.starttls = (provider.imap.port == 143);
-                EntityLog.log(context, "_imap._tcp." + domain + "=" + provider.imap);
-            }
+            intf.onStatus("SRV imap " + domain);
+
+            // Identifies an IMAP server where TLS is initiated directly upon connection to the IMAP server.
+            List<DnsHelper.DnsRecord> list = new ArrayList<>();
+            list.addAll(Arrays.asList(DnsHelper.lookup(context, "_imap._tcp." + domain, "srv")));
+            list.addAll(Arrays.asList(DnsHelper.lookup(context, "_imaps._tcp." + domain, "srv")));
+
+            // ... service is not supported at all at a particular domain by setting the target of an SRV RR to "."
+            for (DnsHelper.DnsRecord record : new ArrayList<>(list))
+                if (TextUtils.isEmpty(record.response) || ".".equals(record.response))
+                    list.remove(record);
+
+            if (list.size() == 0)
+                throw new UnknownHostException(domain);
+
+            Collections.sort(list, new Comparator<DnsHelper.DnsRecord>() {
+                @Override
+                public int compare(DnsHelper.DnsRecord d1, DnsHelper.DnsRecord d2) {
+                    int p = -Integer.compare(d1.priority, d2.priority);
+                    if (p != 0)
+                        return p;
+                    int w = -Integer.compare(d1.weight, d2.weight);
+                    if (w != 0)
+                        return w;
+                    return -Boolean.compare(d1.query.startsWith("_imaps._tcp."), d2.query.startsWith("_imaps._tcp."));
+                }
+            });
+
+            DnsHelper.DnsRecord pref = list.get(0);
+
+            provider.imap.score = 50;
+            provider.imap.host = pref.response;
+            provider.imap.port = pref.port;
+            provider.imap.starttls = (!pref.query.startsWith("_imaps._tcp.") && pref.port == 143);
+            EntityLog.log(context, pref.query + "=" + provider.imap);
         }
 
-        if (discover == Discover.ALL || discover == Discover.SMTP)
-            try {
-                // Note that this covers connections both with and without Transport Layer Security (TLS)
-                DnsHelper.DnsRecord[] records = DnsHelper.lookup(context, "_submission._tcp." + domain, "srv");
-                if (records.length == 0)
-                    throw new UnknownHostException(domain);
-                provider.smtp.score = 50;
-                provider.smtp.host = records[0].name;
-                provider.smtp.port = records[0].port;
-                provider.smtp.starttls = (provider.smtp.port == 587);
-                EntityLog.log(context, "_submission._tcp." + domain + "=" + provider.smtp);
-            } catch (UnknownHostException ignored) {
-                // https://tools.ietf.org/html/rfc8314
-                DnsHelper.DnsRecord[] records = DnsHelper.lookup(context, "_submissions._tcp." + domain, "srv");
-                if (records.length == 0)
-                    throw new UnknownHostException(domain);
-                provider.smtp.score = 50;
-                provider.smtp.host = records[0].name;
-                provider.smtp.port = records[0].port;
-                provider.smtp.starttls = false;
-                EntityLog.log(context, "_submissions._tcp." + domain + "=" + provider.smtp);
-            }
+        if (discover == Discover.ALL || discover == Discover.SMTP) {
+            intf.onStatus("SRV smtp " + domain);
+            // https://tools.ietf.org/html/rfc8314
+
+            List<DnsHelper.DnsRecord> list = new ArrayList<>();
+            // Note that this covers connections both with and without Transport Layer Security (TLS)
+            list.addAll(Arrays.asList(DnsHelper.lookup(context, "_submission._tcp." + domain, "srv")));
+            list.addAll(Arrays.asList(DnsHelper.lookup(context, "_submissions._tcp." + domain, "srv")));
+
+            for (DnsHelper.DnsRecord record : new ArrayList<>(list))
+                if (TextUtils.isEmpty(record.response) || ".".equals(record.response))
+                    list.remove(record);
+
+            if (list.size() == 0)
+                throw new UnknownHostException(domain);
+
+            Collections.sort(list, new Comparator<DnsHelper.DnsRecord>() {
+                @Override
+                public int compare(DnsHelper.DnsRecord d1, DnsHelper.DnsRecord d2) {
+                    int p = -Integer.compare(d1.priority, d2.priority);
+                    if (p != 0)
+                        return p;
+                    int w = -Integer.compare(d1.weight, d2.weight);
+                    if (w != 0)
+                        return w;
+                    // submission is being preferred
+                    return -Boolean.compare(d1.query.startsWith("_submission._tcp."), d2.query.startsWith("_submission._tcp."));
+                }
+            });
+
+            DnsHelper.DnsRecord pref = list.get(0);
+
+            provider.smtp.score = 50;
+            provider.smtp.host = pref.response;
+            provider.smtp.port = pref.port;
+            provider.smtp.starttls = (!pref.query.startsWith("_submissions._tcp.") && pref.port == 587);
+            EntityLog.log(context, pref.query + "=" + provider.smtp);
+        }
 
         provider.validate();
 
@@ -755,7 +1111,7 @@ public class EmailProvider implements Parcelable {
     }
 
     @NonNull
-    private static EmailProvider fromScan(Context context, String domain, Discover discover)
+    private static EmailProvider fromScan(Context context, String domain, Discover discover, IDiscovery intf)
             throws ExecutionException, InterruptedException, UnknownHostException {
         // https://tools.ietf.org/html/rfc8314
         Server imap = null;
@@ -777,6 +1133,7 @@ public class EmailProvider implements Parcelable {
 
             Server untrusted = null;
             for (Server server : imaps) {
+                intf.onStatus("HOST " + server);
                 Boolean result = server.isReachable.get();
                 if (result == null) {
                     if (untrusted == null)
@@ -810,6 +1167,7 @@ public class EmailProvider implements Parcelable {
 
             Server untrusted = null;
             for (Server server : smtps) {
+                intf.onStatus("HOST " + server);
                 Boolean result = server.isReachable.get();
                 if (result == null) {
                     if (untrusted == null)
@@ -916,10 +1274,11 @@ public class EmailProvider implements Parcelable {
         }
     };
 
-    private int getScore() {
+    private int getScore(String email) {
         if (imap == null || smtp == null)
             return -1;
-        return imap.score + smtp.score;
+        return imap.score + smtp.score +
+                (TextUtils.isEmpty(username) || username.equalsIgnoreCase(email) ? 0 : 100);
     }
 
     @Override
@@ -954,6 +1313,7 @@ public class EmailProvider implements Parcelable {
         //     +2 trusted host
         //     +1 trusted DNS name
         //  20 from autoconfig
+        //     +100 with username
         //  50 from DNS
         // 100 from profile
 
@@ -981,7 +1341,7 @@ public class EmailProvider implements Parcelable {
 
         private Future<Boolean> getReachable(Context context) {
             Log.i("Scanning " + this);
-            return executor.submit(new Callable<Boolean>() {
+            return Helper.getDownloadTaskExecutor().submit(new Callable<Boolean>() {
                 // Returns:
                 //   false: closed
                 //   true: listening
@@ -1206,16 +1566,27 @@ public class EmailProvider implements Parcelable {
         }
     }
 
+    interface IDiscovery {
+        void onStatus(String status);
+    }
+
     public static class OAuth {
         boolean enabled;
         boolean askAccount;
         String clientId;
         String clientSecret;
-        boolean pcke;
         String[] scopes;
         String authorizationEndpoint;
         String tokenEndpoint;
+        boolean tokenScopes;
         String redirectUri;
         String privacy;
+        String prompt;
+        Map<String, String> parameters;
+
+        boolean askTenant() {
+            return (authorizationEndpoint.contains("{tenant}") ||
+                    tokenEndpoint.contains("{tenant}"));
+        }
     }
 }

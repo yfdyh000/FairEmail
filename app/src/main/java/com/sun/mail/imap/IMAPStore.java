@@ -175,6 +175,8 @@ public class IMAPStore extends Store
 
     private final int minIdleTime;	// minimum idle time
 
+    private final int restartIdleInterval;
+
     private volatile int port = -1;	// port to use
 
     // Auth info
@@ -476,6 +478,9 @@ public class IMAPStore extends Store
 	    "mail." + name + ".minidletime", 10);
 	if (logger.isLoggable(Level.CONFIG))
 	    logger.config("mail.imap.minidletime: " + minIdleTime);
+
+	restartIdleInterval = PropUtil.getIntProperty(props,
+	    "mail." + name + ".restartidleinterval", 0);
 
 	// check if we should do a PROXYAUTH login
 	String s = session.getProperty("mail." + name + ".proxyauth.user");
@@ -839,7 +844,17 @@ public class IMAPStore extends Store
 	// if server supports UTF-8, enable it for client use
 	// note that this is safe to enable even if mail.mime.allowutf8=false
 	if (p.hasCapability("UTF8=ACCEPT") || p.hasCapability("UTF8=ONLY"))
-	    p.enable("UTF8=ACCEPT");
+	    try {
+		    p.enable("UTF8=ACCEPT");
+	    } catch (BadCommandException ex) {
+		    eu.faircode.email.Log.e(ex);
+		    /*
+				Caused by: com.sun.mail.iap.BadCommandException: ENABLE not supported
+					at com.sun.mail.imap.protocol.IMAPProtocol.enable(SourceFile:55)
+					at com.sun.mail.imap.IMAPStore.login(SourceFile:191)
+					at com.sun.mail.imap.IMAPStore.protocolConnect(SourceFile:246)
+		    */
+	    }
     }
 
     /**
@@ -1578,6 +1593,10 @@ public class IMAPStore extends Store
     int getMinIdleTime() {
 	return minIdleTime;
     }
+
+	int getRestartIdleInterval() {
+	return restartIdleInterval;
+	}
 
     /**
      * Throw a SearchException if the search expression is too complex?

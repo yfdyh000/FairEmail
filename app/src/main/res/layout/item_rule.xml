@@ -16,7 +16,17 @@
             android:foreground="?attr/selectableItemBackground"
             android:padding="6dp">
 
-            <eu.faircode.email.FixedTextView
+            <ImageView
+                android:id="@+id/ivDaily"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/title_rule_daily"
+                app:layout_constraintBottom_toBottomOf="@+id/ivStop"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="@+id/ivStop"
+                app:srcCompat="@drawable/twotone_hourglass_top_24" />
+
+            <TextView
                 android:id="@+id/tvName"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -27,10 +37,10 @@
                 android:textAppearance="@style/TextAppearance.AppCompat.Medium"
                 app:layout_constraintBottom_toBottomOf="@+id/ivStop"
                 app:layout_constraintEnd_toStartOf="@+id/tvOrder"
-                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintStart_toEndOf="@id/ivDaily"
                 app:layout_constraintTop_toTopOf="@+id/ivStop" />
 
-            <eu.faircode.email.FixedTextView
+            <TextView
                 android:id="@+id/tvOrder"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -42,7 +52,7 @@
                 app:layout_constraintEnd_toStartOf="@+id/ivStop"
                 app:layout_constraintTop_toTopOf="@+id/ivStop" />
 
-            <eu.faircode.email.FixedImageView
+            <ImageView
                 android:id="@+id/ivStop"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
@@ -51,7 +61,7 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:srcCompat="@drawable/twotone_stop_24" />
 
-            <eu.faircode.email.FixedTextView
+            <TextView
                 android:id="@+id/tvCondition"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -61,7 +71,7 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/tvName" />
 
-            <eu.faircode.email.FixedTextView
+            <TextView
                 android:id="@+id/tvAction"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -71,7 +81,7 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/tvCondition" />
 
-            <eu.faircode.email.FixedTextView
+            <TextView
                 android:id="@+id/tvLastApplied"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -82,7 +92,7 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/tvAction" />
 
-            <eu.faircode.email.FixedTextView
+            <TextView
                 android:id="@+id/tvApplied"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

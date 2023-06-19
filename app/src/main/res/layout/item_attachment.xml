@@ -13,7 +13,7 @@
         android:paddingTop="6dp"
         android:paddingBottom="6dp">
 
-        <eu.faircode.email.FixedImageButton
+        <ImageButton
             android:id="@+id/ibDelete"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -26,7 +26,7 @@
             app:layout_constraintTop_toTopOf="parent"
             app:srcCompat="@drawable/twotone_delete_24" />
 
-        <eu.faircode.email.FixedImageView
+        <ImageView
             android:id="@+id/ivType"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -37,7 +37,7 @@
             app:layout_constraintTop_toTopOf="parent"
             app:srcCompat="@drawable/file_bin" />
 
-        <eu.faircode.email.FixedImageView
+        <ImageView
             android:id="@+id/ivDisposition"
             android:layout_width="12dp"
             android:layout_height="12dp"
@@ -46,7 +46,7 @@
             app:layout_constraintTop_toTopOf="@+id/ivType"
             app:srcCompat="@drawable/attachment_disposition" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -59,7 +59,7 @@
             app:layout_constraintStart_toEndOf="@id/ivType"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <eu.faircode.email.FixedImageView
+        <ImageView
             android:id="@+id/ivStatus"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -70,7 +70,7 @@
             app:layout_constraintTop_toTopOf="parent"
             app:srcCompat="@drawable/twotone_cloud_download_24" />
 
-        <eu.faircode.email.FixedImageButton
+        <ImageButton
             android:id="@+id/ibSave"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -78,12 +78,27 @@
             android:contentDescription="@string/title_legend_save"
             android:padding="6dp"
             android:scaleType="fitCenter"
+            android:tooltipText="@string/title_legend_save"
             app:layout_constraintBottom_toBottomOf="@+id/tvType"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/ibScan"
             app:layout_constraintTop_toTopOf="parent"
             app:srcCompat="@drawable/twotone_save_alt_24" />
 
-        <eu.faircode.email.FixedTextView
+        <ImageButton
+            android:id="@+id/ibScan"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/title_check"
+            android:padding="6dp"
+            android:scaleType="fitCenter"
+            android:tooltipText="@string/title_check"
+            app:layout_constraintBottom_toBottomOf="@+id/tvType"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/twotone_travel_explore_24" />
+
+        <TextView
             android:id="@+id/tvType"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -97,7 +112,7 @@
             app:layout_constraintStart_toStartOf="@id/tvName"
             app:layout_constraintTop_toBottomOf="@id/tvName" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvSize"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -108,15 +123,16 @@
             app:layout_constraintStart_toEndOf="@id/tvType"
             app:layout_constraintTop_toBottomOf="@id/tvName" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvError"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginHorizontal="6dp"
             android:text="Error"
             android:textAppearance="@style/TextAppearance.AppCompat.Small"
             android:textColor="?attr/colorWarning"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="@id/tvName"
+            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvType" />
 
         <ProgressBar

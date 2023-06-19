@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import androidx.annotation.NonNull;
@@ -30,7 +30,7 @@ import java.util.Objects;
         value = TupleFolderView.query
 )
 public class TupleFolderView {
-    static final String query = "SELECT id, account, name, type, display, color, unified, notify, read_only FROM folder";
+    static final String query = "SELECT id, account, name, type, inherited_type, display, color, unified, notify, read_only FROM folder";
 
     @NonNull
     public Long id;
@@ -39,6 +39,7 @@ public class TupleFolderView {
     public String name;
     @NonNull
     public String type;
+    public String inherited_type;
     public String display;
     public Integer color;
     @NonNull
@@ -52,10 +53,11 @@ public class TupleFolderView {
     public boolean equals(@Nullable Object obj) {
         if (obj instanceof TupleFolderView) {
             TupleFolderView other = (TupleFolderView) obj;
-            return (this.id.equals(other.id) &&
+            return (Objects.equals(this.id, other.id) &&
                     Objects.equals(this.account, other.account) &&
                     this.name.equals(other.name) &&
                     this.type.equals(other.type) &&
+                    Objects.equals(this.inherited_type, other.inherited_type) &&
                     Objects.equals(this.display, other.display) &&
                     Objects.equals(this.color, other.color) &&
                     this.unified == other.unified &&

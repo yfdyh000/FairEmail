@@ -16,13 +16,15 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import java.util.Objects;
 
 public class TupleFolderUnified {
     public String type;
+    public boolean unified;
+    public int folders;
     public int messages;
     public int unseen;
     public String sync_state;
@@ -34,6 +36,8 @@ public class TupleFolderUnified {
         if (obj instanceof TupleFolderUnified) {
             TupleFolderUnified other = (TupleFolderUnified) obj;
             return (Objects.equals(this.type, other.type) &&
+                    this.unified == other.unified &&
+                    this.folders == other.folders &&
                     this.messages == other.messages &&
                     this.unseen == other.unseen &&
                     Objects.equals(this.sync_state, other.sync_state) &&

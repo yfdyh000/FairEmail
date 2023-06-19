@@ -19,7 +19,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <eu.faircode.email.FixedImageButton
+        <ImageButton
             android:id="@+id/ibExpander"
             android:layout_width="36dp"
             android:layout_height="0dp"
@@ -32,7 +32,7 @@
             app:layout_constraintTop_toTopOf="parent"
             app:srcCompat="@drawable/expander" />
 
-        <eu.faircode.email.FixedImageView
+        <ImageView
             android:id="@+id/ivType"
             android:layout_width="24dp"
             android:layout_height="36dp"
@@ -43,7 +43,7 @@
             app:layout_constraintTop_toTopOf="@id/ibExpander"
             app:srcCompat="@drawable/twotone_inbox_24" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"

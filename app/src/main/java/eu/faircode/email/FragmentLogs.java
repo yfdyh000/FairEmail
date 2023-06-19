@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -105,6 +105,17 @@ public class FragmentLogs extends FragmentBase {
         adapter = new AdapterLog(this);
         rvLog.setAdapter(adapter);
 
+        rvLog.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                try {
+                    autoScroll = (llm.findFirstVisibleItemPosition() <= 0);
+                } catch (Throwable ex) {
+                    Log.e(ex);
+                }
+            }
+        });
+
         // Initialize
         grpReady.setVisibility(View.GONE);
         pbWait.setVisibility(View.VISIBLE);
@@ -125,9 +136,13 @@ public class FragmentLogs extends FragmentBase {
                 if (logs == null)
                     logs = new ArrayList<>();
 
-                adapter.set(logs, account, folder, message, getTypes());
-                if (autoScroll)
-                    rvLog.scrollToPosition(0);
+                adapter.set(logs, account, folder, message, getTypes(), new Runnable() {
+                    @Override
+                    public void run() {
+                        if (autoScroll)
+                            rvLog.scrollToPosition(0);
+                    }
+                });
 
                 pbWait.setVisibility(View.GONE);
                 grpReady.setVisibility(View.VISIBLE);
@@ -155,7 +170,6 @@ public class FragmentLogs extends FragmentBase {
         boolean all = (account == null && folder == null && message == null);
 
         menu.findItem(R.id.menu_enabled).setChecked(main_log);
-        menu.findItem(R.id.menu_auto_scroll).setChecked(autoScroll);
         menu.findItem(R.id.menu_show).setVisible(all);
         menu.findItem(R.id.menu_clear).setVisible(all);
 
@@ -169,11 +183,6 @@ public class FragmentLogs extends FragmentBase {
             boolean enabled = !item.isChecked();
             item.setChecked(enabled);
             onMenuEnable(enabled);
-            return true;
-        } else if (itemId == R.id.menu_auto_scroll) {
-            boolean enabled = !item.isChecked();
-            item.setChecked(enabled);
-            onMenuAutoScoll(enabled);
             return true;
         } else if (itemId == R.id.menu_show) {
             onMenuShow();
@@ -189,17 +198,17 @@ public class FragmentLogs extends FragmentBase {
         prefs.edit().putBoolean("main_log", enabled).apply();
     }
 
-    private void onMenuAutoScoll(boolean enabled) {
-        autoScroll = enabled;
-    }
-
     private void onMenuShow() {
         final Context context = getContext();
 
-        SpannableStringBuilder[] titles = new SpannableStringBuilder[EntityLog.Type.values().length];
-        boolean[] states = new boolean[EntityLog.Type.values().length];
+        int len = EntityLog.Type.values().length;
+        if (!BuildConfig.DEBUG)
+            len--;
+
+        SpannableStringBuilder[] titles = new SpannableStringBuilder[len];
+        boolean[] states = new boolean[len];
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        for (int i = 0; i < EntityLog.Type.values().length; i++) {
+        for (int i = 0; i < len; i++) {
             EntityLog.Type type = EntityLog.Type.values()[i];
             titles[i] = new SpannableStringBuilderEx(type.toString());
             Integer color = EntityLog.getColor(context, type);

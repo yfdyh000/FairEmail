@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -146,7 +146,7 @@ public class FragmentOrder extends FragmentBase {
                 }
             }.execute(this, new Bundle(), "order:folders");
         else
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("Unknown class=" + clazz);
     }
 
     @Override
@@ -197,19 +197,22 @@ public class FragmentOrder extends FragmentBase {
                 final boolean reset = args.getBoolean("reset");
                 final long[] ids = args.getLongArray("ids");
 
-                final DB db = DB.getInstance(context);
-                db.runInTransaction(new Runnable() {
-                    @Override
-                    public void run() {
-                        for (int i = 0; i < ids.length; i++)
-                            if (EntityAccount.class.getName().equals(clazz))
-                                db.account().setAccountOrder(ids[i], reset ? null : i);
-                            else if (TupleFolderSort.class.getName().equals(clazz))
-                                db.folder().setFolderOrder(ids[i], reset ? null : i);
-                            else
-                                throw new IllegalArgumentException("Unknown class=" + clazz);
-                    }
-                });
+                DB db = DB.getInstance(context);
+                try {
+                    db.beginTransaction();
+
+                    for (int i = 0; i < ids.length; i++)
+                        if (EntityAccount.class.getName().equals(clazz))
+                            db.account().setAccountOrder(ids[i], reset ? null : i);
+                        else if (TupleFolderSort.class.getName().equals(clazz))
+                            db.folder().setFolderOrder(ids[i], reset ? null : i);
+                        else
+                            throw new IllegalArgumentException("Unknown class=" + clazz);
+
+                    db.setTransactionSuccessful();
+                } finally {
+                    db.endTransaction();
+                }
 
                 return null;
             }

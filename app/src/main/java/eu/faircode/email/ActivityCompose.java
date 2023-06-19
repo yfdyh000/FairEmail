@@ -16,10 +16,11 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.app.NotificationManager;
+import android.content.ClipData;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -38,8 +39,11 @@ import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.preference.PreferenceManager;
 
+import org.jsoup.nodes.Document;
+
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -71,9 +75,22 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
     @Override
     public void onBackStackChanged() {
         if (getSupportFragmentManager().getBackStackEntryCount() == 0) {
-            String action = getIntent().getAction();
-            if (!isShared(action) &&
-                    (action == null || !action.startsWith("widget:"))) {
+            Intent intent = getIntent();
+
+            String action = intent.getAction();
+            boolean shared = (isShared(action) && !intent.hasExtra("fair:account"));
+            boolean widget = (action != null && action.startsWith("widget:"));
+
+            String[] tos = intent.getStringArrayExtra(Intent.EXTRA_EMAIL);
+            boolean cloud = (tos != null && tos.length == 1 && BuildConfig.CLOUD_EMAIL.equals(tos[0]));
+
+            if (cloud) {
+                Intent setup = new Intent(this, ActivitySetup.class)
+                        .setAction("misc")
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                        .putExtra("tab", "backup");
+                startActivity(setup);
+            } else if (!shared && !widget) {
                 Intent parent = getParentActivityIntent();
                 if (parent != null)
                     if (shouldUpRecreateTask(parent))
@@ -86,7 +103,19 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
                     }
             }
 
-            finishAndRemoveTask();
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+            prefs.edit().remove("last_composing").apply();
+
+            try {
+                if (shared || widget) {
+                    Helper.excludeFromRecents(this);
+                    finishAffinity();
+                } else
+                    finishAndRemoveTask();
+            } catch (Throwable ex) {
+                Log.e(ex);
+                finish();
+            }
         }
     }
 
@@ -99,6 +128,20 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
             args = new Bundle();
 
             Uri uri = intent.getData();
+
+            // Workaround mailto in email address
+            if (uri == null && intent.hasExtra(Intent.EXTRA_EMAIL))
+                try {
+                    String[] to = intent.getStringArrayExtra(Intent.EXTRA_EMAIL);
+                    if (to != null && to.length == 1 &&
+                            to[0] != null && to[0].startsWith("mailto:")) {
+                        uri = Uri.parse(to[0]);
+                        intent.removeExtra(Intent.EXTRA_EMAIL);
+                    }
+                } catch (Throwable ex) {
+                    Log.w(ex);
+                }
+
             if (uri != null && "mailto".equalsIgnoreCase(uri.getScheme())) {
                 // https://www.ietf.org/rfc/rfc2368.txt
                 MailTo mailto = MailTo.parse(uri.toString());
@@ -179,34 +222,52 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
                         html = HtmlHelper.toHtml((Spanned) body, this);
                     else {
                         String text = body.toString();
-                        if (!TextUtils.isEmpty(text))
+                        if (!TextUtils.isEmpty(text)) {
                             html = "<span>" + text.replaceAll("\\r?\\n", "<br>") + "</span>";
+                            Document d = JsoupEx.parse(html);
+                            HtmlHelper.autoLink(d, true);
+                            html = d.body().html();
+                        }
                     }
             }
 
             if (!TextUtils.isEmpty(html))
                 args.putString("body", html);
 
-            if (intent.hasExtra(Intent.EXTRA_STREAM))
-                if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
-                    ArrayList<Uri> streams = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
-                    if (streams != null) {
-                        // Some apps send null streams
-                        ArrayList<Uri> uris = new ArrayList<>();
-                        for (Uri stream : streams)
-                            if (stream != null)
-                                uris.add(stream);
-                        if (uris.size() > 0)
-                            args.putParcelableArrayList("attachments", uris);
-                    }
-                } else {
-                    Uri stream = intent.getParcelableExtra(Intent.EXTRA_STREAM);
-                    if (stream != null) {
-                        ArrayList<Uri> uris = new ArrayList<>();
+            ArrayList<Uri> uris = new ArrayList<>();
+
+            ClipData clip = intent.getClipData();
+            if (clip != null)
+                for (int i = 0; i < clip.getItemCount(); i++) {
+                    ClipData.Item item = clip.getItemAt(i);
+                    Uri stream = (item == null ? null : item.getUri());
+                    if (stream != null)
                         uris.add(stream);
-                        args.putParcelableArrayList("attachments", uris);
-                    }
                 }
+
+            if (intent.hasExtra(Intent.EXTRA_STREAM)) {
+                ArrayList<Uri> streams = (Intent.ACTION_SEND_MULTIPLE.equals(action)
+                        ? intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM)
+                        : new ArrayList<>(Arrays.asList((Uri) intent.getParcelableExtra(Intent.EXTRA_STREAM))));
+                if (streams != null) {
+                    // Some apps send null streams
+                    for (Uri stream : streams)
+                        if (stream != null) {
+                            boolean found = false;
+                            for (Uri e : uris)
+                                if (stream.equals(e)) {
+                                    found = true;
+                                    break;
+                                }
+                            if (!found)
+                                uris.add(stream);
+                        }
+                }
+            }
+
+            if (uris.size() > 0)
+                args.putParcelableArrayList("attachments", uris);
+
         } else
             args = intent.getExtras();
 
@@ -215,11 +276,17 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
         boolean attach_new = prefs.getBoolean("attach_new", true);
 
         if (!attach_new && !create &&
-                args.size() == 1 && args.containsKey("attachments")) {
+                args.size() == 1 &&
+                (args.containsKey("to") ||
+                        args.containsKey("attachments"))) {
             List<Fragment> fragments = fm.getFragments();
-            if (fragments.size() == 1) {
-                ((FragmentCompose) fragments.get(0)).onSharedAttachments(
-                        args.getParcelableArrayList("attachments"));
+            if (fragments.size() == 1 &&
+                    fragments.get(0) instanceof FragmentCompose) {
+                FragmentCompose fragment = ((FragmentCompose) fragments.get(0));
+                if (args.containsKey("to"))
+                    fragment.onAddTo(args.getString("to"));
+                else if (args.containsKey("attachments"))
+                    fragment.onSharedAttachments(args.getParcelableArrayList("attachments"));
                 return;
             }
         }
@@ -294,6 +361,9 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
     static Long undoSend(long id, Context context) {
         DB db = DB.getInstance(context);
 
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean save_drafts = prefs.getBoolean("save_drafts", true);
+
         // Cancel send
         EntityOperation operation = db.operation().getOperation(id, EntityOperation.SEND);
         if (operation != null)
@@ -336,7 +406,10 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
             for (EntityAttachment attachment : attachments)
                 db.attachment().setMessage(attachment.id, message.id);
 
-            EntityOperation.queue(context, message, EntityOperation.ADD);
+            if (save_drafts &&
+                    (message.ui_encrypt == null ||
+                            EntityMessage.ENCRYPT_NONE.equals(message.ui_encrypt)))
+                EntityOperation.queue(context, message, EntityOperation.ADD);
 
             // Delete from outbox
             db.message().deleteMessage(id); // will delete operation too
@@ -348,8 +421,7 @@ public class ActivityCompose extends ActivityBase implements FragmentManager.OnB
 
         ServiceSynchronize.eval(context, "outbox/drafts");
 
-        NotificationManager nm =
-                (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationManager nm = Helper.getSystemService(context, NotificationManager.class);
         nm.cancel("send:" + id, NotificationHelper.NOTIFICATION_TAGGED);
 
         return message.id;

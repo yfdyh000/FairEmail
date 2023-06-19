@@ -16,24 +16,35 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import androidx.lifecycle.LiveData;
 import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.Query;
+import androidx.room.Update;
 
 import java.util.List;
 
 @Dao
 public interface DaoSearch {
     @Query("SELECT * FROM search" +
-            " ORDER BY name COLLATE NOCASE")
-    LiveData<List<EntitySearch>> liveSearch();
+            " ORDER BY `order`, name COLLATE NOCASE")
+    LiveData<List<EntitySearch>> liveSearches();
+
+    @Query("SELECT * FROM search")
+    List<EntitySearch> getSearches();
 
     @Insert
     long insertSearch(EntitySearch search);
+
+    @Query("SELECT * FROM search" +
+            " WHERE id = :id")
+    EntitySearch getSearch(long id);
+
+    @Update
+    int updateSearch(EntitySearch search);
 
     @Query("DELETE FROM search" +
             " WHERE id = :id")

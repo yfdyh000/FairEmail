@@ -13,7 +13,7 @@
         android:foreground="?attr/selectableItemBackground"
         android:padding="12dp">
 
-        <eu.faircode.email.FixedImageView
+        <ImageView
             android:id="@+id/ivDragHandle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -22,7 +22,7 @@
             app:layout_constraintTop_toTopOf="@+id/tvTitle"
             app:srcCompat="@drawable/twotone_drag_handle_24" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvTitle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -37,7 +37,7 @@
             app:layout_constraintStart_toEndOf="@id/ivDragHandle"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvSubTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

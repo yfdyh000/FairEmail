@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.app.Dialog;
@@ -33,7 +33,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 public class FragmentDialogSync extends FragmentDialogBase {
@@ -58,7 +58,7 @@ public class FragmentDialogSync extends FragmentDialogBase {
         } else
             tvFolder.setText(name);
 
-        etMonths.setText(null);
+        etMonths.setText("12");
 
         tvRemark.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -91,6 +91,7 @@ public class FragmentDialogSync extends FragmentDialogBase {
                                 long fid = args.getLong("folder");
                                 String type = args.getString("type");
                                 int months = args.getInt("months", -1);
+                                boolean children = args.getBoolean("children");
 
                                 DB db = DB.getInstance(context);
                                 try {
@@ -103,7 +104,15 @@ public class FragmentDialogSync extends FragmentDialogBase {
                                         EntityFolder folder = db.folder().getFolder(fid);
                                         if (folder == null)
                                             return null;
-                                        folders = Arrays.asList(folder);
+
+                                        folders = new ArrayList<>();
+                                        folders.add(folder);
+
+                                        if (children) {
+                                            List<EntityFolder> sub = db.folder().getChildFolders(folder.id);
+                                            if (sub != null)
+                                                folders.addAll(sub);
+                                        }
                                     }
 
                                     for (EntityFolder folder : folders)

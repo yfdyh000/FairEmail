@@ -16,28 +16,38 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static androidx.room.ForeignKey.CASCADE;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.FileProvider;
 import androidx.preference.PreferenceManager;
 import androidx.room.Entity;
 import androidx.room.ForeignKey;
 import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.zip.Deflater;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import javax.mail.Part;
 
@@ -63,6 +73,8 @@ public class EntityAttachment {
     static final Integer SMIME_SIGNATURE = 6;
     static final Integer SMIME_SIGNED_DATA = 7;
     static final Integer SMIME_CONTENT = 8;
+
+    static final String VCARD_PREFIX = BuildConfig.APPLICATION_ID + ".vcard.";
 
     @PrimaryKey(autoGenerate = true)
     public Long id;
@@ -100,6 +112,39 @@ public class EntityAttachment {
         return ImageHelper.isImage(getMimeType());
     }
 
+    boolean isCompressed() {
+        if ("application/zip".equals(type))
+            return true;
+        if ("application/gzip".equals(type) && !BuildConfig.PLAY_STORE_RELEASE)
+            return true;
+
+        String extension = Helper.getExtension(name);
+        if ("zip".equals(extension))
+            return true;
+        if ("gz".equals(extension) && !BuildConfig.PLAY_STORE_RELEASE)
+            return true;
+
+        return false;
+    }
+
+    boolean isGzip() {
+        if (BuildConfig.PLAY_STORE_RELEASE)
+            return false;
+
+        if ("application/gzip".equals(type))
+            return true;
+
+        String extension = Helper.getExtension(name);
+        if ("gz".equals(extension))
+            return true;
+
+        return false;
+    }
+
+    boolean isTarGzip() {
+        return (name != null && name.endsWith(".tar.gz"));
+    }
+
     boolean isEncryption() {
         if ("application/pkcs7-mime".equals(type))
             return true;
@@ -112,27 +157,36 @@ public class EntityAttachment {
         return (encryption != null);
     }
 
+    Uri getUri(Context context) {
+        File file = getFile(context);
+        if (TextUtils.isEmpty(name))
+            return FileProvider.getUriForFile(context, BuildConfig.APPLICATION_ID, file);
+        else
+            return FileProvider.getUriForFile(context, BuildConfig.APPLICATION_ID, file, name);
+    }
+
     File getFile(Context context) {
         return getFile(context, id, name);
     }
 
     static File getFile(Context context, long id, String name) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        boolean external_storage = prefs.getBoolean("external_storage", false);
-
-        File root = (external_storage
-                ? context.getExternalFilesDir(null)
-                : context.getFilesDir());
-
-        File dir = new File(root, "attachments");
-        if (!dir.exists())
-            dir.mkdir();
+        File dir = Helper.ensureExists(new File(getRoot(context), "attachments"));
         String filename = Long.toString(id);
         if (!TextUtils.isEmpty(name))
             filename += "." + Helper.sanitizeFilename(name);
         if (filename.length() > 127)
             filename = filename.substring(0, 127);
         return new File(dir, filename);
+    }
+
+    static File getRoot(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean external_storage = prefs.getBoolean("external_storage", false);
+
+        File root = (external_storage
+                ? Helper.getExternalFilesDir(context)
+                : context.getFilesDir());
+        return root;
     }
 
     static void copy(Context context, long oldid, long newid) {
@@ -168,6 +222,24 @@ public class EntityAttachment {
 
         if (encryption != null)
             return type;
+
+        if ("audio/mid".equals(type))
+            return "audio/midi";
+
+        if ("audio-x/wav".equals(type))
+            return "audio/wav";
+
+        // https://www.rfc-editor.org/rfc/rfc3555.txt
+        if ("image/jpg".equals(type) || "video/jpeg".equals(type))
+            return "image/jpeg";
+
+        if (!TextUtils.isEmpty(type) &&
+                (type.endsWith("/pdf") || type.endsWith("/x-pdf")))
+            return "application/pdf";
+
+        if ("text/v-calendar".equals(type) ||
+                "text/x-vcalendar".equals(type))
+            return "text/calendar";
 
         String extension = Helper.getExtension(name);
         if (extension == null)
@@ -211,8 +283,14 @@ public class EntityAttachment {
         if ("ppt".equals(extension))
             return "application/vnd.ms-powerpoint";
 
+        if ("application/vnd.ms-pps".equals(type))
+            return "application/vnd.ms-powerpoint";
+
         if ("pptx".equals(extension))
             return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+        if ("ppsx".equals(extension))
+            return "application/vnd.openxmlformats-officedocument.presentationml.slideshow";
 
         // OpenOffice
 
@@ -225,29 +303,59 @@ public class EntityAttachment {
         if ("odp".equals(extension))
             return "application/vnd.oasis.opendocument.presentation";
 
+        // Audio
+
+        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Configuring_servers_for_Ogg_media
+
+        if ("oga".equals(extension))
+            return "audio/ogg";
+
+        if ("ogv".equals(extension))
+            return "video/ogg";
+
+        if ("ogg".equals(extension))
+            return "application/ogg";
+
+        // Images
+
+        if ("avif".equals(extension))
+            return "image/avif";
+
+        if ("bmp".equals(extension))
+            return "image/bmp";
+
+        if ("heic".equals(extension))
+            return "image/heic";
+
+        if ("heif".equals(extension))
+            return "image/heif";
+
+        if ("gif".equals(extension))
+            return "image/gif";
+
+        if ("jpg".equals(extension) || "jpeg".equals(extension))
+            return "image/jpeg";
+
+        if ("png".equals(extension))
+            return "image/png";
+
+        if ("svg".equals(extension))
+            return "image/svg+xml";
+
+        if ("webp".equals(extension))
+            return "image/webp";
+
         // Other
 
         if ("zip".equals(extension) ||
                 "application/x-zip-compressed".equals(type))
             return "application/zip"; //
 
-        if ("text/plain".equals(type) &&
-                ("ics".equals(extension) || "vcs".equals(extension)))
+        if ("ics".equals(extension) || "vcs".equals(extension))
             return "text/calendar";
 
         if ("text/plain".equals(type) && "ovpn".equals(extension))
             return "application/x-openvpn-profile";
-
-        if ("audio/mid".equals(type))
-            return "audio/midi";
-
-        // https://www.rfc-editor.org/rfc/rfc3555.txt
-        if ("image/jpg".equals(type) || "video/jpeg".equals(type))
-            return "image/jpeg";
-
-        if (!TextUtils.isEmpty(type) &&
-                (type.endsWith("/pdf") || type.endsWith("/x-pdf")))
-            return "application/pdf";
 
         // Guess types
         if (gtype != null) {
@@ -267,6 +375,25 @@ public class EntityAttachment {
         }
 
         return type;
+    }
+
+    void zip(Context context) throws IOException {
+        File file = getFile(context);
+        File zip = new File(file.getAbsolutePath() + ".zip");
+
+        try (InputStream in = new BufferedInputStream(new FileInputStream(file))) {
+            try (ZipOutputStream out = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(zip)))) {
+                out.setMethod(ZipOutputStream.DEFLATED);
+                out.setLevel(Deflater.BEST_COMPRESSION);
+                ZipEntry entry = new ZipEntry(name);
+                out.putNextEntry(entry);
+                Helper.copy(in, out);
+            }
+        }
+
+        DB db = DB.getInstance(context);
+        db.attachment().setName(id, name + ".zip", "application/zip", zip.length());
+        file.delete();
     }
 
     public static boolean equals(List<EntityAttachment> a1, List<EntityAttachment> a2) {

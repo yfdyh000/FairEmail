@@ -16,41 +16,48 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
-import android.content.Intent;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
-import android.net.Uri;
+import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.core.content.FileProvider;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.PopupMenu;
+import androidx.core.app.ShareCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.OnLifecycleEvent;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListUpdateCallback;
 import androidx.recyclerview.widget.RecyclerView;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 import javax.mail.Part;
 
@@ -62,9 +69,15 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
     private LayoutInflater inflater;
 
     private boolean readonly;
+    private AdapterMessage.IProperties properties;
+
+    private boolean vt_enabled;
+    private String vt_apikey;
     private boolean debug;
     private int dp12;
     private int dp36;
+    private int textColorTertiary;
+    private int colorWarning;
 
     private List<EntityAttachment> items = new ArrayList<>();
 
@@ -77,9 +90,12 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
         private TextView tvSize;
         private ImageView ivStatus;
         private ImageButton ibSave;
+        private ImageButton ibScan;
         private TextView tvType;
         private TextView tvError;
         private ProgressBar progressbar;
+
+        private TwoStateOwner powner = new TwoStateOwner(owner, "AttachmentPopup");
 
         ViewHolder(View itemView) {
             super(itemView);
@@ -91,6 +107,7 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
             tvSize = itemView.findViewById(R.id.tvSize);
             ivStatus = itemView.findViewById(R.id.ivStatus);
             ibSave = itemView.findViewById(R.id.ibSave);
+            ibScan = itemView.findViewById(R.id.ibScan);
             tvType = itemView.findViewById(R.id.tvType);
             ivDisposition = itemView.findViewById(R.id.ivDisposition);
             tvError = itemView.findViewById(R.id.tvError);
@@ -101,6 +118,7 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
             view.setOnClickListener(this);
             ibDelete.setOnClickListener(this);
             ibSave.setOnClickListener(this);
+            ibScan.setOnClickListener(this);
             view.setOnLongClickListener(this);
         }
 
@@ -108,6 +126,7 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
             view.setOnClickListener(null);
             ibDelete.setOnClickListener(null);
             ibSave.setOnClickListener(null);
+            ibScan.setOnClickListener(null);
             view.setOnLongClickListener(null);
         }
 
@@ -118,7 +137,7 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
             lparam.setMarginStart(attachment.subsequence == null ? 0 : dp12);
             view.setLayoutParams(lparam);
 
-            ibDelete.setVisibility(readonly ? View.GONE : View.VISIBLE);
+            ibDelete.setVisibility(readonly && !BuildConfig.DEBUG ? View.GONE : View.VISIBLE);
 
             if (!readonly && attachment.isImage()) {
                 if (attachment.available) {
@@ -148,7 +167,10 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
                                 ? View.VISIBLE : View.INVISIBLE);
             }
 
+            boolean dangerous = Helper.DANGEROUS_EXTENSIONS.contains(Helper.getExtension(attachment.name));
             tvName.setText(attachment.name);
+            tvName.setTextColor(dangerous ? colorWarning : textColorTertiary);
+            tvName.setTypeface(null, dangerous ? Typeface.BOLD : Typeface.NORMAL);
 
             if (attachment.size != null)
                 tvSize.setText(Helper.humanReadableByteCount(attachment.size));
@@ -166,6 +188,9 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
             }
 
             ibSave.setVisibility(attachment.available ? View.VISIBLE : View.GONE);
+            ibScan.setVisibility(attachment.available &&
+                    vt_enabled && !TextUtils.isEmpty(vt_apikey) && !BuildConfig.PLAY_STORE_RELEASE
+                    ? View.VISIBLE : View.GONE);
 
             if (attachment.progress != null)
                 progressbar.setProgress(attachment.progress);
@@ -186,7 +211,20 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
             tvType.setText(sb.toString());
 
             tvError.setText(attachment.error);
+            tvError.setTextColor(Helper.resolveColor(context, attachment.available ? R.attr.colorWarning : R.attr.colorError));
             tvError.setVisibility(attachment.error == null ? View.GONE : View.VISIBLE);
+
+            if (properties != null) {
+                String aid = properties.getValue("attachment");
+                if (aid != null) {
+                    if (attachment.id.equals(Long.parseLong(aid)) &&
+                            attachment.available &&
+                            attachment.size != null && attachment.size > 0) {
+                        properties.setValue("attachment", null);
+                        onView(attachment);
+                    }
+                }
+            }
         }
 
         @Override
@@ -199,16 +237,22 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
             if (attachment == null)
                 return;
 
-            if (view.getId() == R.id.ibDelete)
+            int id = view.getId();
+            if (id == R.id.ibDelete)
                 onDelete(attachment);
-            else if (view.getId() == R.id.ibSave)
+            else if (id == R.id.ibSave)
                 onSave(attachment);
+            else if (id == R.id.ibScan)
+                onScan(attachment);
             else {
                 if (attachment.available)
-                    onShare(attachment);
+                    onView(attachment);
                 else {
-                    if (attachment.progress == null && attachment.subsequence == null)
-                        onDownload(attachment);
+                    if (attachment.progress == null)
+                        if (attachment.subsequence == null)
+                            onDownload(attachment);
+                        else if (!TextUtils.isEmpty(attachment.error))
+                            ToastEx.makeText(context, attachment.error, Toast.LENGTH_LONG).show();
                 }
             }
         }
@@ -223,17 +267,40 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
             if (attachment == null || !attachment.available)
                 return false;
 
-            try {
-                File file = attachment.getFile(context);
-                Uri uri = FileProvider.getUriForFile(context, BuildConfig.APPLICATION_ID, file);
-                // TODO: consider using getUriForFile(..., displayName)
+            if (readonly)
+                return onShare(attachment);
+            else {
+                PopupMenuLifecycle popupMenu = new PopupMenuLifecycle(context, powner, view);
 
-                Intent send = new Intent();
-                send.setAction(Intent.ACTION_SEND);
-                send.putExtra(Intent.EXTRA_STREAM, uri);
-                send.setType(attachment.getMimeType());
-                send.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                context.startActivity(Intent.createChooser(send, context.getString(R.string.title_select_app)));
+                popupMenu.getMenu().add(Menu.NONE, R.string.title_share, 1, R.string.title_share);
+                popupMenu.getMenu().add(Menu.NONE, R.string.title_zip, 2, R.string.title_zip)
+                        .setEnabled(!attachment.isInline() && !attachment.isCompressed());
+
+                popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+                    @Override
+                    public boolean onMenuItemClick(MenuItem item) {
+                        int itemId = item.getItemId();
+                        if (itemId == R.string.title_share)
+                            return onShare(attachment);
+                        else if (itemId == R.string.title_zip)
+                            return onZip(attachment);
+                        return false;
+                    }
+                });
+
+                popupMenu.show();
+
+                return true;
+            }
+        }
+
+        private boolean onShare(final EntityAttachment attachment) {
+            try {
+                new ShareCompat.IntentBuilder(context)
+                        .setType(attachment.getMimeType())
+                        .addStream(attachment.getUri(context))
+                        .setChooserTitle(R.string.title_select_app)
+                        .startChooser();
 
                 return true;
             } catch (Throwable ex) {
@@ -247,31 +314,69 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
             }
         }
 
-        private void onDelete(final EntityAttachment attachment) {
+        private boolean onZip(final EntityAttachment attachment) {
             Bundle args = new Bundle();
             args.putLong("id", attachment.id);
 
             new SimpleTask<Void>() {
                 @Override
+                protected Void onExecute(Context context, Bundle args) throws Throwable {
+                    long id = args.getLong("id");
+
+                    DB db = DB.getInstance(context);
+                    EntityAttachment attachment = db.attachment().getAttachment(id);
+                    if (attachment != null)
+                        attachment.zip(context);
+
+                    return null;
+                }
+
+                @Override
+                protected void onException(Bundle args, Throwable ex) {
+                    Log.unexpectedError(parentFragment.getParentFragmentManager(), ex);
+                }
+            }.execute(context, owner, args, "attachment:zip");
+
+            return true;
+        }
+
+        private void onDelete(final EntityAttachment attachment) {
+            Bundle args = new Bundle();
+            args.putLong("id", attachment.id);
+            args.putBoolean("readonly", readonly);
+
+            new SimpleTask<Void>() {
+                @Override
                 protected Void onExecute(Context context, Bundle args) {
                     long id = args.getLong("id");
+                    boolean readonly = args.getBoolean("readonly");
+
+                    EntityAttachment attachment;
 
                     DB db = DB.getInstance(context);
                     try {
                         db.beginTransaction();
 
-                        EntityAttachment attachment = db.attachment().getAttachment(id);
+                        attachment = db.attachment().getAttachment(id);
                         if (attachment == null)
                             return null;
 
-                        db.attachment().deleteAttachment(attachment.id);
+                        if (readonly) {
+                            EntityMessage message = db.message().getMessage(attachment.message);
+                            if (message == null)
+                                return null;
+                            EntityOperation.queue(context, message, EntityOperation.ATTACHMENT, attachment.id, true);
+                            db.message().setMessageUiHide(message.id, true);
+                        } else
+                            db.attachment().deleteAttachment(attachment.id);
 
                         db.setTransactionSuccessful();
                     } finally {
                         db.endTransaction();
                     }
 
-                    attachment.getFile(context).delete();
+                    if (!readonly)
+                        attachment.getFile(context).delete();
 
                     return null;
                 }
@@ -284,20 +389,81 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
         }
 
         private void onSave(EntityAttachment attachment) {
-            LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(context);
-            lbm.sendBroadcast(
-                    new Intent(FragmentBase.ACTION_STORE_ATTACHMENT)
-                            .putExtra("id", attachment.id)
-                            .putExtra("name", Helper.sanitizeFilename(attachment.name))
-                            .putExtra("type", attachment.getMimeType()));
+            ((FragmentBase) parentFragment).onStoreAttachment(attachment);
         }
 
-        private void onShare(EntityAttachment attachment) {
-            String title = (attachment.name == null ? attachment.cid : attachment.name);
-            Helper.share(context, attachment.getFile(context), attachment.getMimeType(), title);
+        private void onScan(EntityAttachment attachment) {
+            Bundle args = new Bundle();
+            args.putString("apiKey", vt_apikey);
+            args.putString("name", attachment.name);
+            args.putSerializable("file", attachment.getFile(context));
+
+            FragmentDialogVirusTotal fragment = new FragmentDialogVirusTotal();
+            fragment.setArguments(args);
+            fragment.show(parentFragment.getParentFragmentManager(), "attachment:scan");
+        }
+
+        private void onView(EntityAttachment attachment) {
+            String ext = Helper.getExtension(attachment.name);
+            String extension = (ext == null ? null : ext.toLowerCase(Locale.ROOT));
+
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+            boolean confirm = prefs.getBoolean("confirm_files", true);
+            boolean confirm_type = prefs.getBoolean(extension + ".confirm_files", true);
+            if (extension != null && confirm && confirm_type) {
+                View view = LayoutInflater.from(context).inflate(R.layout.dialog_view_file, null);
+                TextView tvFile = view.findViewById(R.id.tvFile);
+                TextView tvType = view.findViewById(R.id.tvType);
+                CheckBox cbNotAgainType = view.findViewById(R.id.cbNotAgainType);
+                CheckBox cbNotAgain = view.findViewById(R.id.cbNotAgain);
+
+                tvFile.setText(context.getString(R.string.title_ask_view_file, attachment.name));
+                tvType.setText(attachment.getMimeType());
+                String msg = context.getString(R.string.title_no_ask_for_again, "<b>" + "." + extension + "</b>");
+                cbNotAgainType.setText(HtmlHelper.fromHtml(msg, context));
+
+                cbNotAgainType.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(CompoundButton compoundButton, boolean isChecked) {
+                        prefs.edit().putBoolean(extension + ".confirm_files", false).apply();
+                    }
+                });
+
+                cbNotAgain.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(CompoundButton compoundButton, boolean isChecked) {
+                        prefs.edit().putBoolean("confirm_files", false).apply();
+                        cbNotAgainType.setEnabled(!isChecked);
+                    }
+                });
+
+                new AlertDialog.Builder(context)
+                        .setView(view)
+                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialogInterface, int i) {
+                                onViewConfirmed(attachment);
+                            }
+                        })
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+            } else
+                onViewConfirmed(attachment);
+        }
+
+        private void onViewConfirmed(EntityAttachment attachment) {
+            try {
+                String title = (attachment.name == null ? attachment.cid : attachment.name);
+                Helper.share(context, attachment.getFile(context), attachment.getMimeType(), title);
+            } catch (Throwable ex) {
+                Log.unexpectedError(parentFragment.getParentFragmentManager(), ex);
+            }
         }
 
         private void onDownload(EntityAttachment attachment) {
+            if (properties != null)
+                properties.setValue("attachment", Long.toString(attachment.id));
+
             Bundle args = new Bundle();
             args.putLong("id", attachment.id);
             args.putLong("message", attachment.message);
@@ -316,11 +482,14 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
                         db.beginTransaction();
 
                         EntityMessage message = db.message().getMessage(mid);
-                        if (message == null || message.uid == null)
+                        if (message == null)
                             return null;
 
                         EntityAccount account = db.account().getAccount(message.account);
                         if (account == null)
+                            return null;
+
+                        if (account.protocol == EntityAccount.TYPE_IMAP && message.uid == null)
                             return null;
 
                         if (!"connected".equals(account.state) && !account.isTransient(context))
@@ -353,18 +522,23 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
         }
     }
 
-    AdapterAttachment(Fragment parentFragment, boolean readonly) {
+    AdapterAttachment(Fragment parentFragment, boolean readonly, final AdapterMessage.IProperties properties) {
         this.parentFragment = parentFragment;
         this.readonly = readonly;
+        this.properties = properties;
 
         this.context = parentFragment.getContext();
         this.owner = parentFragment.getViewLifecycleOwner();
         this.inflater = LayoutInflater.from(context);
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        this.vt_enabled = prefs.getBoolean("vt_enabled", false);
+        this.vt_apikey = prefs.getString("vt_apikey", null);
         this.debug = prefs.getBoolean("debug", false);
         this.dp12 = Helper.dp2pixels(context, 12);
         this.dp36 = Helper.dp2pixels(context, 36);
+        this.textColorTertiary = Helper.resolveColor(context, android.R.attr.textColorTertiary);
+        this.colorWarning = Helper.resolveColor(context, R.attr.colorWarning);
 
         setHasStableIds(true);
 
@@ -413,7 +587,12 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
                 Log.d("Changed @" + position + " #" + count);
             }
         });
-        diff.dispatchUpdatesTo(this);
+
+        try {
+            diff.dispatchUpdatesTo(this);
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
     }
 
     private static class DiffCallback extends DiffUtil.Callback {
@@ -471,6 +650,7 @@ public class AdapterAttachment extends RecyclerView.Adapter<AdapterAttachment.Vi
         holder.unwire();
 
         EntityAttachment attachment = items.get(position);
+        holder.powner.recreate(attachment == null ? null : attachment.id);
         holder.bindTo(attachment);
 
         holder.wire();

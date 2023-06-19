@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -45,7 +45,7 @@ import androidx.lifecycle.OnLifecycleEvent;
 public class PopupMenuLifecycle extends PopupMenu {
 
     public PopupMenuLifecycle(@NonNull Context context, LifecycleOwner owner, @NonNull View anchor) {
-        super(new ContextThemeWrapper(context, R.style.popupMenuStyle), anchor);
+        super(new ContextThemeWrapper(context, R.style.popupMenuStyle), anchor, Gravity.NO_GRAVITY);
         Log.i("Instantiate " + this);
 
         owner.getLifecycle().addObserver(new LifecycleObserver() {
@@ -59,7 +59,8 @@ public class PopupMenuLifecycle extends PopupMenu {
     }
 
     public void insertIcons(Context context) {
-        insertIcons(new ContextThemeWrapper(context, R.style.popupMenuStyle), getMenu(), false);
+        Context wrapped = new ContextThemeWrapper(context, R.style.popupMenuStyle);
+        insertIcons(wrapped, getMenu(), false);
     }
 
     @Override
@@ -73,7 +74,8 @@ public class PopupMenuLifecycle extends PopupMenu {
     }
 
     public void showWithIcons(Context context, View anchor) {
-        MenuPopupHelper menuHelper = new MenuPopupHelper(context, (MenuBuilder) getMenu(), anchor);
+        Context wrapped = new ContextThemeWrapper(context, R.style.popupMenuStyle);
+        MenuPopupHelper menuHelper = new MenuPopupHelper(wrapped, (MenuBuilder) getMenu(), anchor);
         menuHelper.setForceShowIcon(true);
         menuHelper.setGravity(Gravity.END);
         menuHelper.show();
@@ -117,7 +119,6 @@ public class PopupMenuLifecycle extends PopupMenu {
 
     static void insertIcon(Context context, MenuItem menuItem, boolean submenu) {
         Drawable icon = menuItem.getIcon();
-
         if (icon == null)
             icon = new ColorDrawable(Color.TRANSPARENT);
         else {

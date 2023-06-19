@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:padding="6dp">
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/tvGroup"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -19,7 +19,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <eu.faircode.email.FixedTextView
+    <TextView
         android:id="@+id/tvAccount"
         android:layout_width="0dp"
         android:layout_height="wrap_content"

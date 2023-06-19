@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@android:id/background"
+    android:id="@+id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_background">
+    android:background="?android:colorBackground"
+    android:theme="@style/Theme.AppCompat.DayNight">
 
     <LinearLayout
         android:id="@+id/content"
@@ -28,7 +29,7 @@
                 android:padding="6dp"
                 android:text="@string/title_widget_title_list"
                 android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-                android:textColor="@color/colorWidgetForeground"
+                android:textColor="?android:textColorPrimary"
                 android:textStyle="bold" />
 
             <ImageView
@@ -39,8 +40,7 @@
                 android:contentDescription="@string/tile_synchronize"
                 android:padding="6dp"
                 android:src="@drawable/twotone_sync_24"
-                android:visibility="gone"
-                app:tint="@color/colorWidgetForeground" />
+                android:visibility="gone" />
 
             <ImageView
                 android:id="@+id/compose"
@@ -50,22 +50,20 @@
                 android:contentDescription="@string/title_compose"
                 android:padding="6dp"
                 android:src="@drawable/twotone_edit_24"
-                android:visibility="gone"
-                app:tint="@color/colorWidgetForeground" />
+                android:visibility="gone" />
         </LinearLayout>
 
         <FrameLayout
             android:id="@+id/separator"
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="@color/colorWidgetRead" />
+            android:background="@color/grey" />
 
         <ListView
             android:id="@+id/lv"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="6dp"
-            android:divider="@color/colorWidgetRead"
-            android:dividerHeight="1dp" />
+            android:divider="@null" />
     </LinearLayout>
 </FrameLayout>

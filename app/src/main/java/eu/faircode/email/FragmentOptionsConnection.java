@@ -16,10 +16,11 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -44,11 +45,13 @@ import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.cardview.widget.CardView;
 import androidx.constraintlayout.widget.Group;
@@ -56,6 +59,8 @@ import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceManager;
 
 public class FragmentOptionsConnection extends FragmentBase implements SharedPreferences.OnSharedPreferenceChangeListener {
+    private View view;
+    private ImageButton ibHelp;
     private SwitchCompat swMetered;
     private Spinner spDownload;
     private SwitchCompat swRoaming;
@@ -64,6 +69,7 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
     private SwitchCompat swDownloadEml;
     private SwitchCompat swDownloadPlain;
     private SwitchCompat swValidated;
+    private SwitchCompat swValidatedCaptive;
     private SwitchCompat swVpnOnly;
     private EditText etTimeout;
     private SwitchCompat swPreferIp4;
@@ -72,11 +78,14 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
     private SwitchCompat swTcpKeepAlive;
     private TextView tvTcpKeepAliveHint;
     private SwitchCompat swSslHarden;
+    private SwitchCompat swSslHardenStrict;
     private SwitchCompat swCertStrict;
+    private SwitchCompat swOpenSafe;
     private Button btnManage;
     private TextView tvNetworkMetered;
     private TextView tvNetworkRoaming;
     private CardView cardDebug;
+    private Button btnCiphers;
     private TextView tvNetworkInfo;
 
     private Group grpValidated;
@@ -84,9 +93,9 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
     private final static String[] RESET_OPTIONS = new String[]{
             "metered", "download", "roaming", "rlah",
             "download_headers", "download_eml", "download_plain",
-            "require_validated", "vpn_only",
+            "require_validated", "require_validated_captive", "vpn_only",
             "timeout", "prefer_ip4", "bind_socket", "standalone_vpn", "tcp_keep_alive",
-            "ssl_harden", "cert_strict"
+            "ssl_harden", "ssl_harden_strict", "cert_strict", "open_safe"
     };
 
     @Override
@@ -95,10 +104,11 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
         setSubtitle(R.string.title_setup);
         setHasOptionsMenu(true);
 
-        View view = inflater.inflate(R.layout.fragment_options_connection, container, false);
+        view = inflater.inflate(R.layout.fragment_options_connection, container, false);
 
         // Get controls
 
+        ibHelp = view.findViewById(R.id.ibHelp);
         swMetered = view.findViewById(R.id.swMetered);
         spDownload = view.findViewById(R.id.spDownload);
         swRoaming = view.findViewById(R.id.swRoaming);
@@ -107,6 +117,7 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
         swDownloadEml = view.findViewById(R.id.swDownloadEml);
         swDownloadPlain = view.findViewById(R.id.swDownloadPlain);
         swValidated = view.findViewById(R.id.swValidated);
+        swValidatedCaptive = view.findViewById(R.id.swValidatedCaptive);
         swVpnOnly = view.findViewById(R.id.swVpnOnly);
         etTimeout = view.findViewById(R.id.etTimeout);
         swPreferIp4 = view.findViewById(R.id.swPreferIp4);
@@ -115,13 +126,16 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
         swTcpKeepAlive = view.findViewById(R.id.swTcpKeepAlive);
         tvTcpKeepAliveHint = view.findViewById(R.id.tvTcpKeepAliveHint);
         swSslHarden = view.findViewById(R.id.swSslHarden);
+        swSslHardenStrict = view.findViewById(R.id.swSslHardenStrict);
         swCertStrict = view.findViewById(R.id.swCertStrict);
+        swOpenSafe = view.findViewById(R.id.swOpenSafe);
         btnManage = view.findViewById(R.id.btnManage);
 
         tvNetworkMetered = view.findViewById(R.id.tvNetworkMetered);
         tvNetworkRoaming = view.findViewById(R.id.tvNetworkRoaming);
 
         cardDebug = view.findViewById(R.id.cardDebug);
+        btnCiphers = view.findViewById(R.id.btnCiphers);
         tvNetworkInfo = view.findViewById(R.id.tvNetworkInfo);
 
         grpValidated = view.findViewById(R.id.grpValidated);
@@ -132,6 +146,13 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
 
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
         boolean debug = prefs.getBoolean("debug", false);
+
+        ibHelp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Helper.view(v.getContext(), Helper.getSupportUri(v.getContext(), "Options:connection"), false);
+            }
+        });
 
         swMetered.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
@@ -193,6 +214,14 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("require_validated", checked).apply();
+                swValidatedCaptive.setEnabled(!checked);
+            }
+        });
+
+        swValidatedCaptive.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("require_validated_captive", checked).apply();
             }
         });
 
@@ -253,9 +282,6 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
             }
         });
 
-        swTcpKeepAlive.setVisibility(debug || BuildConfig.DEBUG ? View.VISIBLE : View.GONE);
-        tvTcpKeepAliveHint.setVisibility(debug || BuildConfig.DEBUG ? View.VISIBLE : View.GONE);
-
         swTcpKeepAlive.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
@@ -272,6 +298,17 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("ssl_harden", checked).apply();
+                swSslHardenStrict.setEnabled(checked);
+            }
+        });
+
+        swSslHardenStrict.setVisibility(BuildConfig.PLAY_STORE_RELEASE ||
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+                ? View.GONE : View.VISIBLE);
+        swSslHardenStrict.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("ssl_harden_strict", checked).apply();
             }
         });
 
@@ -279,6 +316,13 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("cert_strict", checked).apply();
+            }
+        });
+
+        swOpenSafe.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("open_safe", checked).apply();
             }
         });
 
@@ -292,6 +336,23 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
             @Override
             public void onClick(View view) {
                 startActivity(manage);
+            }
+        });
+
+        btnCiphers.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                new AlertDialog.Builder(getContext())
+                        .setIcon(R.drawable.twotone_info_24)
+                        .setTitle(R.string.title_advanced_ciphers)
+                        .setMessage(Log.getCiphers())
+                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                // Do nothing
+                            }
+                        })
+                        .show();
             }
         });
 
@@ -317,15 +378,14 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
         if ("timeout".equals(key))
             return;
 
-        if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-            setOptions();
+        setOptions();
     }
 
     @Override
     public void onResume() {
         super.onResume();
 
-        ConnectivityManager cm = (ConnectivityManager) getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager cm = Helper.getSystemService(getContext(), ConnectivityManager.class);
         if (cm == null)
             return;
 
@@ -338,7 +398,7 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
 
     @Override
     public void onPause() {
-        ConnectivityManager cm = (ConnectivityManager) getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager cm = Helper.getSystemService(getContext(), ConnectivityManager.class);
         if (cm == null)
             return;
 
@@ -363,38 +423,50 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
     }
 
     private void setOptions() {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+        try {
+            if (view == null || getContext() == null)
+                return;
 
-        swMetered.setChecked(prefs.getBoolean("metered", true));
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
 
-        int download = prefs.getInt("download", MessageHelper.DEFAULT_DOWNLOAD_SIZE);
-        int[] downloadValues = getResources().getIntArray(R.array.downloadValues);
-        for (int pos = 0; pos < downloadValues.length; pos++)
-            if (downloadValues[pos] == download) {
-                spDownload.setSelection(pos);
-                break;
-            }
+            swMetered.setChecked(prefs.getBoolean("metered", true));
 
-        swRoaming.setChecked(prefs.getBoolean("roaming", true));
-        swRlah.setChecked(prefs.getBoolean("rlah", true));
+            int download = prefs.getInt("download", MessageHelper.DEFAULT_DOWNLOAD_SIZE);
+            int[] downloadValues = getResources().getIntArray(R.array.downloadValues);
+            for (int pos = 0; pos < downloadValues.length; pos++)
+                if (downloadValues[pos] == download) {
+                    spDownload.setSelection(pos);
+                    break;
+                }
 
-        swDownloadHeaders.setChecked(prefs.getBoolean("download_headers", false));
-        swDownloadEml.setChecked(prefs.getBoolean("download_eml", false));
-        swDownloadPlain.setChecked(prefs.getBoolean("download_plain", false));
+            swRoaming.setChecked(prefs.getBoolean("roaming", true));
+            swRlah.setChecked(prefs.getBoolean("rlah", true));
 
-        swValidated.setChecked(prefs.getBoolean("require_validated", false));
-        swVpnOnly.setChecked(prefs.getBoolean("vpn_only", false));
+            swDownloadHeaders.setChecked(prefs.getBoolean("download_headers", false));
+            swDownloadEml.setChecked(prefs.getBoolean("download_eml", false));
+            swDownloadPlain.setChecked(prefs.getBoolean("download_plain", false));
 
-        int timeout = prefs.getInt("timeout", 0);
-        etTimeout.setText(timeout == 0 ? null : Integer.toString(timeout));
-        etTimeout.setHint(Integer.toString(EmailService.DEFAULT_CONNECT_TIMEOUT));
+            swValidated.setChecked(prefs.getBoolean("require_validated", false));
+            swValidatedCaptive.setChecked(prefs.getBoolean("require_validated_captive", true));
+            swValidatedCaptive.setEnabled(!swValidated.isChecked());
+            swVpnOnly.setChecked(prefs.getBoolean("vpn_only", false));
 
-        swPreferIp4.setChecked(prefs.getBoolean("prefer_ip4", true));
-        swBindSocket.setChecked(prefs.getBoolean("bind_socket", false));
-        swStandaloneVpn.setChecked(prefs.getBoolean("standalone_vpn", false));
-        swTcpKeepAlive.setChecked(prefs.getBoolean("tcp_keep_alive", false));
-        swSslHarden.setChecked(prefs.getBoolean("ssl_harden", false));
-        swCertStrict.setChecked(prefs.getBoolean("cert_strict", !BuildConfig.PLAY_STORE_RELEASE));
+            int timeout = prefs.getInt("timeout", 0);
+            etTimeout.setText(timeout == 0 ? null : Integer.toString(timeout));
+            etTimeout.setHint(Integer.toString(EmailService.DEFAULT_CONNECT_TIMEOUT));
+
+            swPreferIp4.setChecked(prefs.getBoolean("prefer_ip4", true));
+            swBindSocket.setChecked(prefs.getBoolean("bind_socket", false));
+            swStandaloneVpn.setChecked(prefs.getBoolean("standalone_vpn", false));
+            swTcpKeepAlive.setChecked(prefs.getBoolean("tcp_keep_alive", false));
+            swSslHarden.setChecked(prefs.getBoolean("ssl_harden", false));
+            swSslHardenStrict.setChecked(prefs.getBoolean("ssl_harden_strict", false));
+            swSslHardenStrict.setEnabled(swSslHarden.isChecked());
+            swCertStrict.setChecked(prefs.getBoolean("cert_strict", !BuildConfig.PLAY_STORE_RELEASE));
+            swOpenSafe.setChecked(prefs.getBoolean("open_safe", false));
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
     }
 
     private static Intent getIntentConnectivity() {
@@ -439,7 +511,7 @@ public class FragmentOptionsConnection extends FragmentBase implements SharedPre
         if ((debug || BuildConfig.DEBUG) &&
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
             try {
-                ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+                ConnectivityManager cm = Helper.getSystemService(context, ConnectivityManager.class);
                 Network active = (cm == null ? null : cm.getActiveNetwork());
                 if (active != null) {
                     NetworkInfo ni = cm.getNetworkInfo(active);

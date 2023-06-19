@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvMessage"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -22,18 +22,18 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvSentMissing"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:drawableStart="@drawable/twotone_warning_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorError"
             android:text="@string/title_setup_quick_no_sent"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-            android:textColor="?attr/colorError"
+            android:textColor="?attr/colorWarning"
             android:textStyle="bold"
+            app:drawableTint="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvMessage" />
 
@@ -49,179 +49,207 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvSentMissing" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvAddressError"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:drawableStart="@drawable/twotone_warning_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorError"
             android:text="Invalid address"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-            android:textColor="?attr/colorError"
+            android:textColor="?attr/colorWarning"
             android:textStyle="bold"
+            app:drawableTint="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/btnFixSent" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvRemindDsn"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:drawableStart="@drawable/twotone_warning_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorError"
             android:text="@string/title_dsn_reminder"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-            android:textColor="?attr/colorError"
+            android:textColor="?attr/colorWarning"
             android:textStyle="bold"
+            app:drawableTint="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvAddressError" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvRemindSize"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:drawableStart="@drawable/twotone_warning_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorError"
             android:text="@string/title_size_reminder"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-            android:textColor="?attr/colorError"
+            android:textColor="?attr/colorWarning"
             android:textStyle="bold"
+            app:drawableTint="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvRemindDsn" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvRemindPgp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:drawableStart="@drawable/twotone_warning_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorError"
             android:text="@string/title_pgp_reminder"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-            android:textColor="?attr/colorError"
+            android:textColor="?attr/colorWarning"
             android:textStyle="bold"
+            app:drawableTint="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvRemindSize" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvRemindSmime"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:drawableStart="@drawable/twotone_warning_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorError"
             android:text="@string/title_smime_reminder"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-            android:textColor="?attr/colorError"
+            android:textColor="?attr/colorWarning"
             android:textStyle="bold"
+            app:drawableTint="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvRemindPgp" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvRemindTo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:drawableStart="@drawable/twotone_warning_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorError"
             android:text="@string/title_to_missing"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-            android:textColor="?attr/colorError"
+            android:textColor="?attr/colorWarning"
             android:textStyle="bold"
+            app:drawableTint="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvRemindSmime" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvRemindExtra"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:drawableStart="@drawable/twotone_warning_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorWarning"
             android:text="@string/title_extra_missing"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textColor="?attr/colorWarning"
+            app:drawableTint="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvRemindTo" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvRemindNoReply"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:drawableStart="@drawable/twotone_warning_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorWarning"
             android:text="@string/title_noreply_reminder"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textColor="?attr/colorWarning"
+            app:drawableTint="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvRemindExtra" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvRemindExternal"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:drawableStart="@drawable/twotone_warning_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorWarning"
             android:text="@string/title_external_reminder"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textColor="?attr/colorWarning"
+            app:drawableTint="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvRemindNoReply" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvRemindSubject"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:drawableStart="@drawable/twotone_warning_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorWarning"
             android:text="@string/title_subject_reminder"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textColor="?attr/colorWarning"
+            app:drawableTint="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvRemindExternal" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvRemindText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:drawableStart="@drawable/twotone_warning_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorWarning"
             android:text="@string/title_text_reminder"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textColor="?attr/colorWarning"
+            app:drawableTint="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvRemindSubject" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvRemindAttachment"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:drawableStart="@drawable/twotone_warning_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorWarning"
             android:text="@string/title_attachment_reminder"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textColor="?attr/colorWarning"
+            app:drawableTint="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvRemindText" />
+
+        <TextView
+            android:id="@+id/tvRemindExtension"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:drawableStart="@drawable/twotone_warning_24"
+            android:drawablePadding="6dp"
+            android:text="@string/title_attachment_warning"
+            android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+            android:textColor="?attr/colorWarning"
+            app:drawableTint="?attr/colorWarning"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvRemindAttachment" />
+
+        <TextView
+            android:id="@+id/tvRemindInternet"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:drawableStart="@drawable/twotone_warning_24"
+            android:drawablePadding="6dp"
+            android:text="@string/title_no_internet"
+            android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+            android:textColor="?attr/colorWarning"
+            app:drawableTint="?attr/colorWarning"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvRemindExtension" />
 
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/swSendReminders"
@@ -232,10 +260,10 @@
             android:text="@string/title_advanced_send_reminders"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tvRemindAttachment"
+            app:layout_constraintTop_toBottomOf="@id/tvRemindInternet"
             app:switchPadding="12dp" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvSendRemindersHint"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -245,7 +273,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/swSendReminders" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvToTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -255,7 +283,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvSendRemindersHint" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvTo"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -267,7 +295,7 @@
             app:layout_constraintStart_toEndOf="@+id/tvToTitle"
             app:layout_constraintTop_toTopOf="@+id/tvToTitle" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvViaTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -277,7 +305,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvTo" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvVia"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -299,17 +327,17 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvVia" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvPlainHint"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:drawableStart="@drawable/twotone_warning_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorWarning"
             android:text="@string/title_plain_reminder"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textColor="?attr/colorWarning"
+            app:drawableTint="?attr/colorWarning"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/cbPlainOnly" />
 
@@ -323,7 +351,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvPlainHint" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvReceiptHint"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -333,7 +361,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/cbReceipt" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvEncrypt"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -355,7 +383,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvEncrypt" />
 
-        <eu.faircode.email.FixedImageButton
+        <ImageButton
             android:id="@+id/ibEncryption"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -369,7 +397,7 @@
             app:srcCompat="@drawable/twotone_info_24"
             app:tint="?attr/colorAccent" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvPriority"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -391,7 +419,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvPriority" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvSensitivity"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -413,7 +441,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvSensitivity" />
 
-        <eu.faircode.email.FixedImageButton
+        <ImageButton
             android:id="@+id/ibSensitivity"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -427,7 +455,7 @@
             app:srcCompat="@drawable/twotone_info_24"
             app:tint="?attr/colorAccent" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvSendTitle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -439,7 +467,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/spSensitivity" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvSendAt"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -453,7 +481,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvSendTitle" />
 
-        <eu.faircode.email.FixedImageButton
+        <ImageButton
             android:id="@+id/ibSendAt"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -485,7 +513,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/cbArchive" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvNotAgain"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

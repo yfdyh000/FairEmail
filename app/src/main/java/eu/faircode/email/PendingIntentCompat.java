@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.app.PendingIntent;
@@ -30,24 +30,44 @@ public class PendingIntentCompat {
     private PendingIntentCompat() {
     }
 
+    // https://developer.android.com/about/versions/12/behavior-changes-12#pending-intent-mutability
+
+    // Xiaomi Android 11: Too many PendingIntent created for uid nnnnn
+    // https://stackoverflow.com/questions/71266853/xiaomi-android-11-securityexception-too-many-pendingintent-created
+
     public static PendingIntent getActivity(Context context, int requestCode, Intent intent, int flags) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || (flags & PendingIntent.FLAG_MUTABLE) != 0)
-            return PendingIntent.getActivity(context, requestCode, intent, flags);
-        else
-            return PendingIntent.getActivity(context, requestCode, intent, flags | PendingIntent.FLAG_IMMUTABLE);
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || (flags & PendingIntent.FLAG_MUTABLE) != 0)
+                return PendingIntent.getActivity(context, requestCode, intent, flags);
+            else
+                return PendingIntent.getActivity(context, requestCode, intent, flags | PendingIntent.FLAG_IMMUTABLE);
+        } catch (Throwable ex) {
+            Log.e(ex);
+            throw ex;
+        }
     }
 
     public static PendingIntent getService(Context context, int requestCode, @NonNull Intent intent, int flags) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || (flags & PendingIntent.FLAG_MUTABLE) != 0)
-            return PendingIntent.getService(context, requestCode, intent, flags);
-        else
-            return PendingIntent.getService(context, requestCode, intent, flags | PendingIntent.FLAG_IMMUTABLE);
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || (flags & PendingIntent.FLAG_MUTABLE) != 0)
+                return PendingIntent.getService(context, requestCode, intent, flags);
+            else
+                return PendingIntent.getService(context, requestCode, intent, flags | PendingIntent.FLAG_IMMUTABLE);
+        } catch (Throwable ex) {
+            Log.e(ex);
+            throw ex;
+        }
     }
 
     static PendingIntent getForegroundService(Context context, int requestCode, @NonNull Intent intent, int flags) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || (flags & PendingIntent.FLAG_MUTABLE) != 0)
-            return PendingIntent.getService(context, requestCode, intent, flags);
-        else
-            return PendingIntent.getForegroundService(context, requestCode, intent, flags | PendingIntent.FLAG_IMMUTABLE);
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || (flags & PendingIntent.FLAG_MUTABLE) != 0)
+                return PendingIntent.getService(context, requestCode, intent, flags);
+            else
+                return PendingIntent.getForegroundService(context, requestCode, intent, flags | PendingIntent.FLAG_IMMUTABLE);
+        } catch (Throwable ex) {
+            Log.e(ex);
+            throw ex;
+        }
     }
 }

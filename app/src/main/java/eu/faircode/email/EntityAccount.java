@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.app.Notification;
@@ -58,7 +58,8 @@ public class EntityAccount extends EntityOrder implements Serializable {
     // https://tools.ietf.org/html/rfc2177
     static final int DEFAULT_KEEP_ALIVE_INTERVAL = 15; // minutes
     static final int DEFAULT_POLL_INTERVAL = 15; // minutes
-    static final int DEFAULT_MAX_MESSAGES = 250; // POP3
+
+    static final int QUOTA_WARNING = 95; // percent
 
     static final int TYPE_IMAP = 0;
     static final int TYPE_POP = 1;
@@ -82,7 +83,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
     @NonNull
     public Integer port;
     @NonNull
-    public Integer auth_type; // immutable
+    public Integer auth_type;
     public String provider;
     @NonNull
     public String user;
@@ -98,6 +99,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
     public String category;
     public String signature; // obsolete
     public Integer color;
+    public String calendar;
 
     @NonNull
     public Boolean synchronize;
@@ -110,14 +112,18 @@ public class EntityAccount extends EntityOrder implements Serializable {
     @NonNull
     public Boolean notify = false;
     @NonNull
+    public Boolean summary = false;
+    @NonNull
     public Boolean browse = true;
     @NonNull
     public Boolean leave_on_server = true;
     @NonNull
+    public Boolean client_delete = false;
+    @NonNull
     public Boolean leave_deleted = false;
     @NonNull
     public Boolean leave_on_device = false;
-    public Integer max_messages; // POP3
+    public Integer max_messages = null; // POP3
     @NonNull
     public Boolean auto_seen = true;
     @ColumnInfo(name = "separator")
@@ -128,6 +134,8 @@ public class EntityAccount extends EntityOrder implements Serializable {
     @NonNull
     public Integer poll_interval = DEFAULT_KEEP_ALIVE_INTERVAL;
     @NonNull
+    public Boolean keep_alive_noop = false;
+    @NonNull
     public Boolean keep_alive_ok = false;
     @NonNull
     public Integer keep_alive_failed = 0;
@@ -136,12 +144,18 @@ public class EntityAccount extends EntityOrder implements Serializable {
     @NonNull
     public Boolean partial_fetch = true;
     @NonNull
+    public Boolean raw_fetch = false;
+    @NonNull
     public Boolean ignore_size = false;
     @NonNull
     public Boolean use_date = false; // Date header
     @NonNull
     public Boolean use_received = false; // Received header
     public String prefix; // namespace, obsolete
+    @NonNull
+    public Boolean unicode = false;
+
+    public String conditions;
 
     public Long quota_usage;
     public Long quota_limit;
@@ -158,6 +172,8 @@ public class EntityAccount extends EntityOrder implements Serializable {
     public String capabilities;
     public Boolean capability_idle;
     public Boolean capability_utf8;
+    public Boolean capability_uidl;
+    public Long last_modified; // sync
 
     boolean isGmail() {
         return "imap.gmail.com".equalsIgnoreCase(host) ||
@@ -166,6 +182,10 @@ public class EntityAccount extends EntityOrder implements Serializable {
 
     boolean isOutlook() {
         return "outlook.office365.com".equalsIgnoreCase(host);
+    }
+
+    static boolean isOutlook(String id) {
+        return ("office365".equals(id) || "office365pcke".equals(id) || "outlook".equals(id) || "outlookgraph".equals(id));
     }
 
     boolean isYahooJp() {
@@ -180,6 +200,18 @@ public class EntityAccount extends EntityOrder implements Serializable {
         return (host != null && host.toLowerCase(Locale.ROOT).startsWith("imap.zoho."));
     }
 
+    boolean isYahoo() {
+        return "imap.mail.yahoo.com".equalsIgnoreCase(host);
+    }
+
+    boolean isAol() {
+        return "imap.aol.com".equalsIgnoreCase(host);
+    }
+
+    boolean isICloud() {
+        return "imap.mail.me.com".equalsIgnoreCase(host);
+    }
+
     boolean isTransient(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean enabled = prefs.getBoolean("enabled", true);
@@ -188,7 +220,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
     }
 
     boolean isExempted(Context context) {
-        return (!Helper.isOptimizing12(context) && this.poll_exempted);
+        return this.poll_exempted;
     }
 
     String getProtocol() {
@@ -211,7 +243,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     void createNotificationChannel(Context context) {
-        NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationManager nm = Helper.getSystemService(context, NotificationManager.class);
 
         NotificationChannelGroup group = new NotificationChannelGroup("group." + id, name);
         nm.createNotificationChannelGroup(group);
@@ -228,7 +260,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     void deleteNotificationChannel(Context context) {
-        NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationManager nm = Helper.getSystemService(context, NotificationManager.class);
         nm.deleteNotificationChannel(getNotificationChannelId(id));
     }
 
@@ -271,6 +303,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
         json.put("name", name);
         json.put("category", category);
         json.put("color", color);
+        json.put("calendar", calendar);
 
         json.put("synchronize", synchronize);
         json.put("ondemand", ondemand);
@@ -279,6 +312,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
         json.put("notify", notify);
         json.put("browse", browse);
         json.put("leave_on_server", leave_on_server);
+        json.put("client_delete", client_delete);
         json.put("leave_deleted", leave_deleted);
         json.put("leave_on_device", leave_on_device);
         json.put("max_messages", max_messages);
@@ -291,10 +325,14 @@ public class EntityAccount extends EntityOrder implements Serializable {
         json.put("move_to", move_to);
 
         json.put("poll_interval", poll_interval);
+        json.put("keep_alive_noop", keep_alive_noop);
         json.put("partial_fetch", partial_fetch);
+        json.put("raw_fetch", raw_fetch);
         json.put("ignore_size", ignore_size);
         json.put("use_date", use_date);
         json.put("use_received", use_received);
+        json.put("unicode", unicode);
+        json.put("conditions", conditions);
         // not prefix
         // not created
         // not tbd
@@ -310,7 +348,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
         if (json.has("id"))
             account.id = json.getLong("id");
 
-        if (json.has("uuid"))
+        if (json.has("uuid") && !json.isNull("uuid"))
             account.uuid = json.getString("uuid");
 
         if (json.has("order"))
@@ -330,15 +368,15 @@ public class EntityAccount extends EntityOrder implements Serializable {
         account.insecure = (json.has("insecure") && json.getBoolean("insecure"));
         account.port = json.getInt("port");
         account.auth_type = json.getInt("auth_type");
-        if (json.has("provider"))
+        if (json.has("provider") && !json.isNull("provider"))
             account.provider = json.getString("provider");
         account.user = json.getString("user");
         account.password = json.getString("password");
-        if (json.has("certificate_alias"))
+        if (json.has("certificate_alias") && !json.isNull("certificate_alias"))
             account.certificate_alias = json.getString("certificate_alias");
-        if (json.has("realm"))
+        if (json.has("realm") && !json.isNull("realm"))
             account.realm = json.getString("realm");
-        if (json.has("fingerprint"))
+        if (json.has("fingerprint") && !json.isNull("fingerprint"))
             account.fingerprint = json.getString("fingerprint");
 
         if (json.has("name") && !json.isNull("name"))
@@ -347,6 +385,8 @@ public class EntityAccount extends EntityOrder implements Serializable {
             account.category = json.getString("category");
         if (json.has("color"))
             account.color = json.getInt("color");
+        if (json.has("calendar") && !json.isNull("calendar"))
+            account.calendar = json.getString("calendar");
 
         account.synchronize = json.getBoolean("synchronize");
         if (json.has("ondemand"))
@@ -360,6 +400,7 @@ public class EntityAccount extends EntityOrder implements Serializable {
             account.browse = json.getBoolean("browse");
         if (json.has("leave_on_server"))
             account.leave_on_server = json.getBoolean("leave_on_server");
+        account.client_delete = json.optBoolean("client_delete", false);
         if (json.has("leave_deleted"))
             account.leave_deleted = json.getBoolean("leave_deleted");
         if (json.has("leave_on_device"))
@@ -378,11 +419,15 @@ public class EntityAccount extends EntityOrder implements Serializable {
             account.move_to = json.getLong("move_to");
 
         account.poll_interval = json.getInt("poll_interval");
+        account.keep_alive_noop = json.optBoolean("keep_alive_noop");
 
         account.partial_fetch = json.optBoolean("partial_fetch", true);
+        account.raw_fetch = json.optBoolean("raw_fetch", false);
         account.ignore_size = json.optBoolean("ignore_size", false);
         account.use_date = json.optBoolean("use_date", false);
         account.use_received = json.optBoolean("use_received", false);
+        account.unicode = json.optBoolean("unicode", false);
+        account.conditions = json.optString("conditions", null);
 
         return account;
     }
@@ -391,50 +436,77 @@ public class EntityAccount extends EntityOrder implements Serializable {
     public boolean equals(Object obj) {
         if (obj instanceof EntityAccount) {
             EntityAccount other = (EntityAccount) obj;
-            return (Objects.equals(this.uuid, other.uuid) &&
-                    Objects.equals(this.order, other.order) &&
-                    this.protocol.equals(other.protocol) &&
-                    this.host.equals(other.host) &&
-                    this.encryption.equals(other.encryption) &&
-                    this.insecure == other.insecure &&
-                    this.port.equals(other.port) &&
-                    this.auth_type.equals(other.auth_type) &&
-                    this.user.equals(other.user) &&
-                    this.password.equals(other.password) &&
-                    Objects.equals(this.realm, other.realm) &&
-                    Objects.equals(this.name, other.name) &&
-                    Objects.equals(this.category, other.category) &&
-                    Objects.equals(this.color, other.color) &&
-                    this.synchronize.equals(other.synchronize) &&
-                    this.primary.equals(other.primary) &&
-                    this.notify.equals(other.notify) &&
-                    this.browse.equals(other.browse) &&
-                    this.leave_on_server.equals(other.leave_on_server) &&
-                    this.leave_on_device.equals(other.leave_on_device) &&
-                    Objects.equals(this.max_messages, other.max_messages) &&
-                    this.auto_seen.equals(other.auto_seen) &&
-                    Objects.equals(this.swipe_left, other.swipe_left) &&
-                    Objects.equals(this.swipe_right, other.swipe_right) &&
-                    this.poll_interval.equals(other.poll_interval) &&
-                    this.partial_fetch == other.partial_fetch &&
-                    this.ignore_size == other.ignore_size &&
-                    this.use_date == other.use_date &&
-                    this.use_received == other.use_received &&
-                    Objects.equals(this.quota_usage, other.quota_usage) &&
-                    Objects.equals(this.quota_limit, other.quota_limit) &&
-                    Objects.equals(this.created, other.created) &&
-                    Objects.equals(this.tbd, other.tbd) &&
-                    Objects.equals(this.state, other.state) &&
-                    Objects.equals(this.warning, other.warning) &&
-                    Objects.equals(this.error, other.error) &&
-                    Objects.equals(this.last_connected, other.last_connected) &&
-                    Objects.equals(this.backoff_until, other.backoff_until) &&
-                    Objects.equals(this.max_size, other.max_size) &&
-                    Objects.equals(this.capabilities, other.capabilities) &&
-                    Objects.equals(this.capability_idle, other.capability_idle) &&
-                    Objects.equals(this.capability_utf8, other.capability_utf8));
+            return areEqual(this, other, true, true);
         } else
             return false;
+    }
+
+    public static boolean areEqual(EntityAccount a1, EntityAccount other, boolean auth, boolean state) {
+        return (Objects.equals(a1.order, other.order) &&
+                Objects.equals(a1.uuid, other.uuid) &&
+                a1.protocol.equals(other.protocol) &&
+                a1.host.equals(other.host) &&
+                a1.encryption.equals(other.encryption) &&
+                a1.insecure == other.insecure &&
+                a1.port.equals(other.port) &&
+                a1.auth_type.equals(other.auth_type) &&
+                Objects.equals(a1.provider, other.provider) &&
+                a1.user.equals(other.user) &&
+                (!auth || a1.password.equals(other.password)) &&
+                // certificate
+                Objects.equals(a1.certificate_alias, other.certificate_alias) &&
+                Objects.equals(a1.realm, other.realm) &&
+                Objects.equals(a1.fingerprint, other.fingerprint) &&
+                Objects.equals(a1.name, other.name) &&
+                Objects.equals(a1.category, other.category) &&
+                // signature
+                Objects.equals(a1.color, other.color) &&
+                Objects.equals(a1.calendar, other.calendar) &&
+                a1.synchronize.equals(other.synchronize) &&
+                Objects.equals(a1.ondemand, other.ondemand) &&
+                Objects.equals(a1.poll_exempted, other.poll_exempted) &&
+                a1.primary.equals(other.primary) &&
+                a1.notify.equals(other.notify) &&
+                a1.browse.equals(other.browse) &&
+                a1.leave_on_server.equals(other.leave_on_server) &&
+                a1.client_delete.equals(other.client_delete) &&
+                Objects.equals(a1.leave_deleted, other.leave_deleted) &&
+                a1.leave_on_device.equals(other.leave_on_device) &&
+                Objects.equals(a1.max_messages, other.max_messages) &&
+                a1.auto_seen.equals(other.auto_seen) &&
+                // separator
+                Objects.equals(a1.swipe_left, other.swipe_left) &&
+                Objects.equals(a1.swipe_right, other.swipe_right) &&
+                Objects.equals(a1.move_to, other.move_to) &&
+                a1.poll_interval.equals(other.poll_interval) &&
+                Objects.equals(a1.keep_alive_noop, other.keep_alive_noop) &&
+                (!state || Objects.equals(a1.keep_alive_ok, other.keep_alive_ok)) &&
+                (!state || Objects.equals(a1.keep_alive_failed, other.keep_alive_failed)) &&
+                (!state || Objects.equals(a1.keep_alive_succeeded, other.keep_alive_succeeded)) &&
+                a1.partial_fetch == other.partial_fetch &&
+                a1.raw_fetch == other.raw_fetch &&
+                a1.ignore_size == other.ignore_size &&
+                a1.use_date == other.use_date &&
+                a1.use_received == other.use_received &&
+                // prefix
+                a1.unicode == other.unicode &&
+                Objects.equals(a1.conditions, other.conditions) &&
+                (!state || Objects.equals(a1.quota_usage, other.quota_usage)) &&
+                (!state || Objects.equals(a1.quota_limit, other.quota_limit)) &&
+                Objects.equals(a1.created, other.created) &&
+                Objects.equals(a1.tbd, other.tbd) &&
+                // thread
+                (!state || Objects.equals(a1.state, other.state)) &&
+                (!state || Objects.equals(a1.warning, other.warning)) &&
+                (!state || Objects.equals(a1.error, other.error)) &&
+                (!state || Objects.equals(a1.last_connected, other.last_connected)) &&
+                (!state || Objects.equals(a1.backoff_until, other.backoff_until)) &&
+                (!state || Objects.equals(a1.max_size, other.max_size)) &&
+                (!state || Objects.equals(a1.capabilities, other.capabilities)) &&
+                (!state || Objects.equals(a1.capability_idle, other.capability_idle)) &&
+                (!state || Objects.equals(a1.capability_utf8, other.capability_utf8)) &&
+                (!state || Objects.equals(a1.capability_uidl, other.capability_uidl)) &&
+                (!state || Objects.equals(a1.last_modified, other.last_modified)));
     }
 
     @Override

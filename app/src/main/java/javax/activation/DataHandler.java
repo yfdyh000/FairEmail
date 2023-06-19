@@ -10,6 +10,12 @@
 
 package javax.activation;
 
+import static android.os.Process.THREAD_PRIORITY_BACKGROUND;
+
+import com.sun.mail.imap.IMAPNestedMessage;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -17,6 +23,9 @@ import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.io.OutputStreamWriter;
 import java.net.URL;
+
+import javax.mail.MessagingException;
+import javax.mail.internet.MimeUtility;
 //import java.awt.datatransfer.Transferable;
 //import java.awt.datatransfer.DataFlavor;
 //import java.awt.datatransfer.UnsupportedFlavorException;
@@ -232,9 +241,35 @@ public class DataHandler /*implements Transferable*/ {
 				"no object DCH for MIME type " + getBaseType());
 	    }
 	    // there is none but the default^^^^^^^^^^^^^^^^
+
+		if (object instanceof IMAPNestedMessage &&
+				dch instanceof ObjectDataContentHandler)
+			try {
+				IMAPNestedMessage nested = (IMAPNestedMessage) object;
+				String encoding = nested.getEncoding();
+				if (encoding == null)
+					return nested.getMimeStream();
+				else
+					return MimeUtility.decode(nested.getMimeStream(), encoding);
+			} catch (MessagingException ex) {
+				throw new IOException(ex);
+			}
+
+		// com.sun.mail.smtp.SMTPTransport.convertTo8Bit
+		eu.faircode.email.Log.i("DataHandler" +
+				" object=" + (object == null ? null : object.getClass().getName()) +
+				" dch=" + dch.getClass().getName() +
+				" type=" + getContentType());
+
 	    final DataContentHandler fdch = dch;
 
-	    // from bill s.
+		if (true) {
+			ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			fdch.writeTo(object, objectMimeType, bos);
+			return new ByteArrayInputStream(bos.toByteArray());
+		}
+
+		// from bill s.
 	    // ce n'est pas une pipe!
 	    //
 	    // NOTE: This block of code needs to throw exceptions, but
@@ -242,21 +277,25 @@ public class DataHandler /*implements Transferable*/ {
 	    //
 	    final PipedOutputStream pos = new PipedOutputStream();
 	    PipedInputStream pin = new PipedInputStream(pos);
-	    new Thread(
+	    Thread thread = new Thread(
 		       new Runnable() {
 		public void run() {
 		    try {
 			fdch.writeTo(object, objectMimeType, pos);
 		    } catch (IOException e) {
-
+				eu.faircode.email.Log.e(e);
 		    } finally {
 			try {
 			    pos.close();
-			} catch (IOException ie) { }
+			} catch (IOException ie) {
+				eu.faircode.email.Log.e(ie);
+			}
 		    }
 		}
 	    },
-		      "DataHandler.getInputStream").start();
+		      "DataHandler.getInputStream");
+		thread.setPriority(THREAD_PRIORITY_BACKGROUND);
+		thread.start();
 	    ins = pin;
 	}
 

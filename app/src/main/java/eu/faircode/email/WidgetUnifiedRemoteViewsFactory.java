@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.appwidget.AppWidgetManager;
@@ -57,20 +57,30 @@ public class WidgetUnifiedRemoteViewsFactory implements RemoteViewsService.Remot
     private long account;
     private boolean unseen;
     private boolean flagged;
+    private boolean daynight;
+    private boolean highlight;
+    private int highlight_color;
+    private boolean separators;
     private boolean semi;
     private int background;
     private int font;
     private int padding;
+    private boolean avatars;
+    private int subject_lines;
     private boolean prefer_contact;
     private boolean only_contact;
     private boolean distinguish_contacts;
     private int colorStripeWidth;
     private int colorWidgetForeground;
+    private int colorWidgetUnread;
     private int colorWidgetRead;
     private int colorSeparator;
     private boolean pro;
     private boolean hasColor;
+    private boolean allColors;
     private List<TupleMessageWidget> messages = new ArrayList<>();
+
+    private static final int MAX_WIDGET_MESSAGES = 500;
 
     WidgetUnifiedRemoteViewsFactory(final Context context, Intent intent) {
         this.context = context;
@@ -93,14 +103,22 @@ public class WidgetUnifiedRemoteViewsFactory implements RemoteViewsService.Remot
         subject_top = prefs.getBoolean("subject_top", false);
         subject_italic = prefs.getBoolean("subject_italic", true);
         color_stripe = prefs.getBoolean("color_stripe", true);
+
         account = prefs.getLong("widget." + appWidgetId + ".account", -1L);
         folder = prefs.getLong("widget." + appWidgetId + ".folder", -1L);
         unseen = prefs.getBoolean("widget." + appWidgetId + ".unseen", false);
         flagged = prefs.getBoolean("widget." + appWidgetId + ".flagged", false);
+        daynight = prefs.getBoolean("widget." + appWidgetId + ".daynight", false);
+        highlight = prefs.getBoolean("widget." + appWidgetId + ".highlight", false);
+        highlight_color = prefs.getInt("widget." + appWidgetId + ".highlight_color", Color.TRANSPARENT);
         semi = prefs.getBoolean("widget." + appWidgetId + ".semi", true);
         background = prefs.getInt("widget." + appWidgetId + ".background", Color.TRANSPARENT);
+        separators = prefs.getBoolean("widget." + appWidgetId + ".separators", true);
         font = prefs.getInt("widget." + appWidgetId + ".font", 0);
         padding = prefs.getInt("widget." + appWidgetId + ".padding", 0);
+        avatars = prefs.getBoolean("widget." + appWidgetId + ".avatars", false);
+        subject_lines = prefs.getInt("widget." + appWidgetId + ".subject_lines", 1);
+
         prefer_contact = prefs.getBoolean("prefer_contact", false);
         only_contact = prefs.getBoolean("only_contact", false);
         distinguish_contacts = prefs.getBoolean("distinguish_contacts", false);
@@ -116,7 +134,15 @@ public class WidgetUnifiedRemoteViewsFactory implements RemoteViewsService.Remot
         if (lum > 0.7f) {
             colorWidgetForeground = ColorUtils.blendARGB(colorWidgetForeground, Color.BLACK, 1.0f);
             colorWidgetRead = ColorUtils.blendARGB(colorWidgetRead, Color.BLACK, 1.0f);
+            colorSeparator = ContextCompat.getColor(context, R.color.darkColorSeparator);
         }
+
+        if (highlight) {
+            if (highlight_color == Color.TRANSPARENT)
+                highlight_color = prefs.getInt("highlight_color", colorWidgetForeground);
+            colorWidgetUnread = ColorUtils.setAlphaComponent(highlight_color, 255);
+        } else
+            colorWidgetUnread = colorWidgetForeground;
 
         pro = ActivityBilling.isPro(context);
 
@@ -127,7 +153,8 @@ public class WidgetUnifiedRemoteViewsFactory implements RemoteViewsService.Remot
             messages = db.message().getWidgetUnified(
                     account < 0 ? null : account,
                     folder < 0 ? null : folder,
-                    threading, unseen, flagged);
+                    threading, unseen, flagged,
+                    MAX_WIDGET_MESSAGES);
 
             db.setTransactionSuccessful();
         } finally {
@@ -135,12 +162,13 @@ public class WidgetUnifiedRemoteViewsFactory implements RemoteViewsService.Remot
         }
 
         hasColor = false;
+        allColors = color_stripe;
         if (account < 0)
             for (TupleMessageWidget message : messages)
-                if (message.accountColor != null) {
+                if (message.accountColor == null)
+                    allColors = false;
+                else
                     hasColor = true;
-                    break;
-                }
     }
 
     @Override
@@ -194,6 +222,12 @@ public class WidgetUnifiedRemoteViewsFactory implements RemoteViewsService.Remot
             views.setInt(R.id.stripe, "setBackgroundColor", colorBackground);
             views.setViewVisibility(R.id.stripe, hasColor && color_stripe ? View.VISIBLE : View.GONE);
 
+            if (avatars) {
+                ContactInfo[] info = ContactInfo.get(context, message.account, null, message.bimi_selector, message.from);
+                views.setImageViewBitmap(R.id.avatar, info.length == 0 ? null : info[0].getPhotoBitmap());
+            }
+            views.setViewVisibility(R.id.avatar, avatars ? View.VISIBLE : View.GONE);
+
             Address[] recipients = ContactInfo.fillIn(message.from, prefer_contact, only_contact);
             boolean known = (distinguish_contacts && ContactInfo.getLookupUri(message.from) != null);
 
@@ -226,14 +260,36 @@ public class WidgetUnifiedRemoteViewsFactory implements RemoteViewsService.Remot
             views.setTextViewText(idSubject, ssSubject);
             views.setTextViewText(idAccount, ssAccount);
 
-            int textColor = (message.ui_seen ? colorWidgetRead : colorWidgetForeground);
+            if (!daynight && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                views.setColorStateListAttr(R.id.separator, "setBackgroundTintList", 0);
+            }
 
-            views.setTextColor(idFrom, textColor);
-            views.setTextColor(idTime, textColor);
-            views.setTextColor(idSubject, textColor);
-            views.setTextColor(idAccount, textColor);
+            if (daynight && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                int textColorAttr = (message.ui_seen ? android.R.attr.textColorPrimary : android.R.attr.textColorLink);
+                views.setColorStateListAttr(idFrom, "setTextColor", textColorAttr);
+                views.setColorStateListAttr(idTime, "setTextColor", textColorAttr);
+                views.setColorStateListAttr(idSubject, "setTextColor", textColorAttr);
+                views.setColorStateListAttr(idAccount, "setTextColor", textColorAttr);
+                views.setInt(R.id.separator, "setBackgroundColor", Color.WHITE);
+                views.setColorStateListAttr(R.id.separator, "setBackgroundTintList", android.R.attr.colorControlNormal);
+            } else {
+                int textColor = (message.ui_seen ? colorWidgetRead : colorWidgetUnread);
+                views.setTextColor(idFrom, textColor);
+                views.setTextColor(idTime, textColor);
+                views.setTextColor(idSubject, textColor);
+                views.setTextColor(idAccount, textColor);
+                views.setInt(R.id.separator, "setBackgroundColor", colorSeparator);
+            }
 
-            views.setViewVisibility(idAccount, account < 0 ? View.VISIBLE : View.GONE);
+            try {
+                views.setInt(idSubject, "setMaxLines", subject_lines);
+            } catch (Throwable ex) {
+                Log.e(ex);
+            }
+
+            views.setViewVisibility(R.id.separator, separators ? View.VISIBLE : View.GONE);
+
+            views.setViewVisibility(idAccount, account < 0 && !allColors ? View.VISIBLE : View.GONE);
 
         } catch (Throwable ex) {
             Log.e(ex);

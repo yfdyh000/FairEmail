@@ -16,21 +16,15 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
-import static androidx.webkit.WebSettingsCompat.FORCE_DARK_OFF;
-import static androidx.webkit.WebSettingsCompat.FORCE_DARK_ON;
-
-import android.Manifest;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -38,14 +32,13 @@ import android.view.MenuItem;
 import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 import androidx.annotation.NonNull;
 import androidx.constraintlayout.widget.Group;
 import androidx.preference.PreferenceManager;
 import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewFeature;
-
-import com.google.android.material.snackbar.Snackbar;
 
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -77,7 +70,6 @@ public class ActivityAMP extends ActivityBase {
             force_light = savedInstanceState.getBoolean("fair:force_light");
 
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-        getSupportActionBar().setSubtitle("AMP");
 
         View view = LayoutInflater.from(this).inflate(R.layout.activity_amp, null);
         setContentView(view);
@@ -104,7 +96,7 @@ public class ActivityAMP extends ActivityBase {
         settings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
-        if (WebViewEx.isFeatureSupported(WebViewFeature.SAFE_BROWSING_ENABLE))
+        if (WebViewEx.isFeatureSupported(this, WebViewFeature.SAFE_BROWSING_ENABLE))
             WebSettingsCompat.setSafeBrowsingEnabled(settings, safe_browsing);
 
         setDarkMode();
@@ -113,6 +105,27 @@ public class ActivityAMP extends ActivityBase {
         settings.setBlockNetworkLoads(false);
         settings.setBlockNetworkImage(false);
         settings.setJavaScriptEnabled(true);
+
+        wvAmp.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                boolean confirm_links = prefs.getBoolean("confirm_links", true);
+                if (confirm_links) {
+                    Bundle args = new Bundle();
+                    args.putParcelable("uri", Uri.parse(url));
+                    args.putString("title", null);
+                    args.putBoolean("always_confirm", true);
+
+                    FragmentDialogOpenLink fragment = new FragmentDialogOpenLink();
+                    fragment.setArguments(args);
+                    fragment.show(getSupportFragmentManager(), "open:link");
+
+                    return true;
+                }
+
+                return false;
+            }
+        });
 
         // Initialize
         grpReady.setVisibility(View.GONE);
@@ -135,11 +148,10 @@ public class ActivityAMP extends ActivityBase {
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        boolean available =
-                (WebViewEx.isFeatureSupported(WebViewFeature.FORCE_DARK) &&
-                        Helper.isDarkTheme(this));
+        boolean dark = Helper.isDarkTheme(this);
+        boolean canDarken = WebViewEx.isFeatureSupported(this, WebViewFeature.ALGORITHMIC_DARKENING);
         menu.findItem(R.id.menu_force_light)
-                .setVisible(available)
+                .setVisible(dark && canDarken)
                 .getIcon().setLevel(force_light ? 1 : 0);
         return super.onPrepareOptionsMenu(menu);
     }
@@ -170,21 +182,20 @@ public class ActivityAMP extends ActivityBase {
     private void setDarkMode() {
         WebSettings settings = wvAmp.getSettings();
         boolean dark = (Helper.isDarkTheme(this) && !force_light);
-        if (WebViewEx.isFeatureSupported(WebViewFeature.FORCE_DARK))
-            WebSettingsCompat.setForceDark(settings, dark ? FORCE_DARK_ON : FORCE_DARK_OFF);
+        boolean canDarken = WebViewEx.isFeatureSupported(this, WebViewFeature.ALGORITHMIC_DARKENING);
+        if (canDarken)
+            WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, dark);
     }
 
     private void load() {
-        Uri uri = getIntent().getData();
-        Log.i("AMP uri=" + uri);
-
-        String subject = getIntent().getStringExtra("subject");
-        if (TextUtils.isEmpty(subject))
-            subject = "AMP";
-        getSupportActionBar().setSubtitle(subject);
+        Intent intent = getIntent();
+        Uri uri = intent.getData();
+        long id = intent.getLongExtra("id", -1L);
+        Log.i("AMP uri=" + uri + " id=" + id);
 
         Bundle args = new Bundle();
         args.putParcelable("uri", uri);
+        args.putLong("id", id);
 
         new SimpleTask<String>() {
             @Override
@@ -200,15 +211,15 @@ public class ActivityAMP extends ActivityBase {
             @Override
             protected String onExecute(Context context, Bundle args) throws Throwable {
                 Uri uri = args.getParcelable("uri");
+                long id = args.getLong("id");
 
-                if (uri == null)
-                    throw new FileNotFoundException();
+                NoStreamException.check(uri, context);
 
-                if (!"content".equals(uri.getScheme()) &&
-                        !Helper.hasPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE)) {
-                    Log.w("AMP uri=" + uri);
-                    throw new IllegalArgumentException(context.getString(R.string.title_no_stream));
-                }
+                DB db = DB.getInstance(context);
+                EntityMessage message = db.message().getMessage(id);
+
+                args.putString("subject",
+                        message == null || message.subject == null ? "AMP" : message.subject);
 
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
                 boolean overview_mode = prefs.getBoolean("overview_mode", false);
@@ -216,11 +227,15 @@ public class ActivityAMP extends ActivityBase {
                 String html;
                 ContentResolver resolver = context.getContentResolver();
                 try (InputStream is = resolver.openInputStream(uri)) {
+                    if (is == null)
+                        throw new FileNotFoundException(uri.toString());
                     html = Helper.readStream(is);
                 }
 
                 Document d = JsoupEx.parse(html);
                 HtmlHelper.setViewport(d, overview_mode);
+                if (message != null)
+                    HtmlHelper.embedInlineImages(context, message.id, d, true);
 
                 for (Element script : d.select("script")) {
                     String src = script.attr("src");
@@ -235,15 +250,16 @@ public class ActivityAMP extends ActivityBase {
 
             @Override
             protected void onExecuted(Bundle args, String amp) {
+                getSupportActionBar().setSubtitle(args.getString("subject"));
+
                 wvAmp.loadDataWithBaseURL(null, amp, "text/html", StandardCharsets.UTF_8.name(), null);
                 grpReady.setVisibility(View.VISIBLE);
             }
 
             @Override
             protected void onException(Bundle args, @NonNull Throwable ex) {
-                if (ex instanceof IllegalArgumentException)
-                    Snackbar.make(findViewById(android.R.id.content), ex.getMessage(), Snackbar.LENGTH_LONG)
-                            .setGestureInsetBottomIgnored(true).show();
+                if (ex instanceof NoStreamException)
+                    ((NoStreamException) ex).report(ActivityAMP.this);
                 else
                     Log.unexpectedError(getSupportFragmentManager(), ex, false);
             }

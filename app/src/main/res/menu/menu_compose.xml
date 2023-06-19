@@ -2,6 +2,12 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/menu_openai"
+        android:icon="@drawable/twotone_smart_toy_24"
+        android:title="@string/title_openai"
+        app:showAsAction="always" />
+
+    <item
         android:id="@+id/menu_encrypt"
         android:icon="@drawable/twotone_lock_24"
         android:title="@string/title_encrypt"
@@ -31,7 +37,7 @@
         <item
             android:id="@+id/menu_send_chips"
             android:checkable="true"
-            android:icon="@drawable/twotone_alternate_email_24"
+            android:icon="@drawable/twotone_crop_3_2_24"
             android:title="@string/title_advanced_send_chips"
             app:showAsAction="never" />
 
@@ -49,6 +55,14 @@
             android:checked="true"
             android:icon="@drawable/twotone_image_24"
             android:title="@string/title_image_dialog"
+            app:showAsAction="never" />
+
+        <item
+            android:id="@+id/menu_style"
+            android:checkable="true"
+            android:checked="true"
+            android:icon="@drawable/twotone_text_format_24"
+            android:title="@string/title_style_toolbar"
             app:showAsAction="never" />
 
         <item
@@ -99,9 +113,29 @@
         </item>
 
         <item
+            android:id="@+id/menu_select_identity"
+            android:icon="@drawable/twotone_person_24"
+            android:title="@string/title_select_default_identity"
+            app:showAsAction="never">
+            <menu />
+        </item>
+
+        <item
+            android:id="@+id/title_search_in_text"
+            android:icon="@drawable/twotone_manage_search_24"
+            android:title="@string/title_search_in_text"
+            app:showAsAction="never" />
+
+        <item
             android:id="@+id/menu_clear"
             android:icon="@drawable/twotone_format_clear_24"
             android:title="@string/title_style_clear"
+            app:showAsAction="never" />
+
+        <item
+            android:id="@+id/menu_print"
+            android:icon="@drawable/twotone_print_24"
+            android:title="@string/title_print"
             app:showAsAction="never" />
     </group>
 

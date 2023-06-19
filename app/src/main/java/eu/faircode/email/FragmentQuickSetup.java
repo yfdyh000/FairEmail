@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_PASSWORD;
@@ -39,9 +39,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -74,9 +76,12 @@ public class FragmentQuickSetup extends FragmentBase {
     private Button btnCheck;
     private ContentLoadingProgressBar pbCheck;
     private TextView tvPatience;
+    private TextView tvProgress;
 
+    private TextView tvArgument;
     private TextView tvError;
     private TextView tvErrorHint;
+    private Button btnManual;
     private TextView tvInstructions;
     private Button btnHelp;
     private Button btnSupport;
@@ -90,13 +95,17 @@ public class FragmentQuickSetup extends FragmentBase {
     private TextView tvSmtpFingerprint;
     private TextView tvSmtpDnsNames;
 
+    private CheckBox cbUpdate;
     private Button btnSave;
     private ContentLoadingProgressBar pbSave;
 
     private Group grpSetup;
     private Group grpCertificate;
     private Group grpError;
+    private Group grpManual;
 
+    private int title;
+    private boolean update;
     private EmailProvider bestProvider = null;
     private Bundle bestArgs = null;
 
@@ -104,15 +113,26 @@ public class FragmentQuickSetup extends FragmentBase {
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
-        outState.putString("fair:password", tilPassword.getEditText().getText().toString());
+        outState.putString("fair:password", tilPassword == null ? null : tilPassword.getEditText().getText().toString());
         outState.putParcelable("fair:best", bestProvider);
         outState.putParcelable("fair:args", bestArgs);
     }
 
     @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        Bundle args = getArguments();
+        title = args.getInt("title", R.string.title_setup_other);
+        update = args.getBoolean("update", true);
+
+        lockOrientation();
+    }
+
+    @Override
     @Nullable
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        setSubtitle(R.string.title_setup_other);
+        setSubtitle(title);
         setHasOptionsMenu(true);
 
         view = (ViewGroup) inflater.inflate(R.layout.fragment_quick_setup, container, false);
@@ -127,9 +147,12 @@ public class FragmentQuickSetup extends FragmentBase {
         btnCheck = view.findViewById(R.id.btnCheck);
         pbCheck = view.findViewById(R.id.pbCheck);
         tvPatience = view.findViewById(R.id.tvPatience);
+        tvProgress = view.findViewById(R.id.tvProgress);
 
+        tvArgument = view.findViewById(R.id.tvArgument);
         tvError = view.findViewById(R.id.tvError);
         tvErrorHint = view.findViewById(R.id.tvErrorHint);
+        btnManual = view.findViewById(R.id.btnManual);
         tvInstructions = view.findViewById(R.id.tvInstructions);
         btnHelp = view.findViewById(R.id.btnHelp);
         btnSupport = view.findViewById(R.id.btnSupport);
@@ -143,12 +166,14 @@ public class FragmentQuickSetup extends FragmentBase {
         tvSmtpFingerprint = view.findViewById(R.id.tvSmtpFingerprint);
         tvSmtpDnsNames = view.findViewById(R.id.tvSmtpDnsNames);
 
+        cbUpdate = view.findViewById(R.id.cbUpdate);
         btnSave = view.findViewById(R.id.btnSave);
         pbSave = view.findViewById(R.id.pbSave);
 
         grpSetup = view.findViewById(R.id.grpSetup);
         grpCertificate = view.findViewById(R.id.grpCertificate);
         grpError = view.findViewById(R.id.grpError);
+        grpManual = view.findViewById(R.id.grpManual);
 
         // Wire controls
 
@@ -186,6 +211,9 @@ public class FragmentQuickSetup extends FragmentBase {
 
             @Override
             public void afterTextChanged(Editable s) {
+                if (tvCharacters == null || tilPassword == null)
+                    return;
+
                 String password = s.toString();
                 boolean warning = (Helper.containsWhiteSpace(password) ||
                         Helper.containsControlChars(password));
@@ -217,10 +245,20 @@ public class FragmentQuickSetup extends FragmentBase {
             }
         });
 
+        btnManual.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                v.getContext().startActivity(new Intent(v.getContext(), ActivitySetup.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                        .putExtra("manual", true)
+                        .putExtra("scroll", true));
+            }
+        });
+
         btnSupport.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Helper.view(v.getContext(), Helper.getSupportUri(v.getContext()), false);
+                Helper.view(v.getContext(), Helper.getSupportUri(v.getContext(), "Quick:support"), false);
             }
         });
 
@@ -230,14 +268,20 @@ public class FragmentQuickSetup extends FragmentBase {
         tvSmtpFingerprint.setText(null);
         pbCheck.setVisibility(View.GONE);
         tvPatience.setVisibility(View.GONE);
+        tvProgress.setVisibility(View.GONE);
         pbSave.setVisibility(View.GONE);
+        tvArgument.setVisibility(View.GONE);
+        tvErrorHint.setVisibility(View.GONE);
         tvInstructions.setVisibility(View.GONE);
         tvInstructions.setMovementMethod(LinkMovementMethod.getInstance());
         btnHelp.setVisibility(View.GONE);
+        cbUpdate.setChecked(update);
+        cbUpdate.setVisibility(View.GONE);
         btnSave.setVisibility(View.GONE);
         grpSetup.setVisibility(View.GONE);
         grpCertificate.setVisibility(View.GONE);
         grpError.setVisibility(View.GONE);
+        grpManual.setVisibility(View.GONE);
 
         if (savedInstanceState != null) {
             tilPassword.getEditText().setText(savedInstanceState.getString("fair:password"));
@@ -250,10 +294,44 @@ public class FragmentQuickSetup extends FragmentBase {
     }
 
     private void onSave(boolean check) {
+        String name = etName.getText().toString().trim();
+        String email = etEmail.getText().toString().trim();
+        String password = tilPassword.getEditText().getText().toString();
+        String warning = null;
+        if (TextUtils.isEmpty(name))
+            warning = getString(R.string.title_no_name);
+        else if (TextUtils.isEmpty(email))
+            warning = getString(R.string.title_no_email);
+        else if (!Helper.EMAIL_ADDRESS.matcher(email).matches())
+            warning = getString(R.string.title_email_invalid, email);
+        else if (TextUtils.isEmpty(password))
+            warning = getString(R.string.title_no_password);
+        else {
+            ConnectivityManager cm = Helper.getSystemService(getContext(), ConnectivityManager.class);
+            NetworkInfo ani = (cm == null ? null : cm.getActiveNetworkInfo());
+            if (ani == null || !ani.isConnected())
+                warning = getString(R.string.title_no_internet);
+        }
+
+        if (warning != null) {
+            tvArgument.setText(warning);
+            tvArgument.setVisibility(View.VISIBLE);
+            getMainHandler().post(new Runnable() {
+                @Override
+                public void run() {
+                    if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                        return;
+                    scroll.smoothScrollTo(0, tvArgument.getBottom());
+                }
+            });
+            return;
+        }
+
         Bundle args = new Bundle();
-        args.putString("name", etName.getText().toString().trim());
-        args.putString("email", etEmail.getText().toString().trim());
-        args.putString("password", tilPassword.getEditText().getText().toString());
+        args.putString("name", name);
+        args.putString("email", email);
+        args.putString("password", password);
+        args.putBoolean("update", cbUpdate.isChecked());
         args.putBoolean("check", check);
         args.putParcelable("best", bestProvider);
 
@@ -267,8 +345,12 @@ public class FragmentQuickSetup extends FragmentBase {
                 tvPatience.setVisibility(check ? View.VISIBLE : View.GONE);
                 pbSave.setVisibility(check ? View.GONE : View.VISIBLE);
                 grpError.setVisibility(View.GONE);
+                grpManual.setVisibility(View.GONE);
+                tvArgument.setVisibility(View.GONE);
+                tvErrorHint.setVisibility(View.GONE);
                 tvInstructions.setVisibility(View.GONE);
                 btnHelp.setVisibility(View.GONE);
+                cbUpdate.setVisibility(check ? View.GONE : View.VISIBLE);
                 btnSave.setVisibility(check ? View.GONE : View.VISIBLE);
                 grpSetup.setVisibility(check ? View.GONE : View.VISIBLE);
                 if (check)
@@ -280,6 +362,7 @@ public class FragmentQuickSetup extends FragmentBase {
                 Helper.setViewsEnabled(view, true);
                 pbCheck.setVisibility(View.GONE);
                 tvPatience.setVisibility(View.GONE);
+                tvProgress.setVisibility(View.GONE);
                 pbSave.setVisibility(View.GONE);
             }
 
@@ -291,33 +374,26 @@ public class FragmentQuickSetup extends FragmentBase {
                 boolean check = args.getBoolean("check");
                 EmailProvider best = args.getParcelable("best");
 
-                if (TextUtils.isEmpty(name))
-                    throw new IllegalArgumentException(context.getString(R.string.title_no_name));
-                if (TextUtils.isEmpty(email))
-                    throw new IllegalArgumentException(context.getString(R.string.title_no_email));
-                if (!Helper.EMAIL_ADDRESS.matcher(email).matches())
-                    throw new IllegalArgumentException(context.getString(R.string.title_email_invalid, email));
-                if (TextUtils.isEmpty(password))
-                    throw new IllegalArgumentException(context.getString(R.string.title_no_password));
-
                 int at = email.indexOf('@');
                 String username = email.substring(0, at);
-
-                ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-                NetworkInfo ani = (cm == null ? null : cm.getActiveNetworkInfo());
-                if (ani == null || !ani.isConnected())
-                    throw new IllegalArgumentException(context.getString(R.string.title_no_internet));
 
                 Throwable fail = null;
                 List<EmailProvider> providers;
                 if (best == null)
-                    providers = EmailProvider.fromEmail(context, email, EmailProvider.Discover.ALL);
+                    providers = EmailProvider.fromEmail(context, email, EmailProvider.Discover.ALL,
+                            new EmailProvider.IDiscovery() {
+                                @Override
+                                public void onStatus(String status) {
+                                    postProgress(status);
+                                }
+                            });
                 else
                     providers = Arrays.asList(best);
                 for (EmailProvider provider : providers)
                     try {
                         EntityLog.log(context, "Checking" +
                                 " imap=" + provider.imap + " smtp=" + provider.smtp);
+                        postProgress(provider.imap + "/" + provider.smtp);
 
                         if (fail == null)
                             args.putParcelable("provider", provider);
@@ -325,9 +401,12 @@ public class FragmentQuickSetup extends FragmentBase {
                         List<String> users;
                         if (provider.user == EmailProvider.UserType.LOCAL)
                             users = Arrays.asList(username, email);
-                        else if (provider.user == EmailProvider.UserType.VALUE)
-                            users = Arrays.asList(provider.username, email, username);
-                        else
+                        else if (provider.user == EmailProvider.UserType.VALUE) {
+                            String user = provider.username;
+                            if (user.startsWith("*@"))
+                                user = username + user.substring(1);
+                            users = Arrays.asList(user, email, username);
+                        } else
                             users = Arrays.asList(email, username);
                         Log.i("User type=" + provider.user +
                                 " users=" + TextUtils.join(", ", users));
@@ -342,7 +421,8 @@ public class FragmentQuickSetup extends FragmentBase {
                         String aprotocol = (provider.imap.starttls ? "imap" : "imaps");
                         int aencryption = (provider.imap.starttls ? EmailService.ENCRYPTION_STARTTLS : EmailService.ENCRYPTION_SSL);
                         try (EmailService iservice = new EmailService(
-                                context, aprotocol, null, aencryption, false, EmailService.PURPOSE_CHECK, true)) {
+                                context, aprotocol, null, aencryption, false, false,
+                                EmailService.PURPOSE_CHECK, true)) {
                             List<Throwable> exceptions = new ArrayList<>();
                             for (int i = 0; i < users.size(); i++) {
                                 user = users.get(i);
@@ -379,27 +459,78 @@ public class FragmentQuickSetup extends FragmentBase {
 
                             folders = iservice.getFolders();
 
-                            if (folders.size() == 1 &&
-                                    EntityFolder.INBOX.equals(folders.get(0).type))
-                                try {
-                                    Log.i("Creating system folders");
-                                    Store istore = iservice.getStore();
-                                    istore.getFolder(EntityFolder.DRAFTS).create(Folder.HOLDS_FOLDERS);
-                                    istore.getFolder(EntityFolder.SENT).create(Folder.HOLDS_FOLDERS);
-                                    istore.getFolder(EntityFolder.ARCHIVE).create(Folder.HOLDS_FOLDERS);
-                                    istore.getFolder(EntityFolder.TRASH).create(Folder.HOLDS_FOLDERS);
-                                    istore.getFolder(EntityFolder.JUNK).create(Folder.HOLDS_FOLDERS);
-                                    folders = iservice.getFolders();
-                                } catch (Throwable ex) {
-                                    Log.e(ex);
-                                }
+                            if (!check) {
+                                boolean drafts = false;
+                                boolean sent = false;
+                                boolean archive = false;
+                                boolean trash = false;
+                                boolean junk = false;
+                                boolean other = false;
+                                for (EntityFolder folder : folders)
+                                    switch (folder.type) {
+                                        case EntityFolder.DRAFTS:
+                                            drafts = true;
+                                            break;
+                                        case EntityFolder.SENT:
+                                            sent = true;
+                                            break;
+                                        case EntityFolder.ARCHIVE:
+                                            archive = true;
+                                            break;
+                                        case EntityFolder.TRASH:
+                                            trash = true;
+                                            break;
+                                        case EntityFolder.JUNK:
+                                            junk = true;
+                                            break;
+                                        default:
+                                            other = true;
+                                            break;
+                                    }
+
+                                if (!other && !(drafts && sent && archive && trash && junk))
+                                    try {
+                                        Store istore = iservice.getStore();
+
+                                        String n = "";
+                                        Folder[] ns = istore.getPersonalNamespaces();
+                                        if (ns != null && ns.length == 1) {
+                                            n = ns[0].getFullName();
+                                            if (!TextUtils.isEmpty(n))
+                                                n += ns[0].getSeparator();
+                                        }
+
+                                        Log.i("Creating system folders" +
+                                                " namespace=" + n +
+                                                " drafts=" + drafts +
+                                                " sent=" + sent +
+                                                " archive=" + archive +
+                                                " trash=" + trash +
+                                                " junk=" + junk);
+
+                                        if (!drafts)
+                                            istore.getFolder(n + EntityFolder.DRAFTS).create(Folder.HOLDS_MESSAGES);
+                                        if (!sent)
+                                            istore.getFolder(n + EntityFolder.SENT).create(Folder.HOLDS_MESSAGES);
+                                        if (!archive)
+                                            istore.getFolder(n + EntityFolder.ARCHIVE).create(Folder.HOLDS_MESSAGES);
+                                        if (!trash)
+                                            istore.getFolder(n + EntityFolder.TRASH).create(Folder.HOLDS_MESSAGES);
+                                        if (!junk)
+                                            istore.getFolder(n + EntityFolder.JUNK).create(Folder.HOLDS_MESSAGES);
+
+                                        folders = iservice.getFolders();
+                                    } catch (Throwable ex) {
+                                        Log.e(ex);
+                                    }
+                            }
                         }
 
                         Long max_size;
                         String iprotocol = (provider.smtp.starttls ? "smtp" : "smtps");
                         int iencryption = (provider.smtp.starttls ? EmailService.ENCRYPTION_STARTTLS : EmailService.ENCRYPTION_SSL);
                         try (EmailService iservice = new EmailService(
-                                context, iprotocol, null, iencryption, false,
+                                context, iprotocol, null, iencryption, false, false,
                                 EmailService.PURPOSE_CHECK, true)) {
                             iservice.setUseIp(provider.useip, null);
                             try {
@@ -428,82 +559,95 @@ public class FragmentQuickSetup extends FragmentBase {
                             return provider;
                         }
 
+                        EntityAccount update = null;
                         DB db = DB.getInstance(context);
                         try {
                             db.beginTransaction();
 
                             EntityAccount primary = db.account().getPrimaryAccount();
 
-                            // Create account
-                            EntityAccount account = new EntityAccount();
-
-                            account.host = provider.imap.host;
-                            account.encryption = aencryption;
-                            account.port = provider.imap.port;
-                            account.auth_type = AUTH_TYPE_PASSWORD;
-                            account.user = user;
-                            account.password = password;
-                            account.fingerprint = imap_fingerprint;
-
-                            account.name = provider.name + "/" + username;
-
-                            account.synchronize = true;
-                            account.primary = (primary == null);
-
-                            if (provider.keepalive > 0)
-                                account.poll_interval = provider.keepalive;
-
-                            account.partial_fetch = provider.partial;
-
-                            account.created = new Date().getTime();
-                            account.last_connected = account.created;
-
-                            account.id = db.account().insertAccount(account);
-                            args.putLong("account", account.id);
-                            EntityLog.log(context, "Quick added account=" + account.name);
-
-                            // Create folders
-                            for (EntityFolder folder : folders) {
-                                EntityFolder existing = db.folder().getFolderByName(account.id, folder.name);
-                                if (existing == null) {
-                                    folder.account = account.id;
-                                    folder.setSpecials(account);
-                                    folder.id = db.folder().insertFolder(folder);
-                                    EntityLog.log(context, "Quick added folder=" + folder.name + " type=" + folder.type);
-                                    if (folder.synchronize)
-                                        EntityOperation.sync(context, folder.id, true);
-                                }
+                            if (args.getBoolean("update")) {
+                                List<EntityAccount> accounts = db.account().getAccounts(user, EntityAccount.TYPE_IMAP);
+                                if (accounts != null && accounts.size() == 1)
+                                    update = accounts.get(0);
                             }
 
-                            // Set swipe left/right folder
-                            for (EntityFolder folder : folders)
-                                if (EntityFolder.TRASH.equals(folder.type))
-                                    account.swipe_left = folder.id;
-                                else if (EntityFolder.ARCHIVE.equals(folder.type))
-                                    account.swipe_right = folder.id;
+                            if (update == null) {
+                                // Create account
+                                EntityAccount account = new EntityAccount();
 
-                            db.account().updateAccount(account);
+                                account.host = provider.imap.host;
+                                account.encryption = aencryption;
+                                account.port = provider.imap.port;
+                                account.auth_type = AUTH_TYPE_PASSWORD;
+                                account.user = user;
+                                account.password = password;
+                                account.fingerprint = imap_fingerprint;
 
-                            // Create identity
-                            EntityIdentity identity = new EntityIdentity();
-                            identity.name = name;
-                            identity.email = email;
-                            identity.account = account.id;
+                                account.name = provider.name + "/" + username;
 
-                            identity.host = provider.smtp.host;
-                            identity.encryption = iencryption;
-                            identity.port = provider.smtp.port;
-                            identity.auth_type = AUTH_TYPE_PASSWORD;
-                            identity.user = user;
-                            identity.password = password;
-                            identity.fingerprint = smtp_fingerprint;
-                            identity.use_ip = provider.useip;
-                            identity.synchronize = true;
-                            identity.primary = true;
-                            identity.max_size = max_size;
+                                account.synchronize = true;
+                                account.primary = (primary == null);
 
-                            identity.id = db.identity().insertIdentity(identity);
-                            EntityLog.log(context, "Quick added identity=" + identity.name + " email=" + identity.email);
+                                if (provider.keepalive > 0)
+                                    account.poll_interval = provider.keepalive;
+                                account.keep_alive_noop = provider.noop;
+
+                                account.partial_fetch = provider.partial;
+                                account.raw_fetch = provider.raw;
+
+                                account.created = new Date().getTime();
+                                account.last_connected = account.created;
+
+                                account.id = db.account().insertAccount(account);
+                                args.putLong("account", account.id);
+                                EntityLog.log(context, "Quick added account=" + account.name);
+
+                                // Create folders
+                                for (EntityFolder folder : folders) {
+                                    EntityFolder existing = db.folder().getFolderByName(account.id, folder.name);
+                                    if (existing == null) {
+                                        folder.account = account.id;
+                                        folder.setSpecials(account);
+                                        folder.id = db.folder().insertFolder(folder);
+                                        EntityLog.log(context, "Quick added folder=" + folder.name + " type=" + folder.type);
+                                        if (folder.synchronize)
+                                            EntityOperation.sync(context, folder.id, true);
+                                    }
+                                }
+
+                                // Set swipe left/right folder
+                                FragmentDialogSwipes.setDefaultFolderActions(context, account);
+
+                                // Create identity
+                                EntityIdentity identity = new EntityIdentity();
+                                identity.name = name;
+                                identity.email = email;
+                                identity.account = account.id;
+
+                                identity.host = provider.smtp.host;
+                                identity.encryption = iencryption;
+                                identity.port = provider.smtp.port;
+                                identity.auth_type = AUTH_TYPE_PASSWORD;
+                                identity.user = user;
+                                identity.password = password;
+                                identity.fingerprint = smtp_fingerprint;
+                                identity.use_ip = provider.useip;
+                                identity.synchronize = true;
+                                identity.primary = true;
+                                identity.max_size = max_size;
+
+                                identity.id = db.identity().insertIdentity(identity);
+                                EntityLog.log(context, "Quick added identity=" + identity.name + " email=" + identity.email);
+                            } else {
+                                args.putLong("account", update.id);
+                                EntityLog.log(context, "Quick setup update account=" + update.name);
+                                db.account().setAccountSynchronize(update.id, true);
+                                db.account().setAccountPassword(update.id, password, AUTH_TYPE_PASSWORD, null);
+                                db.account().setAccountFingerprint(update.id, imap_fingerprint);
+                                db.identity().setIdentityPassword(update.id, update.user, password, update.auth_type, AUTH_TYPE_PASSWORD, null);
+                                db.identity().setIdentityFingerprint(update.id, smtp_fingerprint);
+                            }
 
                             db.setTransactionSuccessful();
                         } finally {
@@ -511,6 +655,8 @@ public class FragmentQuickSetup extends FragmentBase {
                         }
 
                         ServiceSynchronize.eval(context, "quick setup");
+                        args.putBoolean("updated", update != null);
+
                         return provider;
                     } catch (Throwable ex) {
                         Log.w(ex);
@@ -525,6 +671,12 @@ public class FragmentQuickSetup extends FragmentBase {
             }
 
             @Override
+            protected void onProgress(CharSequence status, Bundle data) {
+                tvProgress.setText(status);
+                tvProgress.setVisibility(View.VISIBLE);
+            }
+
+            @Override
             protected void onExecuted(Bundle args, EmailProvider result) {
                 setManual(false);
 
@@ -534,10 +686,16 @@ public class FragmentQuickSetup extends FragmentBase {
                     bestArgs = args;
                     showResult(bestProvider, bestArgs);
                 } else {
-                    FragmentDialogAccount fragment = new FragmentDialogAccount();
-                    fragment.setArguments(args);
-                    fragment.setTargetFragment(FragmentQuickSetup.this, ActivitySetup.REQUEST_DONE);
-                    fragment.show(getParentFragmentManager(), "quick:review");
+                    boolean updated = args.getBoolean("updated");
+                    if (updated) {
+                        finish();
+                        ToastEx.makeText(getContext(), R.string.title_setup_oauth_updated, Toast.LENGTH_LONG).show();
+                    } else {
+                        FragmentDialogAccount fragment = new FragmentDialogAccount();
+                        fragment.setArguments(args);
+                        fragment.setTargetFragment(FragmentQuickSetup.this, ActivitySetup.REQUEST_DONE);
+                        fragment.show(getParentFragmentManager(), "quick:review");
+                    }
                 }
             }
 
@@ -556,8 +714,11 @@ public class FragmentQuickSetup extends FragmentBase {
                     if (provider != null && provider.appPassword)
                         message += "\n\n" + getString(R.string.title_setup_app_password_hint);
                     tvErrorHint.setText(message);
+                    tvErrorHint.setVisibility(View.VISIBLE);
+                    if (provider == null)
+                        grpManual.setVisibility(View.VISIBLE);
                 } else
-                    tvErrorHint.setText(R.string.title_setup_no_settings_hint);
+                    grpManual.setVisibility(View.VISIBLE);
 
                 if (ex instanceof IllegalArgumentException || ex instanceof UnknownHostException) {
                     tvError.setText(ex.getMessage());
@@ -588,7 +749,7 @@ public class FragmentQuickSetup extends FragmentBase {
 
                     if (provider != null &&
                             provider.imap != null && provider.smtp != null) {
-                        tvUser.setText("-");
+                        tvUser.setText(TextUtils.isEmpty(provider.username) ? "-" : provider.username);
                         tvImap.setText(provider.imap.toString());
                         tvSmtp.setText(provider.smtp.toString());
                         grpSetup.setVisibility(View.VISIBLE);
@@ -660,6 +821,7 @@ public class FragmentQuickSetup extends FragmentBase {
                 imap_certificate == null && smtp_certificate == null
                         ? View.GONE : View.VISIBLE);
 
+        cbUpdate.setVisibility(provider == null ? View.GONE : View.VISIBLE);
         btnSave.setVisibility(provider == null ? View.GONE : View.VISIBLE);
     }
 

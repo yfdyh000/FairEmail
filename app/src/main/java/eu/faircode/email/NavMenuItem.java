@@ -16,22 +16,23 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import java.util.Objects;
+import java.util.concurrent.Callable;
 
 public class NavMenuItem {
     private int icon;
     private Integer color;
     private int title;
     private String subtitle = null;
-    private int extraicon;
+    private int extra_icon;
     private Integer count = null;
     private boolean warning = false;
     private boolean separated = false;
     private Runnable click;
-    private Runnable longClick;
+    private Callable<Boolean> longClick;
 
     NavMenuItem(int icon, int title, Runnable click) {
         this.icon = icon;
@@ -39,7 +40,7 @@ public class NavMenuItem {
         this.click = click;
     }
 
-    NavMenuItem(int icon, int title, Runnable click, Runnable longClick) {
+    NavMenuItem(int icon, int title, Runnable click, Callable<Boolean> longClick) {
         this.icon = icon;
         this.title = title;
         this.click = click;
@@ -57,7 +58,7 @@ public class NavMenuItem {
     }
 
     NavMenuItem setExtraIcon(int icon) {
-        this.extraicon = icon;
+        this.extra_icon = icon;
         return this;
     }
 
@@ -99,19 +100,19 @@ public class NavMenuItem {
     }
 
     int getExtraIcon() {
-        return this.extraicon;
+        return this.extra_icon;
     }
 
     Integer getCount() {
         return this.count;
     }
 
-    boolean isSeparated() {
-        return this.separated;
-    }
-
     boolean hasWarning() {
         return this.warning;
+    }
+
+    boolean isSeparated() {
+        return this.separated;
     }
 
     void onClick() {
@@ -124,13 +125,11 @@ public class NavMenuItem {
 
     boolean onLongClick() {
         try {
-            if (longClick != null)
-                longClick.run();
-            return (longClick != null);
+            return (longClick != null && longClick.call());
         } catch (Throwable ex) {
             Log.e(ex);
-            return false;
         }
+        return false;
     }
 
     @Override
@@ -141,7 +140,7 @@ public class NavMenuItem {
                     Objects.equals(this.color, other.color) &&
                     this.title == other.title &&
                     Objects.equals(this.subtitle, other.subtitle) &&
-                    this.extraicon == other.extraicon &&
+                    this.extra_icon == other.extra_icon &&
                     Objects.equals(this.count, other.count) &&
                     this.warning == other.warning &&
                     this.separated == other.separated);
@@ -151,6 +150,6 @@ public class NavMenuItem {
 
     @Override
     public int hashCode() {
-        return Objects.hash(icon, color, title, subtitle, extraicon, count, warning, separated);
+        return Objects.hash(icon, color, title, subtitle, extra_icon, count, warning, separated);
     }
 }

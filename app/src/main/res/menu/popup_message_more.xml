@@ -62,24 +62,14 @@
 
     <group android:id="@+id/group_properties">
         <item
-            android:id="@+id/menu_edit_notes"
-            android:icon="@drawable/twotone_sticky_note_2_24"
-            android:title="@string/title_edit_notes" />
-
-        <item
-            android:id="@+id/menu_create_rule"
-            android:icon="@drawable/twotone_filter_alt_24"
-            android:title="@string/title_create_rule" />
-
-        <item
             android:id="@+id/menu_manage_keywords"
             android:icon="@drawable/twotone_label_important_24"
             android:title="@string/title_manage_keywords" />
 
         <item
-            android:id="@+id/menu_search_in_text"
-            android:icon="@drawable/twotone_manage_search_24"
-            android:title="@string/title_search_in_text" />
+            android:id="@+id/menu_edit_notes"
+            android:icon="@drawable/twotone_sticky_note_2_24"
+            android:title="@string/title_edit_notes" />
 
         <item
             android:id="@+id/menu_translate"
@@ -91,18 +81,33 @@
             android:checkable="true"
             android:icon="@drawable/twotone_light_mode_24"
             android:title="@string/title_force_light" />
+
+        <item
+            android:id="@+id/menu_search_in_text"
+            android:icon="@drawable/twotone_manage_search_24"
+            android:title="@string/title_search_in_text" />
+
+        <item
+            android:id="@+id/menu_create_rule"
+            android:icon="@drawable/twotone_filter_alt_24"
+            android:title="@string/title_create_rule" />
     </group>
 
     <group android:id="@+id/group_sharing">
         <item
             android:id="@+id/menu_event"
-            android:icon="@drawable/twotone_event_24"
+            android:icon="@drawable/twotone_edit_calendar_24"
             android:title="@string/title_event" />
 
         <item
             android:id="@+id/menu_share"
             android:icon="@drawable/twotone_share_24"
             android:title="@string/title_share" />
+
+        <item
+            android:id="@+id/menu_share_link"
+            android:icon="@drawable/twotone_insert_link_45_24"
+            android:title="@string/title_share_link" />
 
         <item
             android:id="@+id/menu_pin"
@@ -119,7 +124,7 @@
         <item
             android:id="@+id/menu_show_headers"
             android:checkable="true"
-            android:icon="@drawable/baseline_code_24"
+            android:icon="@drawable/twotone_code_24"
             android:title="@string/title_show_headers" />
 
         <item
@@ -135,7 +140,7 @@
 
         <item
             android:id="@+id/menu_raw_send"
-            android:icon="@drawable/twotone_attachment_24"
+            android:icon="@drawable/twotone_attach_email_24"
             android:title="@string/title_raw_send">
             <menu>
                 <item
@@ -156,9 +161,19 @@
             android:title="@string/title_thread_info" />
 
         <item
+            android:id="@+id/menu_reset_questions"
+            android:icon="@drawable/twotone_restart_alt_24"
+            android:title="@string/title_reset_message_questions" />
+
+        <item
             android:id="@+id/menu_resync"
             android:icon="@drawable/twotone_sync_24"
             android:title="@string/title_resync" />
+
+        <item
+            android:id="@+id/menu_charset"
+            android:icon="@drawable/twotone_abc_24"
+            android:title="@string/title_charset" />
 
         <item
             android:id="@+id/menu_alternative"

@@ -830,7 +830,8 @@ public class IMAPMessage extends MimeMessage implements ReadableMime {
 		 * FETCH the components of nested messages
 		 */
 		dh = new DataHandler(
-			    new IMAPNestedMessage(this, 
+			    new IMAPNestedMessage(this,
+				bs.encoding,
 				bs.bodies[0], 
 				bs.envelope,
 				sectionId == null ? "1" : sectionId + ".1"),
@@ -912,6 +913,11 @@ public class IMAPMessage extends MimeMessage implements ReadableMime {
 	    return;
 	}
 	InputStream is = getMimeStream();
+	if (this instanceof IMAPNestedMessage) {
+		String encoding = getEncoding();
+		if (encoding != null)
+			is = MimeUtility.decode(is, encoding);
+	}
 	try {
 	    // write out the bytes
 	    byte[] bytes = new byte[16*1024];
@@ -972,7 +978,7 @@ public class IMAPMessage extends MimeMessage implements ReadableMime {
 
 	if (headers == null)
 	    headers = new InternetHeaders();
-	headers.load(is); // load this header into the Headers object.
+	headers.load(is, allowutf8); // load this header into the Headers object.
 	setHeaderLoaded(name); // Mark this header as loaded
 
 	return headers.getHeader(name);
@@ -1184,6 +1190,7 @@ public class IMAPMessage extends MimeMessage implements ReadableMime {
 	subject = null;
 	description = null;
 	flags = null;
+	dh = null;
 	content = null;
 	contentStream = null;
 	bodyLoaded = false;
@@ -1359,7 +1366,7 @@ public class IMAPMessage extends MimeMessage implements ReadableMime {
 		// instead of a string just containing a CR/LF
 		// when the header list is empty.
 		if (headerStream != null)
-		    h.load(headerStream);
+		    h.load(headerStream, allowutf8);
 		if (headers == null || allHeaders)
 		    headers = h;
 		else {
@@ -1628,7 +1635,7 @@ public class IMAPMessage extends MimeMessage implements ReadableMime {
 
 	if (is == null)
 	    throw new MessagingException("Cannot load header");
-	headers = new InternetHeaders(is);
+	headers = new InternetHeaders(is, allowutf8);
 	headersLoaded = true;
     }
 
@@ -1765,7 +1772,7 @@ public class IMAPMessage extends MimeMessage implements ReadableMime {
                 envelope.cc == null &&
                 envelope.inReplyTo == null &&
                 envelope.messageId == null &&
-                headersLoaded && (loadedHeaders == null || loadedHeaders.size() == 0)) {
+                headersLoaded && (headers == null || !headers.getAllHeaders().hasMoreElements())) {
 			eu.faircode.email.Log.w("Expunged workaround host=" + ((IMAPStore) folder.getStore()).host);
 			return true;
 		}

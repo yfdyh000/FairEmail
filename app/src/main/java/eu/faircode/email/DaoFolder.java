@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import androidx.lifecycle.LiveData;
@@ -120,8 +120,11 @@ public interface DaoFolder {
             " GROUP BY folder.id")
     LiveData<List<TupleFolderEx>> liveUnified(String type);
 
-    @Query("SELECT account, id AS folder, unified, sync_state FROM folder" +
-            " WHERE sync_state IS NOT NULL" +
+    @Query("SELECT folder.account, folder.id AS folder, unified, sync_state" +
+            " FROM folder" +
+            " JOIN account ON account.id = folder.account" +
+            " WHERE account.`synchronize`" +
+            " AND sync_state IS NOT NULL" +
             " AND folder.type <> '" + EntityFolder.OUTBOX + "'")
     LiveData<List<TupleFolderSync>> liveSynchronizing();
 
@@ -177,7 +180,8 @@ public interface DaoFolder {
             " ORDER BY name COLLATE NOCASE")
     List<EntityFolder> getChildFolders(long parent);
 
-    @Query("SELECT folder.type" +
+    @Query("SELECT folder.type, folder.unified" +
+            ", COUNT(DISTINCT folder.id) AS folders" +
             ", COUNT(message.id) AS messages" +
             ", SUM(CASE WHEN NOT message.ui_seen THEN 1 ELSE 0 END) AS unseen" +
             ", CASE WHEN folder.account IS NULL THEN folder.sync_state ELSE NULL END AS sync_state" +
@@ -186,9 +190,10 @@ public interface DaoFolder {
             " LEFT JOIN account ON account.id = folder.account" +
             " LEFT JOIN message ON message.folder = folder.id AND NOT message.ui_hide" +
             " WHERE (account.id IS NULL OR account.synchronize)" +
-            " AND folder.type <> '" + EntityFolder.SYSTEM + "'" +
-            " AND folder.type <> '" + EntityFolder.USER + "'" +
-            " GROUP BY folder.type")
+            " AND ((folder.type <> '" + EntityFolder.SYSTEM + "'" +
+            " AND folder.type <> '" + EntityFolder.USER + "')" +
+            " OR folder.unified)" +
+            " GROUP BY folder.type, folder.unified")
     LiveData<List<TupleFolderUnified>> liveUnified();
 
     @Query("SELECT * FROM folder" +
@@ -219,7 +224,10 @@ public interface DaoFolder {
             " WHERE account = :account AND type = :type")
     EntityFolder getFolderByType(long account, String type);
 
-    @Query("SELECT * FROM folder WHERE type = :type")
+    @Query("SELECT folder.* FROM folder" +
+            " JOIN account ON account.id = folder.account" +
+            " WHERE account.synchronize" +
+            " AND type = :type")
     List<EntityFolder> getFoldersByType(String type);
 
     @Query("SELECT folder.* FROM folder" +
@@ -270,6 +278,11 @@ public interface DaoFolder {
     @Query("UPDATE folder SET total = :total WHERE id = :id AND NOT (total IS :total)")
     int setFolderTotal(long id, Integer total);
 
+    @Query("UPDATE folder SET total = :total, last_sync = :last_sync" +
+            " WHERE id = :id" +
+            " AND NOT (total IS :total AND last_sync IS :last_sync)")
+    int setFolderTotal(long id, Integer total, Long last_sync);
+
     @Query("UPDATE folder SET error = :error WHERE id = :id AND NOT (error IS :error)")
     int setFolderError(long id, String error);
 
@@ -287,6 +300,12 @@ public interface DaoFolder {
 
     @Query("UPDATE folder SET type = :type WHERE id = :id AND NOT (type IS :type)")
     int setFolderType(long id, String type);
+
+    @Query("UPDATE folder SET inherited_type = :type WHERE id = :id AND NOT (inherited_type IS :type)")
+    int setFolderInheritedType(long id, String type);
+
+    @Query("UPDATE folder SET subtype = :subtype WHERE id = :id AND NOT (subtype IS :subtype)")
+    int setFolderSubtype(long id, String subtype);
 
     @Query("UPDATE folder SET `order` = :order WHERE id = :id AND NOT (`order` IS :order)")
     int setFolderOrder(long id, Integer order);
@@ -311,8 +330,10 @@ public interface DaoFolder {
             ", color = :color" +
             ", unified = :unified" +
             ", navigation = :navigation" +
+            ", count_unread = :count_unread" +
             ", notify = :notify" +
             ", hide = :hide" +
+            ", hide_seen = :hide_seen" +
             ", synchronize = :synchronize" +
             ", poll = :poll" +
             ", poll_factor = :poll_factor" +
@@ -325,7 +346,9 @@ public interface DaoFolder {
             " WHERE id = :id")
     int setFolderProperties(
             long id, String rename,
-            String display, Integer color, boolean unified, boolean navigation, boolean notify, boolean hide,
+            String display, Integer color, boolean unified,
+            boolean navigation, boolean count_unread, boolean notify,
+            boolean hide, boolean hide_seen,
             boolean synchronize, boolean poll, int poll_factor, boolean download,
             boolean auto_classify_source, boolean auto_classify_target,
             int sync_days, int keep_days, boolean auto_delete);
@@ -335,6 +358,9 @@ public interface DaoFolder {
             " WHERE id = :id" +
             " AND NOT (sync_days IS :sync_days AND keep_days IS :keep_days)")
     int setFolderProperties(long id, int sync_days, int keep_days);
+
+    @Query("UPDATE folder SET flags = :flags WHERE id = :id AND NOT (flags IS :flags)")
+    int setFolderFlags(long id, String flags);
 
     @Query("UPDATE folder SET keywords = :keywords WHERE id = :id AND NOT (keywords IS :keywords)")
     int setFolderKeywords(long id, String keywords);
@@ -392,6 +418,9 @@ public interface DaoFolder {
 
     @Query("UPDATE folder SET download = :download WHERE id = :id AND NOT (download IS :download)")
     int setFolderDownload(long id, boolean download);
+
+    @Query("UPDATE folder SET hide = :hide WHERE id = :id AND NOT (hide IS :hide)")
+    int setFolderHide(long id, boolean hide);
 
     @Query("UPDATE folder" +
             " SET auto_classify_source = :source, auto_classify_target = :target" +

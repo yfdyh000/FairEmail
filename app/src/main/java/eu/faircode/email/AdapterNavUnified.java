@@ -16,13 +16,14 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Typeface;
+import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -41,7 +42,10 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 public class AdapterNavUnified extends RecyclerView.Adapter<AdapterNavUnified.ViewHolder> {
     private Context context;
@@ -49,6 +53,7 @@ public class AdapterNavUnified extends RecyclerView.Adapter<AdapterNavUnified.Vi
     private LayoutInflater inflater;
 
     private boolean nav_count;
+    private boolean nav_count_pinned;
     private boolean nav_unseen_drafts;
     private int colorUnread;
     private int textColorSecondary;
@@ -62,6 +67,7 @@ public class AdapterNavUnified extends RecyclerView.Adapter<AdapterNavUnified.Vi
         private View view;
         private ImageView ivItem;
         private ImageView ivBadge;
+        private TextView tvCount;
         private TextView tvItem;
         private TextView tvItemExtra;
         private ImageView ivExtra;
@@ -73,6 +79,7 @@ public class AdapterNavUnified extends RecyclerView.Adapter<AdapterNavUnified.Vi
             view = itemView.findViewById(R.id.clItem);
             ivItem = itemView.findViewById(R.id.ivItem);
             ivBadge = itemView.findViewById(R.id.ivBadge);
+            tvCount = itemView.findViewById(R.id.tvCount);
             tvItem = itemView.findViewById(R.id.tvItem);
             tvItemExtra = itemView.findViewById(R.id.tvItemExtra);
             ivExtra = itemView.findViewById(R.id.ivExtra);
@@ -88,8 +95,12 @@ public class AdapterNavUnified extends RecyclerView.Adapter<AdapterNavUnified.Vi
         }
 
         private void bindTo(TupleFolderUnified folder) {
-            if (EntityFolder.INBOX.equals(folder.type))
+            if (folder.type == null)
                 ivItem.setImageResource(R.drawable.twotone_all_inbox_24);
+            else if (EntityFolder.INBOX.equals(folder.type))
+                ivItem.setImageResource(folder.folders > 1 && !folder.unified
+                        ? R.drawable.twotone_all_inbox_24
+                        : R.drawable.twotone_move_to_inbox_24);
             else if (EntityFolder.OUTBOX.equals(folder.type)) {
                 if ("syncing".equals(folder.sync_state))
                     ivItem.setImageResource(R.drawable.twotone_compare_arrows_24);
@@ -103,7 +114,7 @@ public class AdapterNavUnified extends RecyclerView.Adapter<AdapterNavUnified.Vi
             else
                 ivItem.clearColorFilter();
 
-            long count;
+            int count;
             if (EntityFolder.OUTBOX.equals(folder.type) ||
                     (!nav_unseen_drafts && EntityFolder.DRAFTS.equals(folder.type)))
                 count = folder.messages;
@@ -112,11 +123,17 @@ public class AdapterNavUnified extends RecyclerView.Adapter<AdapterNavUnified.Vi
 
             ivBadge.setVisibility(count == 0 || expanded ? View.GONE : View.VISIBLE);
 
+            tvCount.setText(Helper.formatNumber(count, 99, NF));
+            tvCount.setVisibility(count == 0 || expanded || !nav_count_pinned ? View.GONE : View.VISIBLE);
+
+            String name = (folder.type == null
+                    ? context.getString(R.string.title_folder_unified)
+                    : EntityFolder.localizeType(context, folder.type));
+
             if (count == 0)
-                tvItem.setText(EntityFolder.localizeType(context, folder.type));
+                tvItem.setText(name);
             else
-                tvItem.setText(context.getString(R.string.title_name_count,
-                        EntityFolder.localizeType(context, folder.type), NF.format(count)));
+                tvItem.setText(context.getString(R.string.title_name_count, name, NF.format(count)));
 
             tvItem.setTextColor(count == 0 ? textColorSecondary : colorUnread);
             tvItem.setTypeface(count == 0 ? Typeface.DEFAULT : Typeface.DEFAULT_BOLD);
@@ -136,16 +153,54 @@ public class AdapterNavUnified extends RecyclerView.Adapter<AdapterNavUnified.Vi
                 return;
 
             TupleFolderUnified folder = items.get(pos);
-            if (folder == null || folder.type == null)
+            if (folder == null)
                 return;
 
             LocalBroadcastManager lbm = LocalBroadcastManager.getInstance(context);
             if (EntityFolder.OUTBOX.equals(folder.type))
                 lbm.sendBroadcast(new Intent(ActivityView.ACTION_VIEW_OUTBOX));
-            else
+            else if (folder.folders > 1 || folder.type == null)
                 lbm.sendBroadcast(
                         new Intent(ActivityView.ACTION_VIEW_MESSAGES)
-                                .putExtra("type", folder.type));
+                                .putExtra("type", folder.type)
+                                .putExtra("unified", folder.type == null));
+            else {
+                Bundle args = new Bundle();
+                args.putString("type", folder.type);
+
+                new SimpleTask<EntityFolder>() {
+                    @Override
+                    protected EntityFolder onExecute(Context context, Bundle args) throws Throwable {
+                        String type = args.getString("type");
+
+                        DB db = DB.getInstance(context);
+                        List<EntityFolder> folders = db.folder().getFoldersByType(type);
+
+                        return (folders != null && folders.size() == 1 ? folders.get(0) : null);
+                    }
+
+                    @Override
+                    protected void onExecuted(Bundle args, EntityFolder one) {
+                        if (one == null)
+                            lbm.sendBroadcast(
+                                    new Intent(ActivityView.ACTION_VIEW_MESSAGES)
+                                            .putExtra("type", folder.type));
+                        else
+                            lbm.sendBroadcast(
+                                    new Intent(ActivityView.ACTION_VIEW_MESSAGES)
+                                            .putExtra("account", one.account)
+                                            .putExtra("folder", one.id)
+                                            .putExtra("type", one.type));
+                    }
+
+                    @Override
+                    protected void onException(Bundle args, Throwable ex) {
+                        lbm.sendBroadcast(
+                                new Intent(ActivityView.ACTION_VIEW_MESSAGES)
+                                        .putExtra("type", folder.type));
+                    }
+                }.execute(context, owner, args, "nav:folder");
+            }
         }
     }
 
@@ -156,6 +211,7 @@ public class AdapterNavUnified extends RecyclerView.Adapter<AdapterNavUnified.Vi
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         this.nav_count = prefs.getBoolean("nav_count", false);
+        this.nav_count_pinned = prefs.getBoolean("nav_count_pinned", false);
         this.nav_unseen_drafts = prefs.getBoolean("nav_unseen_drafts", false);
         boolean highlight_unread = prefs.getBoolean("highlight_unread", true);
         int colorHighlight = prefs.getInt("highlight_color", Helper.resolveColor(context, R.attr.colorUnreadHighlight));
@@ -163,8 +219,58 @@ public class AdapterNavUnified extends RecyclerView.Adapter<AdapterNavUnified.Vi
         this.textColorSecondary = Helper.resolveColor(context, android.R.attr.textColorSecondary);
     }
 
-    public void set(@NonNull List<TupleFolderUnified> types, boolean expanded) {
-        Log.i("Set nav unified=" + types.size());
+    public void set(@NonNull List<TupleFolderUnified> folders, boolean expanded) {
+        Log.i("Set nav unified=" + folders.size());
+
+        boolean show = false;
+        Map<String, TupleFolderUnified> map = new HashMap<>();
+        TupleFolderUnified unified = new TupleFolderUnified();
+        for (TupleFolderUnified type : new ArrayList<>(folders)) {
+            TupleFolderUnified f = map.get(type.type);
+            if (!EntityFolder.SYSTEM.equals(type.type) &&
+                    !EntityFolder.USER.equals(type.type))
+                if (f == null)
+                    map.put(type.type, type);
+                else {
+                    f.folders += type.folders;
+                    f.messages += type.messages;
+                    f.unseen += type.unseen;
+
+                    if (Objects.equals(f.color, type.color) ||
+                            (f.color == null && f.folders == type.folders)) {
+                        f.color = type.color;
+                        f.colorCount += type.colorCount;
+                    } else
+                        f.colorCount++;
+                }
+
+            if (type.unified) {
+                unified.folders += type.folders;
+                unified.messages += type.messages;
+                unified.unseen += type.unseen;
+
+                if (Objects.equals(unified.color, type.color) ||
+                        (unified.color == null && unified.folders == type.folders)) {
+                    unified.color = type.color;
+                    unified.colorCount += type.colorCount;
+                } else
+                    unified.colorCount++;
+            }
+
+            if ((EntityFolder.INBOX.equals(type.type) && !type.unified) ||
+                    (!EntityFolder.INBOX.equals(type.type) && type.unified))
+                show = true;
+        }
+
+        TupleFolderUnified inbox = map.get(EntityFolder.INBOX);
+        if (inbox != null)
+            inbox.unified = show;
+
+        List<TupleFolderUnified> types = new ArrayList<>();
+        for (String type : map.keySet())
+            types.add(map.get(type));
+        if (unified.folders > 0 && show)
+            types.add(unified);
 
         Collections.sort(types, new Comparator<TupleFolderUnified>() {
             @Override
@@ -201,7 +307,12 @@ public class AdapterNavUnified extends RecyclerView.Adapter<AdapterNavUnified.Vi
                 Log.d("Changed @" + position + " #" + count);
             }
         });
-        diff.dispatchUpdatesTo(this);
+
+        try {
+            diff.dispatchUpdatesTo(this);
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
     }
 
     public void setExpanded(boolean expanded) {
@@ -232,7 +343,7 @@ public class AdapterNavUnified extends RecyclerView.Adapter<AdapterNavUnified.Vi
         public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
             TupleFolderUnified f1 = prev.get(oldItemPosition);
             TupleFolderUnified f2 = next.get(newItemPosition);
-            return f1.type.equals(f2.type);
+            return (Objects.equals(f1.type, f2.type) && f1.unified == f2.unified);
         }
 
         @Override

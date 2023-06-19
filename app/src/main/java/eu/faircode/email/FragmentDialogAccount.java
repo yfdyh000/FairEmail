@@ -16,11 +16,12 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import static android.app.Activity.RESULT_OK;
 import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_GMAIL;
+import static eu.faircode.email.ServiceAuthenticator.AUTH_TYPE_OAUTH;
 
 import android.app.Dialog;
 import android.content.Context;
@@ -41,6 +42,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.content.ContextCompat;
 import androidx.lifecycle.Observer;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
@@ -68,8 +70,8 @@ public class FragmentDialogAccount extends FragmentDialogBase {
         final Button btnAccount = dview.findViewById(R.id.btnAccount);
         final Button btnGmail = dview.findViewById(R.id.btnGmail);
 
-        final Drawable check = context.getDrawable(R.drawable.twotone_check_24);
-        final Drawable close = context.getDrawable(R.drawable.twotone_close_24);
+        final Drawable check = ContextCompat.getDrawable(context, R.drawable.twotone_check_24);
+        final Drawable close = ContextCompat.getDrawable(context, R.drawable.twotone_close_24);
 
         check.setBounds(0, 0, check.getIntrinsicWidth(), check.getIntrinsicHeight());
         close.setBounds(0, 0, close.getIntrinsicWidth(), close.getIntrinsicHeight());
@@ -91,6 +93,7 @@ public class FragmentDialogAccount extends FragmentDialogBase {
 
         Bundle args = getArguments();
         final long account = args.getLong("account");
+        final boolean pop = args.getBoolean("pop");
 
         ibEditName.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -141,7 +144,7 @@ public class FragmentDialogAccount extends FragmentDialogBase {
                 lbm.sendBroadcast(
                         new Intent(ActivitySetup.ACTION_EDIT_ACCOUNT)
                                 .putExtra("id", account)
-                                .putExtra("protocol", EntityAccount.TYPE_IMAP));
+                                .putExtra("protocol", pop ? EntityAccount.TYPE_POP : EntityAccount.TYPE_IMAP));
                 dismiss();
             }
         });
@@ -164,9 +167,9 @@ public class FragmentDialogAccount extends FragmentDialogBase {
             public void onChanged(EntityAccount account) {
                 tvName.setText(account.name);
                 ibEditName.setEnabled(true);
-                btnGmail.setVisibility(
-                        hasGmail && account.auth_type == AUTH_TYPE_GMAIL
-                                ? View.VISIBLE : View.GONE);
+                boolean isGmail = (account.auth_type == AUTH_TYPE_GMAIL ||
+                        (account.auth_type == AUTH_TYPE_OAUTH && "gmail".equals(account.provider)));
+                btnGmail.setVisibility(hasGmail && isGmail ? View.VISIBLE : View.GONE);
             }
         });
 
@@ -174,8 +177,18 @@ public class FragmentDialogAccount extends FragmentDialogBase {
             @Override
             public void onChanged(List<TupleAccountSwipes> swipes) {
                 if (swipes != null && swipes.size() == 1) {
-                    String left = swipes.get(0).left_name;
-                    String right = swipes.get(0).right_name;
+                    String left;
+                    if (swipes.get(0).swipe_left != null && swipes.get(0).swipe_left < 0)
+                        left = FragmentDialogSwipes.getActionTitle(context, swipes.get(0).swipe_left);
+                    else
+                        left = swipes.get(0).left_name;
+
+                    String right;
+                    if (swipes.get(0).swipe_right != null && swipes.get(0).swipe_right < 0)
+                        right = FragmentDialogSwipes.getActionTitle(context, swipes.get(0).swipe_right);
+                    else
+                        right = swipes.get(0).right_name;
+
                     tvLeft.setText(left == null ? "-" : left);
                     tvRight.setText(right == null ? "-" : right);
                 } else {

@@ -16,10 +16,11 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
+import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -54,6 +55,7 @@ public class AdapterNavSearch extends RecyclerView.Adapter<AdapterNavSearch.View
         private View view;
         private ImageView ivItem;
         private ImageView ivBadge;
+        private TextView tvCount;
         private TextView tvItem;
         private TextView tvItemExtra;
         private ImageView ivExtra;
@@ -65,6 +67,7 @@ public class AdapterNavSearch extends RecyclerView.Adapter<AdapterNavSearch.View
             view = itemView.findViewById(R.id.clItem);
             ivItem = itemView.findViewById(R.id.ivItem);
             ivBadge = itemView.findViewById(R.id.ivBadge);
+            tvCount = itemView.findViewById(R.id.tvCount);
             tvItem = itemView.findViewById(R.id.tvItem);
             tvItemExtra = itemView.findViewById(R.id.tvItemExtra);
             ivExtra = itemView.findViewById(R.id.ivExtra);
@@ -87,6 +90,7 @@ public class AdapterNavSearch extends RecyclerView.Adapter<AdapterNavSearch.View
                 ivItem.setColorFilter(search.color);
 
             ivBadge.setVisibility(View.GONE);
+            tvCount.setVisibility(View.GONE);
             tvItem.setText(search.name);
 
             tvItemExtra.setVisibility(View.GONE);
@@ -104,17 +108,46 @@ public class AdapterNavSearch extends RecyclerView.Adapter<AdapterNavSearch.View
             if (search == null)
                 return;
 
-            try {
-                JSONObject json = new JSONObject(search.data);
-                BoundaryCallbackMessages.SearchCriteria criteria =
-                        BoundaryCallbackMessages.SearchCriteria.fromJSON(json);
-                criteria.id = search.id;
-                FragmentMessages.search(
-                        context, owner, manager,
-                        -1L, -1L, false, criteria);
-            } catch (Throwable ex) {
-                Log.e(ex);
-            }
+            Bundle args = new Bundle();
+            args.putString("account_uuid", search.account_uuid);
+            args.putString("folder_name", search.folder_name);
+
+            new SimpleTask<Long[]>() {
+                @Override
+                protected Long[] onExecute(Context context, Bundle args) throws Throwable {
+                    String account_uuid = args.getString("account_uuid");
+                    String folder_name = args.getString("folder_name");
+
+                    DB db = DB.getInstance(context);
+                    EntityAccount account = db.account().getAccountByUUID(account_uuid);
+                    EntityFolder folder = db.folder().getFolderByName(account == null ? -1L : account.id, folder_name);
+
+                    return new Long[]{account == null ? -1L : account.id, folder == null ? -1L : folder.id};
+                }
+
+                @Override
+                protected void onExecuted(Bundle args, Long[] data) {
+                    try {
+                        JSONObject json = new JSONObject(search.data);
+                        BoundaryCallbackMessages.SearchCriteria criteria =
+                                BoundaryCallbackMessages.SearchCriteria.fromJsonData(json);
+                        criteria.id = search.id;
+                        criteria.name = search.name;
+                        criteria.order = search.order;
+                        criteria.color = search.color;
+                        FragmentMessages.search(
+                                context, owner, manager,
+                                data[0], data[1], false, criteria);
+                    } catch (Throwable ex) {
+                        Log.e(ex);
+                    }
+                }
+
+                @Override
+                protected void onException(Bundle args, Throwable ex) {
+                    Log.unexpectedError(manager, ex);
+                }
+            }.execute(context, owner, args, "search");
         }
     }
 
@@ -136,13 +169,13 @@ public class AdapterNavSearch extends RecyclerView.Adapter<AdapterNavSearch.View
         });
     }
 
-    public void set(@NonNull List<EntitySearch> search, boolean expanded) {
-        Log.i("Set nav search=" + search.size() + " expanded=" + expanded);
+    public void set(@NonNull List<EntitySearch> searches, boolean expanded) {
+        Log.i("Set nav search=" + searches.size() + " expanded=" + expanded);
 
-        DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffCallback(items, search), false);
+        DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffCallback(items, searches), false);
 
         this.expanded = expanded;
-        this.items = search;
+        this.items = searches;
 
         diff.dispatchUpdatesTo(new ListUpdateCallback() {
             @Override
@@ -165,7 +198,12 @@ public class AdapterNavSearch extends RecyclerView.Adapter<AdapterNavSearch.View
                 Log.d("Changed @" + position + " #" + count);
             }
         });
-        diff.dispatchUpdatesTo(this);
+
+        try {
+            diff.dispatchUpdatesTo(this);
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
     }
 
     public void setExpanded(boolean expanded) {

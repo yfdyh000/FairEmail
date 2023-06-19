@@ -16,12 +16,14 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.text.TextUtils;
 import android.util.Pair;
 
+import java.io.BufferedInputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
@@ -38,9 +40,18 @@ public class CharsetHelper {
     private static String CHINESE = new Locale("zh").getLanguage();
     private static final List<String> COMMON = Collections.unmodifiableList(Arrays.asList(
             "US-ASCII",
-            "ISO-8859-1", "ISO-8859-2",
-            "windows-1250", "windows-1252", "windows-1257",
-            "UTF-7", "UTF-8"
+            "ISO-8859-1", "ISO-8859-2", "ISO-8859-3", "ISO-8859-7",
+            "windows-1250", "windows-1251", "windows-1252", "windows-1255", "windows-1256", "windows-1257",
+            "UTF-8"
+    ));
+    private static final List<String> LESS_COMMON = Collections.unmodifiableList(Arrays.asList(
+            "GBK", "GB2312", "HZ-GB-2312",
+            "EUC", "EUC-KR",
+            "Big5", "BIG5-CP950",
+            "ISO-2022-JP", "Shift_JIS",
+            "cp852",
+            "KOI8-R",
+            "x-binaryenc"
     ));
     private static final int MIN_W1252 = 10;
     private static final Pair<byte[], byte[]>[] sUtf8W1252 = new Pair[128];
@@ -66,11 +77,23 @@ public class CharsetHelper {
     }
 
     static boolean isUTF8(byte[] octets) {
-        CharsetDecoder utf8Decoder = StandardCharsets.UTF_8.newDecoder()
+        return isValid(octets, StandardCharsets.UTF_8);
+    }
+
+    static boolean isUTF16(byte[] octets) {
+        return isValid(octets, StandardCharsets.UTF_16);
+    }
+
+    static Boolean isValid(byte[] octets, String charset) {
+        return isValid(octets, Charset.forName(charset));
+    }
+
+    static boolean isValid(byte[] octets, Charset charset) {
+        CharsetDecoder decoder = charset.newDecoder()
                 .onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT);
         try {
-            utf8Decoder.decode(ByteBuffer.wrap(octets));
+            decoder.decode(ByteBuffer.wrap(octets));
             return true;
         } catch (CharacterCodingException ex) {
             Log.w(ex);
@@ -79,6 +102,7 @@ public class CharsetHelper {
     }
 
     static boolean isUTF8Alt(String text) {
+        // This doesn't check the characters and is therefore unreliable
         byte[] octets = text.getBytes(StandardCharsets.ISO_8859_1);
 
         int bytes;
@@ -106,6 +130,42 @@ public class CharsetHelper {
                     return false;
         }
         return true;
+    }
+
+    static Boolean isUTF16LE(BufferedInputStream bis) throws IOException {
+        // https://en.wikipedia.org/wiki/Endianness
+        byte[] bytes = new byte[64];
+        bis.mark(bytes.length);
+        try {
+            int count = bis.read(bytes);
+            if (count < 32)
+                return null;
+
+            int s = ((bytes[0] & 0xff) << 8) | (bytes[1] & 0xff);
+            boolean bom = (s == 0xfeff || s == 0xfffe);
+            if (bom)
+                return null;
+
+            int odd = 0;
+            int even = 0;
+            for (int i = 0; i < count; i++)
+                if (bytes[i] == 0)
+                    if (i % 2 == 0)
+                        even++;
+                    else
+                        odd++;
+
+            int low = 30 * count / 100 / 2;
+            int high = 70 * count / 100 / 2;
+
+            if (even < low && odd > high)
+                return true; // Little endian
+            if (odd < low && even > high)
+                return false; // Big endian
+            return null; // Undetermined
+        } finally {
+            bis.reset();
+        }
     }
 
     static String utf8toW1252(String text) {
@@ -176,21 +236,23 @@ public class CharsetHelper {
 
             Log.i("compact_enc_det sample=" + sample.length);
             DetectResult detected = jni_detect_charset(sample,
-                    ref == null ? null : ref.name(),
+                    ref == null ? StandardCharsets.ISO_8859_1.name() : ref.name(),
                     Locale.getDefault().getLanguage());
 
             if (TextUtils.isEmpty(detected.charset)) {
                 Log.e("compact_enc_det result=" + detected);
                 return null;
-            } else if (COMMON.contains(detected.charset))
+            } else if (COMMON.contains(detected.charset) || LESS_COMMON.contains(detected.charset))
                 Log.w("compact_enc_det result=" + detected);
+            else if ("UTF-7".equals(detected.charset))
+                return null;
             else if ("GB18030".equals(detected.charset)) {
                 boolean chinese = Locale.getDefault().getLanguage().equals(CHINESE);
                 // https://github.com/google/compact_enc_det/issues/8
                 Log.e("compact_enc_det result=" + detected + " chinese=" + chinese);
                 if (!chinese)
                     return null;
-            } else // GBK, Big5, ISO-2022-JP, HZ-GB-2312, GB2312, Shift_JIS, x-binaryenc, EUC-KR
+            } else
                 Log.e("compact_enc_det result=" + detected);
 
             return Charset.forName(detected.charset);

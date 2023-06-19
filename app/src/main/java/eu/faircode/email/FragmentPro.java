@@ -16,7 +16,7 @@ package eu.faircode.email;
     You should have received a copy of the GNU General Public License
     along with FairEmail.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright 2018-2022 by Marcel Bokhorst (M66B)
+    Copyright 2018-2023 by Marcel Bokhorst (M66B)
 */
 
 import android.content.Context;
@@ -58,12 +58,13 @@ public class FragmentPro extends FragmentBase implements SharedPreferences.OnSha
     private CheckBox cbHide;
     private TextView tvList;
     private Button btnPurchase;
-    private ImageView ivExternal;
-    private TextView tvNoPlay;
     private TextView tvPrice;
+    private TextView tvGoogle;
+    private TextView tvNoPlay;
     private TextView tvPriceHint;
     private TextView tvFamilyHint;
     private TextView tvRestoreHint;
+    private Button btnSupport;
     private Button btnConsume;
     private ImageView ivConnected;
 
@@ -86,12 +87,13 @@ public class FragmentPro extends FragmentBase implements SharedPreferences.OnSha
         cbHide = view.findViewById(R.id.cbHide);
         tvList = view.findViewById(R.id.tvList);
         btnPurchase = view.findViewById(R.id.btnPurchase);
-        ivExternal = view.findViewById(R.id.ivExternal);
-        tvNoPlay = view.findViewById(R.id.tvNoPlay);
         tvPrice = view.findViewById(R.id.tvPrice);
+        tvGoogle = view.findViewById(R.id.tvGoogle);
+        tvNoPlay = view.findViewById(R.id.tvNoPlay);
         tvPriceHint = view.findViewById(R.id.tvPriceHint);
         tvFamilyHint = view.findViewById(R.id.tvFamilyHint);
         tvRestoreHint = view.findViewById(R.id.tvRestoreHint);
+        btnSupport = view.findViewById(R.id.btnSupport);
         btnConsume = view.findViewById(R.id.btnConsume);
         ivConnected = view.findViewById(R.id.ivConnected);
 
@@ -100,7 +102,7 @@ public class FragmentPro extends FragmentBase implements SharedPreferences.OnSha
             public void onClick(View v) {
                 v.getContext().startActivity(new Intent(v.getContext(), ActivitySetup.class)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                        .putExtra("navigate", true));
+                        .putExtra("tab", "backup"));
             }
         });
 
@@ -158,6 +160,13 @@ public class FragmentPro extends FragmentBase implements SharedPreferences.OnSha
             }
         });
 
+        btnSupport.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Helper.view(v.getContext(), Helper.getSupportUri(v.getContext(), "Pro:support"), false);
+            }
+        });
+
         btnConsume.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -178,13 +187,16 @@ public class FragmentPro extends FragmentBase implements SharedPreferences.OnSha
         btnBackup.setVisibility(View.GONE);
         cbHide.setVisibility(View.GONE);
         btnPurchase.setEnabled(!play);
-        ivExternal.setVisibility(play ? View.GONE : View.VISIBLE);
+        btnPurchase.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0,
+                play ? R.drawable.twotone_shop_24 : R.drawable.twotone_open_in_new_24, 0);
         tvPrice.setVisibility(View.GONE);
+        tvGoogle.setVisibility(play ? View.VISIBLE : View.GONE);
         tvNoPlay.setVisibility(
                 BuildConfig.PLAY_STORE_RELEASE && !Helper.hasPlayStore(getContext())
                         ? View.VISIBLE : View.GONE);
         tvFamilyHint.setVisibility(play ? View.VISIBLE : View.GONE);
         tvRestoreHint.setVisibility(play ? View.VISIBLE : View.GONE);
+        btnSupport.setVisibility(play ? View.VISIBLE : View.GONE);
         btnConsume.setEnabled(false);
         btnConsume.setVisibility(ActivityBilling.isTesting(getContext()) ? View.VISIBLE : View.GONE);
         ivConnected.setVisibility(View.GONE);
@@ -199,40 +211,68 @@ public class FragmentPro extends FragmentBase implements SharedPreferences.OnSha
         addBillingListener(new ActivityBilling.IBillingListener() {
             @Override
             public void onConnected() {
-                ivConnected.setImageResource(R.drawable.twotone_cloud_done_24);
-                ivConnected.setVisibility(View.VISIBLE);
+                post(new Runnable() {
+                    @Override
+                    public void run() {
+                        ivConnected.setImageResource(R.drawable.twotone_cloud_done_24);
+                        ivConnected.setVisibility(View.VISIBLE);
+                    }
+                });
             }
 
             @Override
             public void onDisconnected() {
-                ivConnected.setImageResource(R.drawable.twotone_cloud_off_24);
-                ivConnected.setVisibility(View.VISIBLE);
+                post(new Runnable() {
+                    @Override
+                    public void run() {
+                        ivConnected.setImageResource(R.drawable.twotone_cloud_off_24);
+                        ivConnected.setVisibility(View.VISIBLE);
+                    }
+                });
             }
 
             @Override
             public void onSkuDetails(String sku, String price) {
-                if (ActivityBilling.getSkuPro().equals(sku)) {
-                    tvPrice.setText(getString(R.string.title_pro_one_time, price));
-                    tvPrice.setVisibility(View.VISIBLE);
-                    btnPurchase.setEnabled(true);
-                }
+                if (!ActivityBilling.getSkuPro(getContext()).equals(sku))
+                    return;
+
+                post(new Runnable() {
+                    @Override
+                    public void run() {
+                        tvPrice.setText(getString(R.string.title_pro_one_time, price));
+                        tvPrice.setVisibility(View.VISIBLE);
+                        btnPurchase.setEnabled(true);
+                    }
+                });
             }
 
             @Override
             public void onPurchasePending(String sku) {
-                if (ActivityBilling.getSkuPro().equals(sku)) {
-                    btnPurchase.setEnabled(false);
-                    tvPending.setVisibility(View.VISIBLE);
-                }
+                if (!ActivityBilling.getSkuPro(getContext()).equals(sku))
+                    return;
+
+                post(new Runnable() {
+                    @Override
+                    public void run() {
+                        btnPurchase.setEnabled(false);
+                        tvPending.setVisibility(View.VISIBLE);
+                    }
+                });
             }
 
             @Override
             public void onPurchased(String sku, boolean purchased) {
-                if (ActivityBilling.getSkuPro().equals(sku)) {
-                    btnPurchase.setEnabled(!purchased);
-                    tvPending.setVisibility(View.GONE);
-                    btnConsume.setEnabled(purchased);
-                }
+                if (!ActivityBilling.getSkuPro(getContext()).equals(sku))
+                    return;
+
+                post(new Runnable() {
+                    @Override
+                    public void run() {
+                        btnPurchase.setEnabled(!purchased);
+                        tvPending.setVisibility(View.GONE);
+                        btnConsume.setEnabled(purchased);
+                    }
+                });
             }
 
             @Override
@@ -253,6 +293,23 @@ public class FragmentPro extends FragmentBase implements SharedPreferences.OnSha
                     }
                 });
                 snackbar.show();
+            }
+
+            private void post(Runnable runnable) {
+                final View view = getView();
+                if (view == null)
+                    return;
+
+                view.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            runnable.run();
+                        } catch (Throwable ex) {
+                            Log.e(ex);
+                        }
+                    }
+                });
             }
         });
     }

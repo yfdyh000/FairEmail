@@ -10,13 +10,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvMessage"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:drawableStart="@drawable/twotone_bolt_24"
             android:drawablePadding="6dp"
-            android:drawableTint="?attr/colorAccent"
+            app:drawableTint="?attr/colorAccent"
             android:paddingTop="6dp"
             android:text="@string/title_ask_show_amp"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
@@ -25,7 +25,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvRemark"
             android:layout_width="0dp"
             android:layout_height="wrap_content"

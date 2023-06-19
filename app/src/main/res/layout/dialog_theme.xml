@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvCaption"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -96,9 +96,17 @@
                 android:padding="6dp"
                 android:text="@string/title_setup_theme_you"
                 android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
+
+            <RadioButton
+                android:id="@+id/rbThemeYouMono"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="6dp"
+                android:text="@string/title_setup_theme_you_mono"
+                android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
         </RadioGroup>
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvYou"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -156,7 +164,7 @@
                 android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
         </RadioGroup>
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvSystem"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -209,17 +217,17 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/swComposerLight" />
 
-        <eu.faircode.email.FixedTextView
+        <TextView
             android:id="@+id/tvMore"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:drawableEnd="@drawable/twotone_open_in_new_12"
             android:drawablePadding="6dp"
-            android:drawableTint="?android:attr/textColorLink"
             android:text="@string/title_setup_theme_more_colors"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textColor="?android:attr/textColorLink"
+            app:drawableTint="?android:attr/textColorLink"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/btnMore" />
     </androidx.constraintlayout.widget.ConstraintLayout>

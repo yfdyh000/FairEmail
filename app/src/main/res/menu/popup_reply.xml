@@ -31,6 +31,11 @@
         android:title="@string/title_forward" />
 
     <item
+        android:id="@+id/menu_forward_raw"
+        android:icon="@drawable/twotone_attachment_24"
+        android:title="@string/title_raw_send" />
+
+    <item
         android:id="@+id/menu_resend"
         android:icon="@drawable/twotone_redo_24"
         android:title="@string/title_resend" />
@@ -49,6 +54,20 @@
         android:id="@+id/menu_reply_answer"
         android:icon="@drawable/twotone_text_snippet_24"
         android:title="@string/title_reply_template">
+        <menu />
+    </item>
+
+    <item
+        android:id="@+id/menu_move_to"
+        android:icon="@drawable/twotone_drive_file_move_24"
+        android:title="@string/title_move_to">
+        <menu />
+    </item>
+
+    <item
+        android:id="@+id/menu_settings"
+        android:icon="@drawable/twotone_settings_24"
+        android:title="@string/menu_setup">
         <menu />
     </item>
 </menu>
